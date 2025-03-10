@@ -165,7 +165,7 @@
             color: azure;
         }
         .hard-word {
-            color: rgb(50, 78, 78);
+            color: #c4d7d1;
         }
         #myAudio {
             opacity: 0;
@@ -247,7 +247,7 @@
             setup() {
                 const  formattedText = (text) =>{
                     if(!text) return ''
-                    return text.replace(".", "<br>").replace("。", "<br>").replace(" ", "");
+                    return text.replace("。", "<br>");
                 }
                 return { formattedText };
             },
