@@ -9,6 +9,10 @@
     <title></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Mochiy+Pop+One&family=Reggae+One&display=swap" rel="stylesheet">
+
     <script src="./vue.global.js"></script>
     <style>
         * {
@@ -22,9 +26,8 @@
             height: 100%;
             font-size: 22px;
             overflow: hidden;
-            background: #142334;
             color: #fff;
-            font-family: Hiragino Mincho ProN,Hiragino Kaku Gothic Pro,PingFangSC-Regular,AlibabaSansJP,AlibabaPuHuiTi,Meiryo,Tahoma,Arial,Microsoft Yahei,黑体;
+            font-family:"Mochiy Pop One",Hiragino Mincho ProN,Hiragino Kaku Gothic Pro,PingFangSC-Regular,AlibabaSansJP,AlibabaPuHuiTi,Meiryo,Tahoma,Arial,Microsoft Yahei,黑体;
         }
 
         .button-easy {
@@ -175,9 +178,9 @@
 </head>
 
 <body ><audio id="myAudio"></audio><div id="app">
-    <div class="button-easy" @click="updateCurdWord(3)" ></div>
-    <div class="button-hard" @click="updateCurdWord(1)"></div>
-        <div class="word-container" >
+    <!-- <div class="button-easy" @click="updateCurdWord(3)" ></div>
+    <div class="button-hard" @click="updateCurdWord(1)"></div> -->
+        <div class="word-container" id="word-container" @click="onWordContainerTaped">
                 <div class="word-info">
                     <span class="yellow">{{learned}} / {{databaseLength}}</span>&nbsp;&nbsp;
                     <span class="hard-word">{{hard}}</span>&nbsp;
@@ -280,6 +283,16 @@
                  }
             },
             methods: {
+                onWordContainerTaped(e) {
+                    
+                    let percent =    e.x * 100 / window.innerWidth
+                    console.log(percent)
+                    if(percent <= 50) {
+                        this.updateCurdWord(3)
+                    } else {
+                        this.updateCurdWord(1)
+                    }
+                },
                 toggleAutoVoice() {
                     this.autoPlayVoice = !this.autoPlayVoice;
                     localStorage.setItem('auto_voice',this.autoPlayVoice ? 1: '')
