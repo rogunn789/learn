@@ -33,7 +33,7 @@
             left: 0;
             width: 50vw;
             height: 100%;
-            background: rgba(16, 17, 25, 0.216);
+          
         }
         .button-hard {
             position: absolute;
@@ -41,14 +41,13 @@
             right: 0;
             width: 50vw;
             height: 100%;
-            background: rgba(43, 53, 24, 0.216);
+      
         }
        
         #app {
             position: relative;
             height: 100%;
             overflow: hidden;
-            padding: 12px 8px;
         }
 
         .word-info {
@@ -68,8 +67,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            /* border: thin dashed rgba(0, 148, 211, 0.44);
-            background: #134857; */
+            background: linear-gradient(90deg, #f0bc68 0%, #f0bc68 50%, #c4d7d1 50%, #c4d7d1 100%);
         }
 
         .japanese-word {
@@ -177,7 +175,8 @@
 </head>
 
 <body ><audio id="myAudio"></audio><div id="app">
-      
+    <div class="button-easy" @click="updateCurdWord(3)" ></div>
+    <div class="button-hard" @click="updateCurdWord(1)"></div>
         <div class="word-container" >
                 <div class="word-info">
                     <span class="yellow">{{learned}} / {{databaseLength}}</span>&nbsp;&nbsp;
@@ -206,8 +205,7 @@
                 </div>
         </div>
 
-        <div class="button-easy" @click="updateCurdWord(3)" ></div>
-        <div class="button-hard" @click="updateCurdWord(1)"></div>
+        
     </div>
     </div>
     <script>
