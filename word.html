@@ -7,7 +7,10 @@
         content="width=device-width, initial-scale=1, user-scalable=no, minimal-ui, maximum-scale=1.0, minimum-scale=1.0">
     <meta http-equiv="X-UA-COMPATIBLE">
     <title></title>
-
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Old+Mincho&display=swap" rel="stylesheet">
+    
     <script src="./vue.global.js"></script>
     <style>
         * {
@@ -21,8 +24,9 @@
             height: 100%;
             font-size: 22px;
             overflow: hidden;
-            color: #fff;
-            font-family:Hiragino Mincho ProN,Hiragino Kaku Gothic Pro,PingFangSC-Regular,AlibabaSansJP,AlibabaPuHuiTi,Meiryo,Tahoma,Arial,Microsoft Yahei,黑体;
+            font-weight: 400;
+            color: #f07c82;
+            font-family:"Zen Old Mincho",Hiragino Mincho ProN,Hiragino Kaku Gothic Pro,PingFangSC-Regular,AlibabaSansJP,AlibabaPuHuiTi,Meiryo,Tahoma,Arial,Microsoft Yahei,黑体;
         }
 
         .button-easy {
@@ -65,7 +69,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: linear-gradient(90deg, #f0bc68 0%, #f0bc68 50%, #c4d7d1 50%, #c4d7d1 100%);
+            background: linear-gradient(180deg, #f0bc68 0%, #f0bc68 50%, #c4d7d1 50%, #c4d7d1 100%);
         }
 
         .japanese-word {
@@ -212,7 +216,7 @@
         let databasename = window.location.pathname.split('/').pop().replace(/\.[^/.]+$/, "");
         let databasename_key  = 'gg_database_' + databasename
         let version_key  = 'gg_database_version' + databasename
-        const DATA_VERSION = "225"
+        const DATA_VERSION = "226"
         const LEVEL_NUM = {
             unread: 0,
             easy: 1,
@@ -280,10 +284,12 @@
             },
             methods: {
                 onWordContainerTaped(e) {
-                    
-                    let percent =    e.x * 100 / window.innerWidth
+
+                    console.log(e.y)
+                    console.log(window.innerWidth)                   
+                    let percent =    e.y * 100 / window.innerHeight
                     console.log(percent)
-                    if(percent <= 50) {
+                    if(percent > 50) {
                         this.updateCurdWord(3)
                     } else {
                         this.updateCurdWord(1)
@@ -569,16 +575,6 @@
         })
         app.mount('#app')
     </script>
-    <!-- <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@200..900&display=swap" rel="stylesheet" lazyload> -->
-    <!-- <style>
-        @font-face {
-            font-family: 'QiushuiShotai';
-            font-weight: 600;
-            font-display: auto; 
-            src: url('./QiushuiShotai.woff2') format('woff2');
-            font-display: swap;
-        }
-    </style> -->
 </body>
 
 </html>
