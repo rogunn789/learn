@@ -284,10 +284,9 @@
             },
             methods: {
                 onWordContainerTaped(e) {
-
-                    console.log(e.y)
-                    console.log(window.innerWidth)                   
-                    let percent =    e.y * 100 / window.innerHeight
+                    // console.log(e.y)
+                    // console.log(window.innerWidth)                   
+                    let percent =    e.x * 100 / window.innerWidth
                     console.log(percent)
                     if(percent > 50) {
                         this.updateCurdWord(3)
