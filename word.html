@@ -57,6 +57,7 @@
             overflow-y: scroll;
             height: 100vh;
             display: flex;
+            font-size: 18px;
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;
@@ -128,14 +129,13 @@
 </head>
 
 <body ><audio id="myAudio"></audio><div id="app">
-    <!-- <div class="button-easy" @click="updateCurdWord(3)" ></div>
-    <div class="button-hard" @click="updateCurdWord(1)"></div> -->
-        <div class="word-container" id="word-container" @click="onWordContainerTaped">
-                <div class="word-info">
+       <div class="word-info">
                     <span class="yellow">{{learned}}/{{databaseLength}}</span>&nbsp;&nbsp;
                     <span class="hard-word">{{hard}}</span>&nbsp;
                     <span class="easy-word">{{easy}}</span>
                 </div>
+        <div class="word-container" id="word-container" @click="onWordContainerTaped">
+         
                 <div class="question" v-if="(showStep >= 0 && curWord.q)"  >
                     <div class="question-item" v-for="(questionItem, i) in displayQuestion " @click.prevent.stop="playAudio(questionItem)" >
                         {{questionItem}}
@@ -240,9 +240,9 @@
                     let percent =    e.x * 100 / window.innerWidth
                     console.log(percent)
                     if(percent < 50) {
-                        this.updateCurdWord(1)
+                        this.updateCurdWord(3) // 困难
                     } else {
-                        this.updateCurdWord(3)
+                        this.updateCurdWord(1) // 容易
                     }
                 },
                 toggleAutoVoice() {
