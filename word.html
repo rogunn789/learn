@@ -238,12 +238,15 @@
                     // console.log(e.y)
                     // console.log(window.innerWidth)                   
                     let percent =    e.x * 100 / window.innerWidth
+                    let percentY =    e.y * 100 / window.innerHeight
                     console.log(percent)
-                    if(percent < 50) {
+                    if (percentY > 80 ) {
+                        if(percent < 50) {
                         this.updateCurdWord(3) // 困难
-                    } else {
-                        this.updateCurdWord(1) // 容易
-                    }
+                        } else {
+                            this.updateCurdWord(1) // 容易
+                        }
+                    } 
                 },
                 toggleAutoVoice() {
                     this.autoPlayVoice = !this.autoPlayVoice;
