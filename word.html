@@ -136,25 +136,18 @@
                 </div>
         <div class="word-container" id="word-container" @click="onWordContainerTaped">
          
-                <div class="question" v-if="(showStep >= 0 && curWord.q)"  >
+                <div class="question"   >
                     <div class="question-item" v-for="(questionItem, i) in displayQuestion " @click.prevent.stop="playAudio(questionItem)" >
                         {{questionItem}}
                     </div>
                 </div>
-                <div class="answer " v-if="(showStep >= 1 && curWord.a) "   >
+                <div class="answer "  >
                     <div class="answer-item" v-for="(answerItem, j) in displayAnswer" :class="{  'japanese-word':(answerItem && (answerItem.indexOf('➤') >= 0) ) }"   @click.prevent.stop="playAudio(answerItem)" >
                         {{answerItem}}
                     </div>
-                </div>
-                <div class="comment"
-                    v-show="
-                    (showStep >= 2) && curWord.sentences && (curWord.sentences.length > 0) ">
-                    <div v-for="(item, index) in displaySentences"   >
-                        <span class="comment-item" :class="{ 'red': !(index % 2) , 'yellow': (index % 2) , 'japanese-word':(item && (item.indexOf('➤') >= 0) ) }" @click.prevent.stop="playAudio(item)"  >
-                            {{item}}
-                        </span>
+                    <div class="answer-item" v-for="(sentence, j) in displaySentences" :class="{  'japanese-word':(sentence && (sentence.indexOf('➤') >= 0) ) }"   @click.prevent.stop="playAudio(sentence)" >
+                        {{sentence}}
                     </div>
-                  
                 </div>
         </div>
 
@@ -167,7 +160,7 @@
         let databasename = window.location.pathname.split('/').pop().replace(/\.[^/.]+$/, "");
         let databasename_key  = 'gg_database_' + databasename
         let version_key  = 'gg_database_version' + databasename
-        const DATA_VERSION = "231"
+        const DATA_VERSION = "232"
         const LEVEL_NUM = {
             unread: 0,
             easy: 1,
