@@ -315,13 +315,13 @@
                     if (text) {
                         const voice = text.replace(/[\/／~〜]/gi, "。");
 
-                        let msg = new SpeechSynthesisUtterance(voice);
-                        msg.text = voice;     // 文字内容
-                        msg.lang = "ja-JP";  // 使用的语言:中文
-                         window.speechSynthesis.speak(msg);
-                        // myaudio.pause()
-                        // myaudio.src = "https://dict.youdao.com/dictvoice?audio=" + voice + "&le=jap&type=3"
-                        // myaudio.play()
+                        // let msg = new SpeechSynthesisUtterance(voice);
+                        // msg.text = voice;     // 文字内容
+                        // msg.lang = "ja-JP";  // 使用的语言:中文
+                        //  window.speechSynthesis.speak(msg);
+                        myaudio.pause()
+                        myaudio.src = "https://dict.youdao.com/dictvoice?audio=" + voice + "&le=jap&type=3"
+                        myaudio.play()
                         return;
                     }
                     if (this.curWord.q) {
