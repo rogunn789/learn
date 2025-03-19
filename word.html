@@ -479,7 +479,7 @@
                 },
                 readTxt() {
                     const self = this
-                    fetch(`./${databasename}.txt?v=${DATA_VERSION}`)
+                    fetch(`./${databasename}.md?v=${DATA_VERSION}`)
                         .then(response => {
                             if (!response.ok) {
                                 throw new Error('Network response was not ok');
