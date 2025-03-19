@@ -312,13 +312,12 @@
                 },
                 playAudio(text) {
 
-                    let voices = AVSpeechSynthesisVoice.speechVoices()
-                    voices.forEach((voice) => {
-                        if (voice.language == 'ja-JP') {
-                           console.log(voice)
-                        }
-                    })
-
+                    // let voices = AVSpeechSynthesisVoice.speechVoices()
+                    // voices.forEach((voice) => {
+                    //     if (voice.language == 'ja-JP') {
+                    //        console.log(voice)
+                    //     }
+                    // })
                     let myaudio = document.getElementById('myAudio')
                     if (text) {
                         const voice = text.replace(/[\/／~〜]/gi, "。");
