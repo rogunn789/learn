@@ -311,6 +311,13 @@
                    
                 },
                 playAudio(text) {
+
+                    // let voices = AVSpeechSynthesisVoice.speechVoices()
+                    // voices.forEach((voice) => {
+                    //     if (voice.language == 'ja-JP') {
+                    //        console.log(voice)
+                    //     }
+                    // })
                     let myaudio = document.getElementById('myAudio')
                     if (text) {
                         const voice = text.replace(/[\/／~〜]/gi, "。");
@@ -319,10 +326,7 @@
                         msg.text = voice;     // 文字内容
                         msg.lang = "ja-JP";  // 使用的语言:中文
                          window.speechSynthesis.speak(msg);
-                        // myaudio.pause()
-                        // myaudio.src = "https://dict.youdao.com/dictvoice?audio=" + voice + "&le=jap&type=3"
-                        // myaudio.play()
-                        return;
+                       return;
                     }
                     if (this.curWord.q) {
                         myaudio.src = "audio/" + this.curWord.q;
@@ -475,7 +479,7 @@
                 },
                 readTxt() {
                     const self = this
-                    fetch(`./${databasename}.txt?v=${DATA_VERSION}`)
+                    fetch(`./${databasename}.md?v=${DATA_VERSION}`)
                         .then(response => {
                             if (!response.ok) {
                                 throw new Error('Network response was not ok');
