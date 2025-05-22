@@ -143,7 +143,7 @@
                         {{questionItem}}
                     </div>
                 </div>
-                <div class="answer "  >
+                <div class="answer " v-show="showStep > 0">
                     <div class="answer-item" v-for="(answerItem, j) in displayAnswer" :class="{  'japanese-word':(answerItem && (answerItem.indexOf('➤') >= 0) ) }"   @click.prevent.stop="playAudio(answerItem)" >
                         {{answerItem}}
                     </div>
@@ -175,6 +175,7 @@
 
             data() {
                 return {
+                    needSwipe: true,
                     autoPlayVoice:false,
                     autoRecall:false,
                     recall:true,
@@ -235,13 +236,15 @@
                     let percent =    e.x * 100 / window.innerWidth
                     let percentY =    e.y * 100 / window.innerHeight
                     console.log(percent)
-                    if (percentY > 70 ) {
+                    if (percentY > 80 ) {
                         if(percent < 50) {
                         this.updateCurdWord(1) // 容易
                         } else {
                             this.updateCurdWord(3)  // 困难
                         }
-                    } 
+                    } else {
+                       this.showNextField()
+                    }
                 },
                 toggleAutoVoice() {
                     this.autoPlayVoice = !this.autoPlayVoice;
@@ -408,10 +411,10 @@
                     this.readWord()
                 },
                 showNextField() {
-                    if((this.showStep >= 2) || (this.showStep == 1 && this.curWord.sentences.length <= 0) ) {
-                        return
-                    }
-                    this.showStep = (this.showStep + 1) % 3;
+                    // if((this.showStep >= 2) || (this.showStep == 1 && this.curWord.sentences.length <= 0) ) {
+                    //     return
+                    // }
+                    this.showStep = (this.showStep + 1) ;
                 },
                 saveRecentHistory() {
                     this.curWord.t = new Date().getTime();
@@ -434,7 +437,7 @@
                 },
                 readWord() {
                     this.curWord = {}
-                    this.showStep = 2;
+                    this.showStep = 0;
                     // 随机策略 0～～9 
                     // 1 2 容易
                     // 3 7 很难
