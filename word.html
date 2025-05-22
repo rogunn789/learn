@@ -19,7 +19,7 @@
             width: 100vw;
             height: 100%;
             color: #000;
-            font-family: Hiragino Mincho ProN,Hiragino Kaku Gothic Pro,PingFangSC-Regular,AlibabaSansJP,AlibabaPuHuiTi,Meiryo,Tahoma,Arial,Microsoft Yahei,黑体;
+            font-family: Meiryo,Tahoma,Arial,Microsoft Yahei,黑体,Hiragino Mincho ProN,Hiragino Kaku Gothic Pro,PingFangSC-Regular,AlibabaSansJP,AlibabaPuHuiTi;
         }
 
         .button-easy {
@@ -56,7 +56,7 @@
             overflow-y: scroll;
             height: 100vh;
             display: flex;
-            font-size: 22px;
+            font-size: 24px;
             flex-direction: column;
             align-items: center;
             justify-content: flex-start;
@@ -160,7 +160,7 @@
         let databasename = window.location.pathname.split('/').pop().replace(/\.[^/.]+$/, "");
         let databasename_key  = 'gg_database_' + databasename
         let version_key  = 'gg_database_version' + databasename
-        const DATA_VERSION = "241"
+        const DATA_VERSION = "242"
         const LEVEL_NUM = {
             unread: 0,
             easy: 1,
