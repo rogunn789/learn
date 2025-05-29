@@ -136,17 +136,10 @@
 </head>
 
 <body ><audio id="myAudio"></audio><div id="app">
-       <div class="word-info">
-                    <span class="yellow">{{learned}}/{{databaseLength}}</span>&nbsp;&nbsp;
-                    <span class="hard-word">{{hard}}</span>&nbsp;
-                    <span class="easy-word">{{easy}}</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                    <span class="" @click.prevent.stop="updateCurdWord(1)"  >✅</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                    <span class="" @click.prevent.stop="updateCurdWord(3)" >❌</span>
-                </div>
+
         <div class="word-container" id="word-container" @click="onWordContainerTaped">
-         
                 <div class="question"   >
-                    <div class="question-item" v-for="(questionItem, i) in displayQuestion " @click.prevent.stop="playAudio(questionItem)" >
+                    <div class="question-item" v-for="(questionItem, i) in displayQuestion " @click="playAudio(questionItem)" >
                         {{questionItem}}
                     </div>
                 </div>
@@ -160,7 +153,13 @@
                 </div>
         </div>
 
-        
+               <div class="word-info">
+                    <span class="yellow">{{learned}}/{{databaseLength}}</span>&nbsp;&nbsp;
+                    <span class="hard-word">{{hard}}</span>&nbsp;
+                    <span class="easy-word">{{easy}}</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    <span @click.prevent.stop="updateCurdWord(1)"  >&nbsp;&nbsp;✅&nbsp;&nbsp;</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    <span  @click.prevent.stop="updateCurdWord(3)" >&nbsp;&nbsp;❌&nbsp;&nbsp;</span>
+                </div>
     </div>
     </div>
     <script>
