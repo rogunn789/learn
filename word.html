@@ -79,13 +79,14 @@
         }
 
         .action-wrap {
-            display: none;
             position: absolute;
             bottom: 5px;
             left: 8px;
             height: 60px;
             width: calc(100% - 16px);
             justify-content: space-around;
+            display: flex;
+            justify-items: center;
         }
         .action-next {
             width: 40%;
@@ -132,6 +133,26 @@
             position: absolute;
             visibility: hidden;
         }
+
+        .action-ok {
+            background-color: aquamarine;
+            width: 64px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 100%;
+        }
+
+        .action-wrong {
+            background-color: rgb(253, 21, 21);
+            width: 64px;
+            height: 64px;
+            border-radius: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
     </style>
 </head>
 
@@ -157,9 +178,12 @@
                     <span class="yellow">{{learned}}/{{databaseLength}}</span>&nbsp;&nbsp;
                     <span class="hard-word">{{hard}}</span>&nbsp;
                     <span class="easy-word">{{easy}}</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                    <span @click.prevent.stop="updateCurdWord(1)"  >&nbsp;&nbsp;✅&nbsp;&nbsp;</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-                    <span  @click.prevent.stop="updateCurdWord(3)" >&nbsp;&nbsp;❌&nbsp;&nbsp;</span>
+         
                 </div>
+                <div class="action-wrap">
+                 <span class="action-ok" @click.prevent.stop="updateCurdWord(1)"  >&nbsp;&nbsp;✅&nbsp;&nbsp;</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                    <span  class="action-wrong" @click.prevent.stop="updateCurdWord(3)" >&nbsp;&nbsp;❌&nbsp;&nbsp;</span>
+                    </div>
     </div>
     </div>
     <script>
