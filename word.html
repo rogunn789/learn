@@ -63,6 +63,11 @@
             align-items: center;
             justify-content: flex-start;
             padding: 60px 20px 0 20px;
+             background: 
+            linear-gradient(left right, transparent 50%, black 50%), 
+            linear-gradient(100deg, #8a07ff, #f500d7);
+            background-size: 100% 100%, 100% 100%;
+            background-attachment: fixed, fixed;
         }
         .comment-item {
        
@@ -498,10 +503,10 @@
                             const ct = new Date().getTime()
                             let items = []
                             text.split('\n').forEach((line) => {
-                                if(line && (line.trim().length >= 2) ) {
+                                if(line && (line.trim().length >= 1) ) {
                                     items.push(line);
                                 }else {
-                                    if(items.length >= 2) {
+                                    if(items.length >= 1) {
                                         database.push({
                                             q: items[0],
                                             a: items[1],
