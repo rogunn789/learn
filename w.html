@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>古风单词记忆 - 随机暗色</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { 
+            font-family: 'Noto Serif JP', serif; 
+            transition: background-color 0.8s ease;
+        }
+        [v-cloak] { display: none; }
+        
+        .theme-text {
+            color: var(--theme-text);
+            transition: color 0.3s ease;
+        }
+        .theme-text:hover {
+            color: var(--theme-text-hover);
+        }
+        
+        .theme-card {
+            background-color: var(--theme-card);
+            border-color: var(--theme-border);
+            transition: background-color 0.8s ease, border-color 0.8s ease;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app" v-cloak 
+         class="min-h-screen w-full flex flex-col items-center py-8 px-4"
+         :style="{
+            '--theme-card': currentTheme.card,
+            '--theme-border': currentTheme.border,
+            '--theme-text': currentTheme.text,
+            '--theme-text-hover': currentTheme.textHover
+         }">
+         
+        <div class="w-full max-w-lg">
+            <div class="flex justify-center items-center space-x-12 mb-8 text-2xl md:text-3xl font-bold tracking-widest">
+                <span class="text-green-500">{{ countA }}</span>
+                <span class="text-yellow-500">{{ countB }}</span>
+                <span class="text-red-500">{{ countC }}</span>
+            </div>
+
+            <div class="theme-card p-8 min-h-[400px] border flex flex-col rounded-sm">
+                
+                <template v-if="loading">
+                    <div class="flex-grow flex items-center justify-center theme-text text-xl">
+                        古卷加载中...
+                    </div>
+                </template>
+
+                <template v-else-if="needManualUpload">
+                    <div class="flex-grow flex flex-col items-center justify-center text-center">
+                        <p class="mb-6 theme-text text-lg">受浏览器限制，需您手动开启 w.txt 文件</p>
+                        <label class="cursor-pointer bg-transparent border theme-text py-3 px-8 rounded-sm transition hover:opacity-80 text-lg" :style="{ borderColor: currentTheme.text }">
+                            开启文件
+                            <input type="file" class="hidden" accept=".txt" @change="handleFileUpload">
+                        </label>
+                    </div>
+                </template>
+
+                <template v-else-if="isAllCooldown">
+                    <div class="flex-grow flex items-center justify-center text-center flex-col">
+                        <p class="theme-text text-xl leading-relaxed">所有句子皆已标记为“容易”<br>皆在 10 分钟的静心冷却之中。</p>
+                    </div>
+                </template>
+
+                <template v-else>
+                    <div class="flex-grow flex items-center justify-center py-6">
+                        <p @click="speakSentence" 
+                           :class="[currentSentenceColor, 'cursor-pointer hover:opacity-80 transition-opacity text-3xl md:text-4xl font-bold text-center leading-relaxed break-words tracking-wide whitespace-pre-wrap']" 
+                           title="点击聆听">
+                            {{ currentSentence }}
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4 mt-8">
+                        <button @click="handleAnswer('A')" class="flex items-center justify-center p-4 text-green-500 hover:text-green-400 transition-transform hover:scale-110" title="容易 (A)">
+                            <i class="fa-solid fa-leaf text-5xl"></i>
+                        </button>
+                        <button @click="handleAnswer('B')" class="flex items-center justify-center p-4 text-yellow-500 hover:text-yellow-400 transition-transform hover:scale-110" title="模糊 (B)">
+                            <i class="fa-solid fa-cloud text-5xl"></i>
+                        </button>
+                        <button @click="handleAnswer('C')" class="flex items-center justify-center p-4 text-red-500 hover:text-red-400 transition-transform hover:scale-110" title="困难 (C)">
+                            <i class="fa-solid fa-mountain text-5xl"></i>
+                        </button>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue;
+
+        const themes = [
+            { name: '幽竹', bg: '#021a10', card: '#062b1a', border: '#0a3d26', text: '#f0fdf4', textHover: '#bbf7d0' },
+            { name: '丹霞', bg: '#1f0606', card: '#300a0a', border: '#451010', text: '#fef2f2', textHover: '#fecaca' },
+            { name: '玄武', bg: '#0b0c0f', card: '#13151a', border: '#1e2129', text: '#f8fafc', textHover: '#cbd5e1' },
+            { name: '琉璃', bg: '#051321', card: '#0a1d33', border: '#0f2947', text: '#f0f9ff', textHover: '#bae6fd' },
+            { name: '枯叶', bg: '#1f1305', card: '#301e0a', border: '#422a10', text: '#fffbeb', textHover: '#fde68a' }
+        ];
+
+        createApp({
+            setup() {
+                const sentences = ref([]);
+                const records = ref({}); 
+                const batch = ref([]);
+                const currentIndex = ref(0);
+                
+                const loading = ref(true);
+                const needManualUpload = ref(false);
+                const isAllCooldown = ref(false);
+                
+                const currentTheme = ref(themes[0]);
+
+                const currentSentenceColor = computed(() => {
+                    const s = currentSentence.value;
+                    if (!s) return 'text-red-500'; 
+                    
+                    const level = records.value[s]?.level;
+                    if (level === 'A') return 'text-green-500';
+                    if (level === 'B') return 'text-yellow-500';
+                    return 'text-red-500'; 
+                });
+
+                const countA = computed(() => sentences.value.filter(s => records.value[s]?.level === 'A').length);
+                const countB = computed(() => sentences.value.filter(s => records.value[s]?.level === 'B').length);
+                const countC = computed(() => sentences.value.filter(s => !records.value[s] || records.value[s].level === 'C').length);
+
+                const currentSentence = computed(() => batch.value[currentIndex.value] || '');
+
+                const applyRandomTheme = () => {
+                    const randomIndex = Math.floor(Math.random() * themes.length);
+                    currentTheme.value = themes[randomIndex];
+                    document.body.style.backgroundColor = currentTheme.value.bg;
+                };
+
+                const loadRecords = () => {
+                    const stored = localStorage.getItem('vocab_app_records');
+                    if (stored) {
+                        try { records.value = JSON.parse(stored); } catch (e) {}
+                    }
+                };
+
+                const saveRecords = () => {
+                    localStorage.setItem('vocab_app_records', JSON.stringify(records.value));
+                };
+
+                const speakSentence = () => {
+                    const text = currentSentence.value;
+                    if (!text || !('speechSynthesis' in window)) return;
+                    
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'ja-JP';
+                    window.speechSynthesis.speak(utterance);
+                };
+
+                const shuffle = (array) => {
+                    let c = array.length, r;
+                    while (c > 0) {
+                        r = Math.floor(Math.random() * c);
+                        c--;
+                        [array[c], array[r]] = [array[r], array[c]];
+                    }
+                    return array;
+                };
+
+                const generateBatch = () => {
+                    if (sentences.value.length === 0) return;
+                    const now = Date.now();
+                    const tenMinutes = 10 * 60 * 1000;
+
+                    const poolA = [];
+                    const poolB = [];
+                    const poolC = [];
+
+                    sentences.value.forEach(s => {
+                        const rec = records.value[s];
+                        if (!rec || rec.level === 'C') poolC.push(s);
+                        else if (rec.level === 'B') poolB.push(s);
+                        else if (rec.level === 'A' && now - rec.lastTime >= tenMinutes) poolA.push(s);
+                    });
+
+                    poolC.sort((a, b) => {
+                        const timeA = records.value[a]?.lastTime || 0;
+                        const timeB = records.value[b]?.lastTime || 0;
+                        return timeB - timeA;
+                    });
+
+                    shuffle(poolA); 
+                    shuffle(poolB); 
+
+                    let nextBatch = [];
+                    nextBatch.push(...poolC.splice(0, 6));
+                    nextBatch.push(...poolB.splice(0, 3));
+                    nextBatch.push(...poolA.splice(0, 1));
+
+                    if (nextBatch.length < 10) {
+                        const remaining = [...poolC, ...poolB, ...poolA];
+                        shuffle(remaining);
+                        nextBatch.push(...remaining.splice(0, 10 - nextBatch.length));
+                    }
+
+                    if (nextBatch.length === 0) {
+                        isAllCooldown.value = true;
+                        return;
+                    }
+
+                    isAllCooldown.value = false;
+                    shuffle(nextBatch);
+                    batch.value = nextBatch;
+                    currentIndex.value = 0;
+                };
+
+                const handleAnswer = (level) => {
+                    const s = currentSentence.value;
+                    if (!s) return;
+                    records.value[s] = { level, lastTime: Date.now() };
+                    saveRecords();
+                    currentIndex.value++;
+                    if (currentIndex.value >= batch.value.length) generateBatch();
+                };
+
+                const parseText = (text) => {
+                    const rawLines = text.split(/\r?\n/);
+                    const parsedSentences = [];
+                    let i = 0;
+                    
+                    while (i < rawLines.length) {
+                        // 忽略纯空行
+                        if (rawLines[i].trim() === '') {
+                            i++;
+                            continue;
+                        }
+                        
+                        let nextEmptyIndex = -1;
+                        
+                        // 往下查找不超过10行是否存在空行
+                        for (let j = 1; j <= 10; j++) {
+                            if (i + j >= rawLines.length) {
+                                break; // 文件末尾不当作空行
+                            }
+                            if (rawLines[i + j].trim() === '') {
+                                nextEmptyIndex = i + j;
+                                break;
+                            }
+                        }
+                        
+                        if (nextEmptyIndex !== -1) {
+                            // 在10行内找到了空行，将这部分合并为一个句子
+                            const block = rawLines.slice(i, nextEmptyIndex).join('\n').trim();
+                            if (block) parsedSentences.push(block);
+                            i = nextEmptyIndex + 1; // 跳到空行之后继续
+                        } else {
+                            // 10行以内没有空行，当前行作为独立句子
+                            const single = rawLines[i].trim();
+                            if (single) parsedSentences.push(single);
+                            i++;
+                        }
+                    }
+                    
+                    sentences.value = parsedSentences;
+                    
+                    if (sentences.value.length > 0) {
+                        loadRecords();
+                        
+                        const currentSentencesSet = new Set(sentences.value);
+                        let recordsChanged = false;
+                        for (const key in records.value) {
+                            if (!currentSentencesSet.has(key)) {
+                                delete records.value[key];
+                                recordsChanged = true;
+                            }
+                        }
+                        if (recordsChanged) saveRecords();
+
+                        generateBatch();
+                    }
+                    
+                    loading.value = false;
+                    needManualUpload.value = false;
+                };
+
+                const initFromFile = async () => {
+                    try {
+                        const res = await fetch('w.txt', { cache: 'no-store' });
+                        if (!res.ok) throw new Error();
+                        const text = await res.text();
+                        parseText(text);
+                    } catch (e) {
+                        needManualUpload.value = true;
+                        loading.value = false;
+                    }
+                };
+
+                const handleFileUpload = (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    loading.value = true;
+                    needManualUpload.value = false;
+                    const reader = new FileReader();
+                    reader.onload = (e) => parseText(e.target.result);
+                    reader.readAsText(file);
+                };
+
+                onMounted(() => {
+                    applyRandomTheme();
+                    initFromFile();
+                });
+
+                return { 
+                    countA, countB, countC, 
+                    currentSentence, currentSentenceColor,
+                    batch, currentIndex, 
+                    handleAnswer, 
+                    loading, needManualUpload, isAllCooldown, handleFileUpload,
+                    speakSentence, currentTheme
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
