@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>古风单词记忆 - 随机暗色</title>
+    <title>古风单词记忆 - 全屏暗色</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,6 +11,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
         body { 
             font-family: 'Noto Serif JP', serif; 
             transition: background-color 0.8s ease;
@@ -35,7 +42,7 @@
 <body>
 
     <div id="app" v-cloak 
-         class="min-h-screen w-full flex flex-col items-center py-8 px-4"
+         class="h-full w-full flex flex-col items-center justify-center p-4 box-border"
          :style="{
             '--theme-card': currentTheme.card,
             '--theme-border': currentTheme.border,
@@ -43,25 +50,25 @@
             '--theme-text-hover': currentTheme.textHover
          }">
          
-        <div class="w-full max-w-lg">
-            <div class="flex justify-center items-center space-x-12 mb-8 text-2xl md:text-3xl font-bold tracking-widest">
+        <div class="w-full max-w-lg h-full flex flex-col max-h-full py-2 box-border">
+            <div class="flex justify-center items-center space-x-12 mb-4 text-xl md:text-2xl font-bold tracking-widest shrink-0">
                 <span class="text-green-500">{{ countA }}</span>
                 <span class="text-yellow-500">{{ countB }}</span>
                 <span class="text-red-500">{{ countC }}</span>
             </div>
 
-            <div class="theme-card p-8 min-h-[400px] border flex flex-col rounded-sm">
+            <div class="theme-card p-6 flex-grow border flex flex-col rounded-sm min-h-0 overflow-hidden">
                 
                 <template v-if="loading">
-                    <div class="flex-grow flex items-center justify-center theme-text text-xl">
+                    <div class="flex-grow flex items-center justify-center theme-text text-base">
                         古卷加载中...
                     </div>
                 </template>
 
                 <template v-else-if="needManualUpload">
                     <div class="flex-grow flex flex-col items-center justify-center text-center">
-                        <p class="mb-6 theme-text text-lg">受浏览器限制，需您手动开启 w.txt 文件</p>
-                        <label class="cursor-pointer bg-transparent border theme-text py-3 px-8 rounded-sm transition hover:opacity-80 text-lg" :style="{ borderColor: currentTheme.text }">
+                        <p class="mb-4 theme-text text-base">受浏览器限制，需您手动开启 w.txt 文件</p>
+                        <label class="cursor-pointer bg-transparent border theme-text py-2 px-6 rounded-sm transition hover:opacity-80 text-base" :style="{ borderColor: currentTheme.text }">
                             开启文件
                             <input type="file" class="hidden" accept=".txt" @change="handleFileUpload">
                         </label>
@@ -70,28 +77,28 @@
 
                 <template v-else-if="isAllCooldown">
                     <div class="flex-grow flex items-center justify-center text-center flex-col">
-                        <p class="theme-text text-xl leading-relaxed">所有句子皆已标记为“容易”<br>皆在 10 分钟的静心冷却之中。</p>
+                        <p class="theme-text text-lg leading-relaxed">句子皆在静心冷却之中。<br>请稍作休息。</p>
                     </div>
                 </template>
 
                 <template v-else>
-                    <div class="flex-grow flex items-center justify-center py-6">
+                    <div class="flex-grow flex items-center justify-center py-2 overflow-hidden">
                         <p @click="speakSentence" 
-                           :class="[currentSentenceColor, 'cursor-pointer hover:opacity-80 transition-opacity text-3xl md:text-4xl font-bold text-center leading-relaxed break-words tracking-wide whitespace-pre-wrap']" 
+                           :class="[currentSentenceColor, 'cursor-pointer hover:opacity-80 transition-opacity text-lg md:text-xl font-bold text-center leading-relaxed break-words tracking-wide whitespace-pre-wrap']" 
                            title="点击聆听">
                             {{ currentSentence }}
                         </p>
                     </div>
 
-                    <div class="grid grid-cols-3 gap-4 mt-8">
-                        <button @click="handleAnswer('A')" class="flex items-center justify-center p-4 text-green-500 hover:text-green-400 transition-transform hover:scale-110" title="容易 (A)">
-                            <i class="fa-solid fa-leaf text-5xl"></i>
+                    <div class="grid grid-cols-3 gap-4 mt-4 shrink-0">
+                        <button @click="handleAnswer('A')" class="flex items-center justify-center p-2 text-green-500 hover:text-green-400 transition-transform hover:scale-110" title="容易 (A)">
+                            <i class="fa-solid fa-leaf text-3xl"></i>
                         </button>
-                        <button @click="handleAnswer('B')" class="flex items-center justify-center p-4 text-yellow-500 hover:text-yellow-400 transition-transform hover:scale-110" title="模糊 (B)">
-                            <i class="fa-solid fa-cloud text-5xl"></i>
+                        <button @click="handleAnswer('B')" class="flex items-center justify-center p-2 text-yellow-500 hover:text-yellow-400 transition-transform hover:scale-110" title="模糊 (B)">
+                            <i class="fa-solid fa-cloud text-3xl"></i>
                         </button>
-                        <button @click="handleAnswer('C')" class="flex items-center justify-center p-4 text-red-500 hover:text-red-400 transition-transform hover:scale-110" title="困难 (C)">
-                            <i class="fa-solid fa-mountain text-5xl"></i>
+                        <button @click="handleAnswer('C')" class="flex items-center justify-center p-2 text-red-500 hover:text-red-400 transition-transform hover:scale-110" title="困难 (C)">
+                            <i class="fa-solid fa-mountain text-3xl"></i>
                         </button>
                     </div>
                 </template>
@@ -166,50 +173,52 @@
                     window.speechSynthesis.speak(utterance);
                 };
 
-                const shuffle = (array) => {
-                    let c = array.length, r;
-                    while (c > 0) {
-                        r = Math.floor(Math.random() * c);
-                        c--;
-                        [array[c], array[r]] = [array[r], array[c]];
-                    }
-                    return array;
-                };
-
                 const generateBatch = () => {
                     if (sentences.value.length === 0) return;
                     const now = Date.now();
-                    const tenMinutes = 10 * 60 * 1000;
+                    const aCooldown = 120 * 1000; // 2分钟
+                    const bCooldown = 30 * 1000;  // 30秒
 
                     const poolA = [];
                     const poolB = [];
                     const poolC = [];
 
                     sentences.value.forEach(s => {
-                        const rec = records.value[s];
-                        if (!rec || rec.level === 'C') poolC.push(s);
-                        else if (rec.level === 'B') poolB.push(s);
-                        else if (rec.level === 'A' && now - rec.lastTime >= tenMinutes) poolA.push(s);
+                        const rec = records.value[s] || { level: 'C', lastTime: 0, count: 0 };
+                        const count = rec.count || 0;
+                        const lastTime = rec.lastTime || 0;
+                        const level = rec.level || 'C';
+                        const item = { text: s, level, lastTime, count, rand: Math.random() };
+
+                        if (level === 'C') {
+                            poolC.push(item);
+                        } else if (level === 'B' && now - lastTime >= bCooldown) {
+                            poolB.push(item);
+                        } else if (level === 'A' && now - lastTime >= aCooldown) {
+                            poolA.push(item);
+                        }
                     });
 
-                    poolC.sort((a, b) => {
-                        const timeA = records.value[a]?.lastTime || 0;
-                        const timeB = records.value[b]?.lastTime || 0;
-                        return timeB - timeA;
-                    });
+                    // 排序规则：优先按照出现次数（少的在前），次数相同则最近点击的在前（增加复现率）
+                    const sortFn = (a, b) => {
+                        if (a.count !== b.count) return a.count - b.count;
+                        return b.lastTime - a.lastTime;
+                    };
 
-                    shuffle(poolA); 
-                    shuffle(poolB); 
+                    poolA.sort(sortFn);
+                    poolB.sort(sortFn);
+                    poolC.sort(sortFn);
 
                     let nextBatch = [];
-                    nextBatch.push(...poolC.splice(0, 6));
-                    nextBatch.push(...poolB.splice(0, 3));
-                    nextBatch.push(...poolA.splice(0, 1));
+                    nextBatch.push(...poolC.splice(0, 20));
+                    nextBatch.push(...poolB.splice(0, 6));
+                    nextBatch.push(...poolA.splice(0, 4));
 
-                    if (nextBatch.length < 10) {
+                    // 如果数量不足30，用剩下的句子填补
+                    if (nextBatch.length < 30) {
                         const remaining = [...poolC, ...poolB, ...poolA];
-                        shuffle(remaining);
-                        nextBatch.push(...remaining.splice(0, 10 - nextBatch.length));
+                        remaining.sort(sortFn);
+                        nextBatch.push(...remaining.splice(0, 30 - nextBatch.length));
                     }
 
                     if (nextBatch.length === 0) {
@@ -218,16 +227,26 @@
                     }
 
                     isAllCooldown.value = false;
-                    shuffle(nextBatch);
-                    batch.value = nextBatch;
+                    
+                    // 最终在30个批次内再次排序，确保次数最少的句子最先出现给用户
+                    // 次数相同时引入一点随机性，避免固定序列
+                    nextBatch.sort((a, b) => {
+                        if (a.count !== b.count) return a.count - b.count;
+                        return a.rand - b.rand;
+                    });
+
+                    batch.value = nextBatch.map(item => item.text);
                     currentIndex.value = 0;
                 };
 
                 const handleAnswer = (level) => {
                     const s = currentSentence.value;
                     if (!s) return;
-                    records.value[s] = { level, lastTime: Date.now() };
+                    
+                    const currentCount = records.value[s]?.count || 0;
+                    records.value[s] = { level, lastTime: Date.now(), count: currentCount + 1 };
                     saveRecords();
+                    
                     currentIndex.value++;
                     if (currentIndex.value >= batch.value.length) generateBatch();
                 };
@@ -238,19 +257,14 @@
                     let i = 0;
                     
                     while (i < rawLines.length) {
-                        // 忽略纯空行
                         if (rawLines[i].trim() === '') {
                             i++;
                             continue;
                         }
                         
                         let nextEmptyIndex = -1;
-                        
-                        // 往下查找不超过10行是否存在空行
                         for (let j = 1; j <= 10; j++) {
-                            if (i + j >= rawLines.length) {
-                                break; // 文件末尾不当作空行
-                            }
+                            if (i + j >= rawLines.length) break;
                             if (rawLines[i + j].trim() === '') {
                                 nextEmptyIndex = i + j;
                                 break;
@@ -258,12 +272,10 @@
                         }
                         
                         if (nextEmptyIndex !== -1) {
-                            // 在10行内找到了空行，将这部分合并为一个句子
                             const block = rawLines.slice(i, nextEmptyIndex).join('\n').trim();
                             if (block) parsedSentences.push(block);
-                            i = nextEmptyIndex + 1; // 跳到空行之后继续
+                            i = nextEmptyIndex + 1; 
                         } else {
-                            // 10行以内没有空行，当前行作为独立句子
                             const single = rawLines[i].trim();
                             if (single) parsedSentences.push(single);
                             i++;
@@ -281,10 +293,14 @@
                             if (!currentSentencesSet.has(key)) {
                                 delete records.value[key];
                                 recordsChanged = true;
+                            } else if (records.value[key].count === undefined) {
+                                // 兼容老数据，初始化 count
+                                records.value[key].count = 0;
+                                recordsChanged = true;
                             }
                         }
                         if (recordsChanged) saveRecords();
-
+                        
                         generateBatch();
                     }
                     
