@@ -395,7 +395,7 @@
 
                 const initFromFile = async () => {
                     try {
-                        const res = await fetch('w.txt', { cache: 'no-store' });
+                        const res = await fetch('w.txt?_=' + Date.now(), { cache: 'no-store' });
                         if (!res.ok) throw new Error();
                         const text = await res.text();
                         parseText(text);
