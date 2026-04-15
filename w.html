@@ -3,9 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>单词记忆 - 概率均衡版</title>
+    <title>单词记忆 - 分词高亮版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/kuroshiro@1.1.2/dist/kuroshiro.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js"></script>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
@@ -57,6 +60,13 @@
 
     <div id="app" v-cloak class="h-full w-full flex flex-col items-center justify-center p-4 box-border relative">
          
+        <button @click="speakSentence" 
+                v-if="currentSentence && !loading && !needManualUpload && !dictLoading && !isAllCooldown"
+                class="absolute top-4 left-4 md:top-8 md:left-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors shadow-sm z-10"
+                title="朗读句子">
+            <i class="fa-solid fa-volume-high text-xl"></i>
+        </button>
+
         <button @click="showSearch = true" 
                 class="absolute top-4 right-4 md:top-8 md:right-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors shadow-sm z-10"
                 title="搜索关键字">
@@ -106,9 +116,10 @@
 
             <div class=" p-6 flex-grow  flex flex-col rounded-xl min-h-0 overflow-hidden">
                 
-                <template v-if="loading">
-                    <div class="flex-grow flex items-center justify-center theme-text text-base">
-                        古卷加载中...
+                <template v-if="loading || dictLoading">
+                    <div class="flex-grow flex flex-col items-center justify-center theme-text text-base">
+                        <i v-if="dictLoading" class="fa-solid fa-circle-notch fa-spin text-3xl text-gray-400 mb-4"></i>
+                        <span>{{ dictLoading ? '正在加载日文分词引擎 (需下载词典)...' : '古卷加载中...' }}</span>
                     </div>
                 </template>
 
@@ -130,15 +141,13 @@
 
                 <template v-else>
                     <div class="flex-grow flex items-center justify-center py-2 overflow-hidden">
-                        <p @click="speakSentence" 
-                           class="text-black cursor-pointer hover:opacity-80 transition-opacity text-xl md:text-2xl font-bold text-center leading-relaxed break-words tracking-wide whitespace-pre-wrap" 
-                           title="点击聆听">
-                            {{ currentSentence }}
+                        <p class="text-black text-xl md:text-2xl font-bold text-center leading-relaxed break-words tracking-wide whitespace-pre-wrap" 
+                           v-html="coloredSentence || currentSentence">
                         </p>
                     </div>
                 </template>
                 
-                <div class="grid grid-cols-3 gap-4 mt-4 shrink-0" v-if="!loading && !needManualUpload">
+                <div class="grid grid-cols-3 gap-4 mt-4 shrink-0" v-if="!loading && !needManualUpload && !dictLoading">
                     <button @click="handleAnswer('A')" class="flex flex-col items-center justify-center p-3 text-green-500 hover:text-green-600 hover:bg-green-50 rounded-xl transition-all" title="容易 (A)">
                         <i class="fa-solid fa-leaf text-3xl mb-1"></i>
                         <span class="text-xs font-bold">容易</span>
@@ -166,6 +175,7 @@
                 const currentSentenceObj = ref(null);
                 
                 const loading = ref(true);
+                const dictLoading = ref(true);
                 const needManualUpload = ref(false);
                 const isAllCooldown = ref(false);
                 
@@ -173,11 +183,52 @@
                 const searchQuery = ref('');
                 const searchInput = ref(null);
 
+                const kuroshiroReady = ref(false);
+                const coloredSentence = ref('');
+
                 const countA = computed(() => sentences.value.filter(s => records.value[s]?.level === 'A').length);
                 const countB = computed(() => sentences.value.filter(s => records.value[s]?.level === 'B').length);
                 const countC = computed(() => sentences.value.filter(s => !records.value[s] || records.value[s].level === 'C').length);
 
                 const currentSentence = computed(() => currentSentenceObj.value || '');
+
+                const parseSentence = async () => {
+                    if (!currentSentence.value) {
+                        coloredSentence.value = '';
+                        return;
+                    }
+                    if (!kuroshiroReady.value || !window.kuroshiroAnalyzer) {
+                        coloredSentence.value = currentSentence.value;
+                        return;
+                    }
+                    try {
+                        const tokens = await window.kuroshiroAnalyzer.parse(currentSentence.value);
+                        const colors = ['#1f77b4', '#d62728', '#2ca02c', '#ff7f0e', '#9467bd', '#8c564b', '#e377c2', '#bcbd22', '#17becf'];
+                        let html = '';
+                        let colorIndex = 0;
+                        
+                        tokens.forEach(token => {
+                            if (token.pos === '記号') {
+                                html += `<span style="color: #6b7280;">${token.surface_form}</span>`;
+                            } else {
+                                html += `<span style="color: ${colors[colorIndex % colors.length]};">${token.surface_form}</span>`;
+                                colorIndex++;
+                            }
+                        });
+                        coloredSentence.value = html;
+                    } catch (e) {
+                        console.error("解析句子失败:", e);
+                        coloredSentence.value = currentSentence.value;
+                    }
+                };
+
+                watch(currentSentenceObj, () => {
+                    parseSentence();
+                });
+
+                watch(kuroshiroReady, (ready) => {
+                    if (ready) parseSentence();
+                });
 
                 watch(showSearch, (newVal) => {
                     if (newVal) {
@@ -248,7 +299,6 @@
                     const now = Date.now();
 
                     sentences.value.forEach(s => {
-                        // 防止同一个句子连续出现
                         if (s === currentSentence.value) return;
 
                         const rec = records.value[s] || { level: 'C', lastTime: 0, count: 0 };
@@ -259,35 +309,30 @@
                         else poolC.push(item); 
                     });
 
-                    // 从指定池子中抽取符合条件的句子
                     const getFromPool = (pool, cooldownTime) => {
                         if (pool.length === 0) return null;
 
-                        // 过滤出满足冷却时间的句子
                         const validItems = pool.filter(item => (now - item.lastTime) >= cooldownTime);
 
                         if (validItems.length > 0) {
-                            // 抽取最早记过的（lastTime 最小）
                             validItems.sort((a, b) => {
                                 if (a.lastTime !== b.lastTime) return a.lastTime - b.lastTime;
-                                return a.rand - b.rand; // 时间相同则随机
+                                return a.rand - b.rand; 
                             });
                             return validItems[0].text;
                         } else {
-                            // 没有满足冷却时间的，则在当前级别内随机抽取
                             const randomIndex = Math.floor(Math.random() * pool.length);
                             return pool[randomIndex].text;
                         }
                     };
 
-                    const cooldownA = 3 * 60 * 1000; // 容易：3分钟
-                    const cooldownB = 1 * 60 * 1000; // 模糊：1分钟
-                    const cooldownC = 1 * 60 * 1000; // 困难：1分钟
+                    const cooldownA = 3 * 60 * 1000; 
+                    const cooldownB = 1 * 60 * 1000; 
+                    const cooldownC = 1 * 60 * 1000; 
 
                     let targetLevel;
                     const rand = Math.random();
                     
-                    // 60% 模糊(B), 30% 困难(C), 10% 容易(A)
                     if (rand < 0.6) targetLevel = 'B';
                     else if (rand < 0.9) targetLevel = 'C';
                     else targetLevel = 'A';
@@ -305,7 +350,6 @@
                         currentSentenceObj.value = next;
                         isAllCooldown.value = false;
                     } else {
-                        // 理论上只要有至少2个句子且触发了"没有就随机"，就不会走到这里
                         isAllCooldown.value = true;
                     }
                 };
@@ -394,6 +438,20 @@
                     }
                 };
 
+                const initKuroshiro = async () => {
+                    try {
+                        window.kuroshiroAnalyzer = new KuromojiAnalyzer({ dictPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict" });
+                        const kuroshiro = new Kuroshiro();
+                        await kuroshiro.init(window.kuroshiroAnalyzer);
+                        kuroshiroReady.value = true;
+                    } catch (e) {
+                        console.error("Kuroshiro 初始化失败:", e);
+                        kuroshiroReady.value = true; 
+                    } finally {
+                        dictLoading.value = false;
+                    }
+                };
+
                 const handleFileUpload = (event) => {
                     const file = event.target.files[0];
                     if (!file) return;
@@ -406,13 +464,15 @@
 
                 onMounted(() => {
                     initFromFile();
+                    initKuroshiro();
                 });
 
                 return { 
                     countA, countB, countC, 
                     currentSentence,
+                    coloredSentence,
                     handleAnswer, 
-                    loading, needManualUpload, isAllCooldown, handleFileUpload,
+                    loading, dictLoading, needManualUpload, isAllCooldown, handleFileUpload,
                     speakSentence, 
                     showSearch, searchQuery, searchInput, searchResults,
                     closeSearch, highlightText, selectSentence
