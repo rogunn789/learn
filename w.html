@@ -3,11 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>单词记忆 - 分词高亮版</title>
+    <title>单词记忆 - 原生极速分词版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/kuroshiro@1.1.2/dist/kuroshiro.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/kuroshiro-analyzer-kuromoji@1.1.0/dist/kuroshiro-analyzer-kuromoji.min.js"></script>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -34,12 +32,6 @@
         .theme-text:hover {
             color: #4b5563;
         }
-        
-        .theme-card {
-            background-color: #ffffff;
-            border-color: #e5e7eb;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
 
         ::-webkit-scrollbar {
             width: 6px;
@@ -61,7 +53,7 @@
     <div id="app" v-cloak class="h-full w-full flex flex-col items-center justify-center p-4 box-border relative">
          
         <button @click="speakSentence" 
-                v-if="currentSentence && !loading && !needManualUpload && !dictLoading && !isAllCooldown"
+                v-if="currentSentence && !loading && !needManualUpload && !isAllCooldown"
                 class="absolute top-4 left-4 md:top-8 md:left-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors shadow-sm z-10"
                 title="朗读句子">
             <i class="fa-solid fa-volume-high text-xl"></i>
@@ -116,10 +108,9 @@
 
             <div class=" p-6 flex-grow  flex flex-col rounded-xl min-h-0 overflow-hidden">
                 
-                <template v-if="loading || dictLoading">
+                <template v-if="loading">
                     <div class="flex-grow flex flex-col items-center justify-center theme-text text-base">
-                        <i v-if="dictLoading" class="fa-solid fa-circle-notch fa-spin text-3xl text-gray-400 mb-4"></i>
-                        <span>{{ dictLoading ? '正在加载日文分词引擎 (需下载词典)...' : '古卷加载中...' }}</span>
+                        <span>古卷加载中...</span>
                     </div>
                 </template>
 
@@ -147,7 +138,7 @@
                     </div>
                 </template>
                 
-                <div class="grid grid-cols-3 gap-4 mt-4 shrink-0" v-if="!loading && !needManualUpload && !dictLoading">
+                <div class="grid grid-cols-3 gap-4 mt-4 shrink-0" v-if="!loading && !needManualUpload">
                     <button @click="handleAnswer('A')" class="flex flex-col items-center justify-center p-3 text-green-500 hover:text-green-600 hover:bg-green-50 rounded-xl transition-all" title="容易 (A)">
                         <i class="fa-solid fa-leaf text-3xl mb-1"></i>
                         <span class="text-xs font-bold">容易</span>
@@ -175,7 +166,6 @@
                 const currentSentenceObj = ref(null);
                 
                 const loading = ref(true);
-                const dictLoading = ref(true);
                 const needManualUpload = ref(false);
                 const isAllCooldown = ref(false);
                 
@@ -183,7 +173,6 @@
                 const searchQuery = ref('');
                 const searchInput = ref(null);
 
-                const kuroshiroReady = ref(false);
                 const coloredSentence = ref('');
 
                 const countA = computed(() => sentences.value.filter(s => records.value[s]?.level === 'A').length);
@@ -192,42 +181,42 @@
 
                 const currentSentence = computed(() => currentSentenceObj.value || '');
 
-                const parseSentence = async () => {
+                // 核心改动：使用浏览器原生的 Intl.Segmenter 进行日文分词
+                const parseSentence = () => {
                     if (!currentSentence.value) {
                         coloredSentence.value = '';
                         return;
                     }
-                    if (!kuroshiroReady.value || !window.kuroshiroAnalyzer) {
-                        coloredSentence.value = currentSentence.value;
-                        return;
-                    }
+                    
                     try {
-                        const tokens = await window.kuroshiroAnalyzer.parse(currentSentence.value);
+                        // 初始化日文分词器，指定粒度为 'word' (词)
+                        const segmenter = new Intl.Segmenter('ja-JP', { granularity: 'word' });
+                        const segments = segmenter.segment(currentSentence.value);
+                        
                         const colors = ['#1f77b4', '#d62728', '#2ca02c', '#ff7f0e', '#9467bd', '#8c564b', '#e377c2', '#bcbd22', '#17becf'];
                         let html = '';
                         let colorIndex = 0;
                         
-                        tokens.forEach(token => {
-                            if (token.pos === '記号') {
-                                html += `<span style="color: #6b7280;">${token.surface_form}</span>`;
+                        // 遍历分词结果
+                        for (const { segment, isWordLike } of segments) {
+                            if (!isWordLike) {
+                                // 标点符号、空格置灰
+                                html += `<span style="color: #6b7280;">${segment}</span>`;
                             } else {
-                                html += `<span style="color: ${colors[colorIndex % colors.length]};">${token.surface_form}</span>`;
+                                // 词语分配颜色
+                                html += `<span style="color: ${colors[colorIndex % colors.length]};">${segment}</span>`;
                                 colorIndex++;
                             }
-                        });
+                        }
                         coloredSentence.value = html;
                     } catch (e) {
-                        console.error("解析句子失败:", e);
+                        console.error("原生分词失败，回退到纯文本:", e);
                         coloredSentence.value = currentSentence.value;
                     }
                 };
 
                 watch(currentSentenceObj, () => {
                     parseSentence();
-                });
-
-                watch(kuroshiroReady, (ready) => {
-                    if (ready) parseSentence();
                 });
 
                 watch(showSearch, (newVal) => {
@@ -438,20 +427,6 @@
                     }
                 };
 
-                const initKuroshiro = async () => {
-                    try {
-                        window.kuroshiroAnalyzer = new KuromojiAnalyzer({ dictPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict" });
-                        const kuroshiro = new Kuroshiro();
-                        await kuroshiro.init(window.kuroshiroAnalyzer);
-                        kuroshiroReady.value = true;
-                    } catch (e) {
-                        console.error("Kuroshiro 初始化失败:", e);
-                        kuroshiroReady.value = true; 
-                    } finally {
-                        dictLoading.value = false;
-                    }
-                };
-
                 const handleFileUpload = (event) => {
                     const file = event.target.files[0];
                     if (!file) return;
@@ -464,7 +439,6 @@
 
                 onMounted(() => {
                     initFromFile();
-                    initKuroshiro();
                 });
 
                 return { 
@@ -472,7 +446,7 @@
                     currentSentence,
                     coloredSentence,
                     handleAnswer, 
-                    loading, dictLoading, needManualUpload, isAllCooldown, handleFileUpload,
+                    loading, needManualUpload, isAllCooldown, handleFileUpload,
                     speakSentence, 
                     showSearch, searchQuery, searchInput, searchResults,
                     closeSearch, highlightText, selectSentence
