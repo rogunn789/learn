@@ -247,65 +247,70 @@
                     const poolC = [];
                     const now = Date.now();
 
-                    // 构建备选池时加入时间冷却和防连击检查
                     sentences.value.forEach(s => {
                         // 防止同一个句子连续出现
                         if (s === currentSentence.value) return;
 
                         const rec = records.value[s] || { level: 'C', lastTime: 0, count: 0 };
                         const item = { text: s, lastTime: rec.lastTime || 0, rand: Math.random() };
-                        const timeSinceLast = now - (rec.lastTime || 0);
 
-                        if (rec.level === 'A') {
-                            if (timeSinceLast >= 60000) poolA.push(item); // 容易级别：1分钟冷却
-                        } else if (rec.level === 'B') {
-                            if (timeSinceLast >= 30000) poolB.push(item); // 模糊级别：30秒冷却
-                        } else {
-                            poolC.push(item); // 困难级别无冷却
-                        }
+                        if (rec.level === 'A') poolA.push(item);
+                        else if (rec.level === 'B') poolB.push(item);
+                        else poolC.push(item); 
                     });
 
-                    // 优先取最近背过的（即 lastTime 越大的排在前面），然后是随机
-                    const sortDesc = (a, b) => {
-                        if (a.lastTime !== b.lastTime) return b.lastTime - a.lastTime;
-                        return a.rand - b.rand;
-                    };
-
-                    poolA.sort(sortDesc);
-                    poolB.sort(sortDesc);
-                    poolC.sort(sortDesc);
-
-                    const getFromPool = (pool) => {
+                    // 从指定池子中抽取符合条件的句子
+                    const getFromPool = (pool, cooldownTime) => {
                         if (pool.length === 0) return null;
-                        const top5 = pool.slice(0, 5);
-                        const randomIndex = Math.floor(Math.random() * top5.length);
-                        return top5[randomIndex].text;
+
+                        // 过滤出满足冷却时间的句子
+                        const validItems = pool.filter(item => (now - item.lastTime) >= cooldownTime);
+
+                        if (validItems.length > 0) {
+                            // 抽取最早记过的（lastTime 最小）
+                            validItems.sort((a, b) => {
+                                if (a.lastTime !== b.lastTime) return a.lastTime - b.lastTime;
+                                return a.rand - b.rand; // 时间相同则随机
+                            });
+                            return validItems[0].text;
+                        } else {
+                            // 没有满足冷却时间的，则在当前级别内随机抽取
+                            const randomIndex = Math.floor(Math.random() * pool.length);
+                            return pool[randomIndex].text;
+                        }
                     };
 
-                    // 根据概率决定目标池：60% C级，30% B级，10% A级
+                    const cooldownA = 3 * 60 * 1000; // 容易：3分钟
+                    const cooldownB = 1 * 60 * 1000; // 模糊：1分钟
+                    const cooldownC = 1 * 60 * 1000; // 困难：1分钟
+
                     let targetLevel;
                     const rand = Math.random();
-                    if (rand < 0.6) targetLevel = 'C';
-                    else if (rand < 0.9) targetLevel = 'B';
+                    
+                    // 60% 模糊(B), 30% 困难(C), 10% 容易(A)
+                    if (rand < 0.6) targetLevel = 'B';
+                    else if (rand < 0.9) targetLevel = 'C';
                     else targetLevel = 'A';
 
-                    // 如果目标池空了（全在冷却中），则按级别降级查找其他池
                     let next = null;
-                    if (targetLevel === 'C') next = getFromPool(poolC) || getFromPool(poolB) || getFromPool(poolA);
-                    else if (targetLevel === 'B') next = getFromPool(poolB) || getFromPool(poolC) || getFromPool(poolA);
-                    else next = getFromPool(poolA) || getFromPool(poolB) || getFromPool(poolC);
+                    if (targetLevel === 'B') {
+                        next = getFromPool(poolB, cooldownB) || getFromPool(poolC, cooldownC) || getFromPool(poolA, cooldownA);
+                    } else if (targetLevel === 'C') {
+                        next = getFromPool(poolC, cooldownC) || getFromPool(poolB, cooldownB) || getFromPool(poolA, cooldownA);
+                    } else {
+                        next = getFromPool(poolA, cooldownA) || getFromPool(poolB, cooldownB) || getFromPool(poolC, cooldownC);
+                    }
 
                     if (next) {
                         currentSentenceObj.value = next;
                         isAllCooldown.value = false;
                     } else {
-                        // 如果所有句子都在冷却时间中或不足
+                        // 理论上只要有至少2个句子且触发了"没有就随机"，就不会走到这里
                         isAllCooldown.value = true;
                     }
                 };
 
                 const handleAnswer = (level) => {
-                    // 即使处于冷却状态，用户强按按钮也可以触发刷新尝试
                     if (isAllCooldown.value) {
                         pickNextSentence();
                         return;
