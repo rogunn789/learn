@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>古风单词记忆 - 全屏暗色</title>
+    <title>单词记忆 - 检索版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,39 +17,87 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
+            background-color: #ffffff; /* 固定白色背景 */
         }
         body { 
             font-family: 'Noto Serif JP', serif; 
-            transition: background-color 0.8s ease;
         }
         [v-cloak] { display: none; }
         
         .theme-text {
-            color: var(--theme-text);
+            color: #1f2937; /* 深灰/黑色文字 */
             transition: color 0.3s ease;
         }
         .theme-text:hover {
-            color: var(--theme-text-hover);
+            color: #4b5563;
         }
         
         .theme-card {
-            background-color: var(--theme-card);
-            border-color: var(--theme-border);
-            transition: background-color 0.8s ease, border-color 0.8s ease;
+            background-color: #ffffff;
+            border-color: #e5e7eb;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        /* 自定义滚动条 */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
         }
     </style>
 </head>
 <body>
 
-    <div id="app" v-cloak 
-         class="h-full w-full flex flex-col items-center justify-center p-4 box-border"
-         :style="{
-            '--theme-card': currentTheme.card,
-            '--theme-border': currentTheme.border,
-            '--theme-text': currentTheme.text,
-            '--theme-text-hover': currentTheme.textHover
-         }">
+    <div id="app" v-cloak class="h-full w-full flex flex-col items-center justify-center p-4 box-border relative">
          
+        <button @click="showSearch = true" 
+                class="absolute top-4 right-4 md:top-8 md:right-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors shadow-sm z-10"
+                title="搜索关键字">
+            <i class="fa-solid fa-magnifying-glass text-xl"></i>
+        </button>
+
+        <div v-if="showSearch" 
+             class="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-start z-50 pt-16 md:pt-24" 
+             @click.self="closeSearch">
+            <div class="bg-white w-11/12 max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[75vh] overflow-hidden transform transition-all">
+                
+                <div class="p-4 border-b flex items-center gap-3 bg-gray-50">
+                    <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
+                    <input ref="searchInput" 
+                           v-model="searchQuery" 
+                           type="text" 
+                           placeholder="搜索句子关键字..." 
+                           class="w-full text-lg bg-transparent border-none focus:outline-none text-gray-700 placeholder-gray-400" 
+                           @keyup.esc="closeSearch">
+                    <button @click="closeSearch" class="text-gray-400 hover:text-gray-600 px-2 text-xl">&times;</button>
+                </div>
+
+                <div class="overflow-y-auto flex-grow p-2">
+                    <div v-if="!searchQuery" class="text-gray-400 text-center py-10">输入关键字检索全文</div>
+                    <div v-else-if="searchResults.length === 0" class="text-gray-400 text-center py-10">未找到包含该关键字的句子</div>
+                    <div v-else class="flex flex-col gap-1">
+                        <div v-for="(item, index) in searchResults" :key="index" 
+                             @click="selectSentence(item)"
+                             class="p-4 rounded-lg hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-100 last:border-0"
+                             v-html="highlightText(item, searchQuery)">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="p-2 bg-gray-50 border-t text-xs text-gray-400 text-center">
+                    共找到 {{ searchResults.length }} 条结果
+                </div>
+            </div>
+        </div>
+
         <div class="w-full max-w-lg h-full flex flex-col max-h-full py-2 box-border">
             <div class="flex justify-center items-center space-x-12 mb-4 text-xl md:text-2xl font-bold tracking-widest shrink-0">
                 <span class="text-green-500">{{ countA }}</span>
@@ -57,7 +105,7 @@
                 <span class="text-red-500">{{ countC }}</span>
             </div>
 
-            <div class="theme-card p-6 flex-grow border flex flex-col rounded-sm min-h-0 overflow-hidden">
+            <div class=" p-6 flex-grow  flex flex-col rounded-xl min-h-0 overflow-hidden">
                 
                 <template v-if="loading">
                     <div class="flex-grow flex items-center justify-center theme-text text-base">
@@ -68,7 +116,7 @@
                 <template v-else-if="needManualUpload">
                     <div class="flex-grow flex flex-col items-center justify-center text-center">
                         <p class="mb-4 theme-text text-base">受浏览器限制，需您手动开启 w.txt 文件</p>
-                        <label class="cursor-pointer bg-transparent border theme-text py-2 px-6 rounded-sm transition hover:opacity-80 text-base" :style="{ borderColor: currentTheme.text }">
+                        <label class="cursor-pointer bg-gray-100 hover:bg-gray-200 border border-gray-300 theme-text py-2 px-6 rounded-md transition text-base">
                             开启文件
                             <input type="file" class="hidden" accept=".txt" @change="handleFileUpload">
                         </label>
@@ -84,21 +132,24 @@
                 <template v-else>
                     <div class="flex-grow flex items-center justify-center py-2 overflow-hidden">
                         <p @click="speakSentence" 
-                           :class="[currentSentenceColor, 'cursor-pointer hover:opacity-80 transition-opacity text-lg md:text-xl font-bold text-center leading-relaxed break-words tracking-wide whitespace-pre-wrap']" 
+                           :class="[currentSentenceColor, 'cursor-pointer hover:opacity-80 transition-opacity text-xl md:text-2xl font-bold text-center leading-relaxed break-words tracking-wide whitespace-pre-wrap']" 
                            title="点击聆听">
                             {{ currentSentence }}
                         </p>
                     </div>
 
                     <div class="grid grid-cols-3 gap-4 mt-4 shrink-0">
-                        <button @click="handleAnswer('A')" class="flex items-center justify-center p-2 text-green-500 hover:text-green-400 transition-transform hover:scale-110" title="容易 (A)">
-                            <i class="fa-solid fa-leaf text-3xl"></i>
+                        <button @click="handleAnswer('A')" class="flex flex-col items-center justify-center p-3 text-green-500 hover:text-green-600 hover:bg-green-50 rounded-xl transition-all" title="容易 (A)">
+                            <i class="fa-solid fa-leaf text-3xl mb-1"></i>
+                            <span class="text-xs font-bold">容易</span>
                         </button>
-                        <button @click="handleAnswer('B')" class="flex items-center justify-center p-2 text-yellow-500 hover:text-yellow-400 transition-transform hover:scale-110" title="模糊 (B)">
-                            <i class="fa-solid fa-cloud text-3xl"></i>
+                        <button @click="handleAnswer('B')" class="flex flex-col items-center justify-center p-3 text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-xl transition-all" title="模糊 (B)">
+                            <i class="fa-solid fa-cloud text-3xl mb-1"></i>
+                            <span class="text-xs font-bold">模糊</span>
                         </button>
-                        <button @click="handleAnswer('C')" class="flex items-center justify-center p-2 text-red-500 hover:text-red-400 transition-transform hover:scale-110" title="困难 (C)">
-                            <i class="fa-solid fa-mountain text-3xl"></i>
+                        <button @click="handleAnswer('C')" class="flex flex-col items-center justify-center p-3 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="困难 (C)">
+                            <i class="fa-solid fa-mountain text-3xl mb-1"></i>
+                            <span class="text-xs font-bold">困难</span>
                         </button>
                     </div>
                 </template>
@@ -107,15 +158,7 @@
     </div>
 
     <script>
-        const { createApp, ref, computed, onMounted } = Vue;
-
-        const themes = [
-            { name: '幽竹', bg: '#021a10', card: '#062b1a', border: '#0a3d26', text: '#f0fdf4', textHover: '#bbf7d0' },
-            { name: '丹霞', bg: '#1f0606', card: '#300a0a', border: '#451010', text: '#fef2f2', textHover: '#fecaca' },
-            { name: '玄武', bg: '#0b0c0f', card: '#13151a', border: '#1e2129', text: '#f8fafc', textHover: '#cbd5e1' },
-            { name: '琉璃', bg: '#051321', card: '#0a1d33', border: '#0f2947', text: '#f0f9ff', textHover: '#bae6fd' },
-            { name: '枯叶', bg: '#1f1305', card: '#301e0a', border: '#422a10', text: '#fffbeb', textHover: '#fde68a' }
-        ];
+        const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
 
         createApp({
             setup() {
@@ -128,16 +171,19 @@
                 const needManualUpload = ref(false);
                 const isAllCooldown = ref(false);
                 
-                const currentTheme = ref(themes[0]);
+                // 搜索功能相关的状态
+                const showSearch = ref(false);
+                const searchQuery = ref('');
+                const searchInput = ref(null);
 
                 const currentSentenceColor = computed(() => {
                     const s = currentSentence.value;
-                    if (!s) return 'text-red-500'; 
+                    if (!s) return 'text-red-600'; 
                     
                     const level = records.value[s]?.level;
-                    if (level === 'A') return 'text-green-500';
+                    if (level === 'A') return 'text-green-600';
                     if (level === 'B') return 'text-yellow-500';
-                    return 'text-red-500'; 
+                    return 'text-red-600'; 
                 });
 
                 const countA = computed(() => sentences.value.filter(s => records.value[s]?.level === 'A').length);
@@ -146,10 +192,54 @@
 
                 const currentSentence = computed(() => batch.value[currentIndex.value] || '');
 
-                const applyRandomTheme = () => {
-                    const randomIndex = Math.floor(Math.random() * themes.length);
-                    currentTheme.value = themes[randomIndex];
-                    document.body.style.backgroundColor = currentTheme.value.bg;
+                // 监听搜索面板打开，自动聚焦输入框
+                watch(showSearch, (newVal) => {
+                    if (newVal) {
+                        nextTick(() => {
+                            if (searchInput.value) searchInput.value.focus();
+                        });
+                    }
+                });
+
+                // 计算搜索结果（转小写匹配，限制最多显示100条防止卡顿）
+                const searchResults = computed(() => {
+                    const query = searchQuery.value.trim().toLowerCase();
+                    if (!query) return [];
+                    return sentences.value.filter(s => s.toLowerCase().includes(query)).slice(0, 100);
+                });
+
+                // 转义 HTML 防止 XSS，并包裹高亮标签
+                const highlightText = (text, query) => {
+                    const escapeHtml = (str) => str.replace(/[&<>"']/g, m => ({
+                        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+                    })[m]);
+
+                    let escapedText = escapeHtml(text);
+                    let cleanQuery = query.trim();
+                    if (!cleanQuery) return escapedText;
+
+                    const escapedQuery = escapeHtml(cleanQuery);
+                    // 使用正则全局忽略大小写匹配关键字
+                    const regex = new RegExp(`(${escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                    return escapedText.replace(regex, '<span class="bg-yellow-300 text-black font-bold px-1 rounded shadow-sm">$1</span>');
+                };
+
+                const closeSearch = () => {
+                    showSearch.value = false;
+                    searchQuery.value = ''; // 关闭时清空搜索框
+                };
+
+                // 在搜索列表点击某一条时
+                const selectSentence = (sentence) => {
+                    // 将选中的句子直接插入到当前进度中（即刻显示）
+                    if (batch.value.length === 0) {
+                        batch.value = [sentence];
+                        currentIndex.value = 0;
+                        isAllCooldown.value = false;
+                    } else {
+                        batch.value.splice(currentIndex.value, 0, sentence);
+                    }
+                    closeSearch();
                 };
 
                 const loadRecords = () => {
@@ -176,8 +266,8 @@
                 const generateBatch = () => {
                     if (sentences.value.length === 0) return;
                     const now = Date.now();
-                    const aCooldown = 120 * 1000; // 2分钟
-                    const bCooldown = 30 * 1000;  // 30秒
+                    const aCooldown = 120 * 1000; 
+                    const bCooldown = 30 * 1000;  
 
                     const poolA = [];
                     const poolB = [];
@@ -199,7 +289,6 @@
                         }
                     });
 
-                    // 排序规则：优先按照出现次数（少的在前），次数相同则最近点击的在前（增加复现率）
                     const sortFn = (a, b) => {
                         if (a.count !== b.count) return a.count - b.count;
                         return b.lastTime - a.lastTime;
@@ -214,7 +303,6 @@
                     nextBatch.push(...poolB.splice(0, 6));
                     nextBatch.push(...poolA.splice(0, 4));
 
-                    // 如果数量不足30，用剩下的句子填补
                     if (nextBatch.length < 30) {
                         const remaining = [...poolC, ...poolB, ...poolA];
                         remaining.sort(sortFn);
@@ -228,8 +316,6 @@
 
                     isAllCooldown.value = false;
                     
-                    // 最终在30个批次内再次排序，确保次数最少的句子最先出现给用户
-                    // 次数相同时引入一点随机性，避免固定序列
                     nextBatch.sort((a, b) => {
                         if (a.count !== b.count) return a.count - b.count;
                         return a.rand - b.rand;
@@ -294,7 +380,6 @@
                                 delete records.value[key];
                                 recordsChanged = true;
                             } else if (records.value[key].count === undefined) {
-                                // 兼容老数据，初始化 count
                                 records.value[key].count = 0;
                                 recordsChanged = true;
                             }
@@ -310,7 +395,7 @@
 
                 const initFromFile = async () => {
                     try {
-                        const res = await fetch('w.txt', { cache: 'no-store' });
+                        const res = await fetch('w.txt?_=' + Date.now(), { cache: 'no-store' });
                         if (!res.ok) throw new Error();
                         const text = await res.text();
                         parseText(text);
@@ -331,7 +416,6 @@
                 };
 
                 onMounted(() => {
-                    applyRandomTheme();
                     initFromFile();
                 });
 
@@ -341,7 +425,10 @@
                     batch, currentIndex, 
                     handleAnswer, 
                     loading, needManualUpload, isAllCooldown, handleFileUpload,
-                    speakSentence, currentTheme
+                    speakSentence, 
+                    // Search variables
+                    showSearch, searchQuery, searchInput, searchResults,
+                    closeSearch, highlightText, selectSentence
                 };
             }
         }).mount('#app');
