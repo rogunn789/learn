@@ -1,143 +1,144 @@
 <!DOCTYPE html>
-
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>单词记忆 - 概率均衡版</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-<style>
-html, body {
-margin: 0;
-padding: 0;
-width: 100%;
-height: 100%;
-overflow: hidden;
-background-color: #ffffff;
-}
-body {
-font-family: 'Noto Serif JP', serif;
-}
-[v-cloak] { display: none; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>单词记忆 - 概率均衡版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #ffffff;
+        }
+        body { 
+            font-family: 'Noto Serif JP', serif; 
+        }
+        [v-cloak] { display: none; }
+        
+        .theme-text {
+            color: #1f2937;
+            transition: color 0.3s ease;
+        }
+        .theme-text:hover {
+            color: #4b5563;
+        }
+        
+        .theme-card {
+            background-color: #ffffff;
+            border-color: #e5e7eb;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
 
-    .theme-text {
-        color: #1f2937;
-        transition: color 0.3s ease;
-    }
-    .theme-text:hover {
-        color: #4b5563;
-    }
-    
-    .theme-card {
-        background-color: #ffffff;
-        border-color: #e5e7eb;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    }
-
-    ::-webkit-scrollbar {
-        width: 6px;
-    }
-    ::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    ::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 3px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
-    }
-</style>
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
 </head>
 <body>
- <div id="app" v-cloak class="h-full w-full flex flex-col items-center justify-center p-4 box-border relative">
-     
-    <button @click="showSearch = true" 
-            class="absolute top-4 right-4 md:top-8 md:right-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors shadow-sm z-10"
-            title="搜索关键字">
-        <i class="fa-solid fa-magnifying-glass text-xl"></i>
-    </button>
 
-    <div v-if="showSearch" 
-         class="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-start z-50 pt-16 md:pt-24" 
-         @click.self="closeSearch">
-        <div class="bg-white w-11/12 max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[75vh] overflow-hidden transform transition-all">
-            
-            <div class="p-4 border-b flex items-center gap-3 bg-gray-50">
-                <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
-                <input ref="searchInput" 
-                       v-model="searchQuery" 
-                       type="text" 
-                       placeholder="搜索句子关键字..." 
-                       class="w-full text-lg bg-transparent border-none focus:outline-none text-gray-700 placeholder-gray-400" 
-                       @keyup.esc="closeSearch">
-                <button @click="closeSearch" class="text-gray-400 hover:text-gray-600 px-2 text-xl">&times;</button>
-            </div>
+    <div id="app" v-cloak class="h-full w-full flex flex-col items-center justify-center p-4 box-border relative">
+         
+        <button @click="showSearch = true" 
+                class="absolute top-4 right-4 md:top-8 md:right-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors shadow-sm z-10"
+                title="搜索关键字">
+            <i class="fa-solid fa-magnifying-glass text-xl"></i>
+        </button>
 
-            <div class="overflow-y-auto flex-grow p-2">
-                <div v-if="!searchQuery" class="text-gray-400 text-center py-10">输入关键字检索全文</div>
-                <div v-else-if="searchResults.length === 0" class="text-gray-400 text-center py-10">未找到包含该关键字的句子</div>
-                <div v-else class="flex flex-col gap-1">
-                    <div v-for="(item, index) in searchResults" :key="index" 
-                         @click="selectSentence(item)"
-                         class="p-4 rounded-lg hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-100 last:border-0"
-                         v-html="highlightText(item, searchQuery)">
+        <div v-if="showSearch" 
+             class="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-start z-50 pt-16 md:pt-24" 
+             @click.self="closeSearch">
+            <div class="bg-white w-11/12 max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[75vh] overflow-hidden transform transition-all">
+                
+                <div class="p-4 border-b flex items-center gap-3 bg-gray-50">
+                    <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
+                    <input ref="searchInput" 
+                           v-model="searchQuery" 
+                           type="text" 
+                           placeholder="搜索句子关键字..." 
+                           class="w-full text-lg bg-transparent border-none focus:outline-none text-gray-700 placeholder-gray-400" 
+                           @keyup.esc="closeSearch">
+                    <button @click="closeSearch" class="text-gray-400 hover:text-gray-600 px-2 text-xl">&times;</button>
+                </div>
+
+                <div class="overflow-y-auto flex-grow p-2">
+                    <div v-if="!searchQuery" class="text-gray-400 text-center py-10">输入关键字检索全文</div>
+                    <div v-else-if="searchResults.length === 0" class="text-gray-400 text-center py-10">未找到包含该关键字的句子</div>
+                    <div v-else class="flex flex-col gap-1">
+                        <div v-for="(item, index) in searchResults" :key="index" 
+                             @click="selectSentence(item)"
+                             class="p-4 rounded-lg hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-100 last:border-0"
+                             v-html="highlightText(item, searchQuery)">
+                        </div>
                     </div>
                 </div>
-            </div>
-            
-            <div class="p-2 bg-gray-50 border-t text-xs text-gray-400 text-center">
-                共找到 {{ searchResults.length }} 条结果
+                
+                <div class="p-2 bg-gray-50 border-t text-xs text-gray-400 text-center">
+                    共找到 {{ searchResults.length }} 条结果
+                </div>
             </div>
         </div>
-    </div>
 
-    <div class="w-full max-w-lg h-full flex flex-col max-h-full py-2 box-border">
-        <div class="flex justify-center items-center space-x-12 mb-4 text-xl md:text-2xl font-bold tracking-widest shrink-0">
-            <span class="text-green-500">{{ countA }}</span>
-            <span class="text-yellow-500">{{ countB }}</span>
-            <span class="text-red-500">{{ countC }}</span>
-        </div>
+        <div class="w-full max-w-lg h-full flex flex-col max-h-full py-2 box-border">
+            <div class="flex justify-center items-center space-x-12 mb-4 text-xl md:text-2xl font-bold tracking-widest shrink-0">
+                <span class="text-green-500">{{ countA }}</span>
+                <span class="text-yellow-500">{{ countB }}</span>
+                <span class="text-red-500">{{ countC }}</span>
+            </div>
 
-        <div class=" p-6 flex-grow  flex flex-col rounded-xl min-h-0 overflow-hidden">
-            
-            <template v-if="loading">
-                <div class="flex-grow flex items-center justify-center theme-text text-base">
-                    古卷加载中...
-                </div>
-            </template>
+            <div class=" p-6 flex-grow  flex flex-col rounded-xl min-h-0 overflow-hidden">
+                
+                <template v-if="loading">
+                    <div class="flex-grow flex items-center justify-center theme-text text-base">
+                        古卷加载中...
+                    </div>
+                </template>
 
-            <template v-else-if="needManualUpload">
-                <div class="flex-grow flex flex-col items-center justify-center text-center">
-                    <p class="mb-4 theme-text text-base">受浏览器限制，需您手动开启 w.txt 文件</p>
-                    <label class="cursor-pointer bg-gray-100 hover:bg-gray-200 border border-gray-300 theme-text py-2 px-6 rounded-md transition text-base">
-                        开启文件
-                        <input type="file" class="hidden" accept=".txt" @change="handleFileUpload">
-                    </label>
-                </div>
-            </template>
+                <template v-else-if="needManualUpload">
+                    <div class="flex-grow flex flex-col items-center justify-center text-center">
+                        <p class="mb-4 theme-text text-base">受浏览器限制，需您手动开启 w.txt 文件</p>
+                        <label class="cursor-pointer bg-gray-100 hover:bg-gray-200 border border-gray-300 theme-text py-2 px-6 rounded-md transition text-base">
+                            开启文件
+                            <input type="file" class="hidden" accept=".txt" @change="handleFileUpload">
+                        </label>
+                    </div>
+                </template>
 
-            <template v-else-if="isAllCooldown">
-                <div class="flex-grow flex items-center justify-center text-center flex-col">
-                    <p class="theme-text text-lg leading-relaxed">句子皆在静心冷却之中。<br>请稍作休息。</p>
-                </div>
-            </template>
+                <template v-else-if="isAllCooldown">
+                    <div class="flex-grow flex items-center justify-center text-center flex-col">
+                        <p class="theme-text text-lg leading-relaxed">句子皆在静心冷却之中。<br>请稍作休息，或尝试再次点击下方按钮。</p>
+                    </div>
+                </template>
 
-            <template v-else>
-                <div class="flex-grow flex items-center justify-center py-2 overflow-hidden">
-                    <p @click="speakSentence" 
-                       class="text-black cursor-pointer hover:opacity-80 transition-opacity text-xl md:text-2xl font-bold text-center leading-relaxed break-words tracking-wide whitespace-pre-wrap" 
-                       title="点击聆听">
-                        {{ currentSentence }}
-                    </p>
-                </div>
-
-                <div class="grid grid-cols-3 gap-4 mt-4 shrink-0">
+                <template v-else>
+                    <div class="flex-grow flex items-center justify-center py-2 overflow-hidden">
+                        <p @click="speakSentence" 
+                           class="text-black cursor-pointer hover:opacity-80 transition-opacity text-xl md:text-2xl font-bold text-center leading-relaxed break-words tracking-wide whitespace-pre-wrap" 
+                           title="点击聆听">
+                            {{ currentSentence }}
+                        </p>
+                    </div>
+                </template>
+                
+                <div class="grid grid-cols-3 gap-4 mt-4 shrink-0" v-if="!loading && !needManualUpload">
                     <button @click="handleAnswer('A')" class="flex flex-col items-center justify-center p-3 text-green-500 hover:text-green-600 hover:bg-green-50 rounded-xl transition-all" title="容易 (A)">
                         <i class="fa-solid fa-leaf text-3xl mb-1"></i>
                         <span class="text-xs font-bold">容易</span>
@@ -151,248 +152,268 @@ font-family: 'Noto Serif JP', serif;
                         <span class="text-xs font-bold">困难</span>
                     </button>
                 </div>
-            </template>
+            </div>
         </div>
     </div>
-</div>
 
-<script>
-    const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
+    <script>
+        const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
 
-    createApp({
-        setup() {
-            const sentences = ref([]);
-            const records = ref({}); 
-            const currentSentenceObj = ref(null);
-            
-            const loading = ref(true);
-            const needManualUpload = ref(false);
-            const isAllCooldown = ref(false);
-            
-            const showSearch = ref(false);
-            const searchQuery = ref('');
-            const searchInput = ref(null);
-
-            const countA = computed(() => sentences.value.filter(s => records.value[s]?.level === 'A').length);
-            const countB = computed(() => sentences.value.filter(s => records.value[s]?.level === 'B').length);
-            const countC = computed(() => sentences.value.filter(s => !records.value[s] || records.value[s].level === 'C').length);
-
-            const currentSentence = computed(() => currentSentenceObj.value || '');
-
-            watch(showSearch, (newVal) => {
-                if (newVal) {
-                    nextTick(() => {
-                        if (searchInput.value) searchInput.value.focus();
-                    });
-                }
-            });
-
-            const searchResults = computed(() => {
-                const query = searchQuery.value.trim().toLowerCase();
-                if (!query) return [];
-                return sentences.value.filter(s => s.toLowerCase().includes(query)).slice(0, 100);
-            });
-
-            const highlightText = (text, query) => {
-                const escapeHtml = (str) => str.replace(/[&<>"']/g, m => ({
-                    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-                })[m]);
-
-                let escapedText = escapeHtml(text);
-                let cleanQuery = query.trim();
-                if (!cleanQuery) return escapedText;
-
-                const escapedQuery = escapeHtml(cleanQuery);
-                const regex = new RegExp(`(${escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-                return escapedText.replace(regex, '<span class="bg-yellow-300 text-black font-bold px-1 rounded shadow-sm">$1</span>');
-            };
-
-            const closeSearch = () => {
-                showSearch.value = false;
-                searchQuery.value = ''; 
-            };
-
-            const selectSentence = (sentence) => {
-                currentSentenceObj.value = sentence;
-                isAllCooldown.value = false;
-                closeSearch();
-            };
-
-            const loadRecords = () => {
-                const stored = localStorage.getItem('vocab_app_records');
-                if (stored) {
-                    try { records.value = JSON.parse(stored); } catch (e) {}
-                }
-            };
-
-            const saveRecords = () => {
-                localStorage.setItem('vocab_app_records', JSON.stringify(records.value));
-            };
-
-            const speakSentence = () => {
-                const text = currentSentence.value;
-                if (!text || !('speechSynthesis' in window)) return;
+        createApp({
+            setup() {
+                const sentences = ref([]);
+                const records = ref({}); 
+                const currentSentenceObj = ref(null);
                 
-                window.speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = 'ja-JP';
-                window.speechSynthesis.speak(utterance);
-            };
+                const loading = ref(true);
+                const needManualUpload = ref(false);
+                const isAllCooldown = ref(false);
+                
+                const showSearch = ref(false);
+                const searchQuery = ref('');
+                const searchInput = ref(null);
 
-            const pickNextSentence = () => {
-                if (sentences.value.length === 0) return;
+                const countA = computed(() => sentences.value.filter(s => records.value[s]?.level === 'A').length);
+                const countB = computed(() => sentences.value.filter(s => records.value[s]?.level === 'B').length);
+                const countC = computed(() => sentences.value.filter(s => !records.value[s] || records.value[s].level === 'C').length);
 
-                const poolA = [];
-                const poolB = [];
-                const poolC = [];
+                const currentSentence = computed(() => currentSentenceObj.value || '');
 
-                sentences.value.forEach(s => {
-                    const rec = records.value[s] || { level: 'C', lastTime: 0, count: 0 };
-                    const item = { text: s, lastTime: rec.lastTime || 0, rand: Math.random() };
-                    if (rec.level === 'A') poolA.push(item);
-                    else if (rec.level === 'B') poolB.push(item);
-                    else poolC.push(item);
+                watch(showSearch, (newVal) => {
+                    if (newVal) {
+                        nextTick(() => {
+                            if (searchInput.value) searchInput.value.focus();
+                        });
+                    }
                 });
 
-                const sortDesc = (a, b) => {
-                    if (a.lastTime !== b.lastTime) return b.lastTime - a.lastTime;
-                    return a.rand - b.rand;
+                const searchResults = computed(() => {
+                    const query = searchQuery.value.trim().toLowerCase();
+                    if (!query) return [];
+                    return sentences.value.filter(s => s.toLowerCase().includes(query)).slice(0, 100);
+                });
+
+                const highlightText = (text, query) => {
+                    const escapeHtml = (str) => str.replace(/[&<>"']/g, m => ({
+                        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+                    })[m]);
+
+                    let escapedText = escapeHtml(text);
+                    let cleanQuery = query.trim();
+                    if (!cleanQuery) return escapedText;
+
+                    const escapedQuery = escapeHtml(cleanQuery);
+                    const regex = new RegExp(`(${escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+                    return escapedText.replace(regex, '<span class="bg-yellow-300 text-black font-bold px-1 rounded shadow-sm">$1</span>');
                 };
 
-                poolA.sort(sortDesc);
-                poolB.sort(sortDesc);
-                poolC.sort(sortDesc);
-
-                const getFromPool = (pool) => {
-                    if (pool.length === 0) return null;
-                    const top5 = pool.slice(0, 5);
-                    const randomIndex = Math.floor(Math.random() * top5.length);
-                    return top5[randomIndex].text;
+                const closeSearch = () => {
+                    showSearch.value = false;
+                    searchQuery.value = ''; 
                 };
 
-                let targetLevel;
-                const rand = Math.random();
-                if (rand < 0.6) targetLevel = 'C';
-                else if (rand < 0.9) targetLevel = 'B';
-                else targetLevel = 'A';
-
-                let next = null;
-                if (targetLevel === 'C') next = getFromPool(poolC) || getFromPool(poolB) || getFromPool(poolA);
-                else if (targetLevel === 'B') next = getFromPool(poolB) || getFromPool(poolC) || getFromPool(poolA);
-                else next = getFromPool(poolA) || getFromPool(poolB) || getFromPool(poolC);
-
-                if (next) {
-                    currentSentenceObj.value = next;
+                const selectSentence = (sentence) => {
+                    currentSentenceObj.value = sentence;
                     isAllCooldown.value = false;
-                } else {
-                    isAllCooldown.value = true;
-                }
-            };
+                    closeSearch();
+                };
 
-            const handleAnswer = (level) => {
-                const s = currentSentence.value;
-                if (!s) return;
-                
-                const currentCount = records.value[s]?.count || 0;
-                records.value[s] = { level, lastTime: Date.now(), count: currentCount + 1 };
-                saveRecords();
-                
-                pickNextSentence();
-            };
-
-            const parseText = (text) => {
-                const rawLines = text.split(/\r?\n/);
-                const parsedSentences = [];
-                let i = 0;
-                
-                while (i < rawLines.length) {
-                    if (rawLines[i].trim() === '') {
-                        i++;
-                        continue;
+                const loadRecords = () => {
+                    const stored = localStorage.getItem('vocab_app_records');
+                    if (stored) {
+                        try { records.value = JSON.parse(stored); } catch (e) {}
                     }
+                };
+
+                const saveRecords = () => {
+                    localStorage.setItem('vocab_app_records', JSON.stringify(records.value));
+                };
+
+                const speakSentence = () => {
+                    const text = currentSentence.value;
+                    if (!text || !('speechSynthesis' in window)) return;
                     
-                    let nextEmptyIndex = -1;
-                    for (let j = 1; j <= 10; j++) {
-                        if (i + j >= rawLines.length) break;
-                        if (rawLines[i + j].trim() === '') {
-                            nextEmptyIndex = i + j;
-                            break;
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.lang = 'ja-JP';
+                    window.speechSynthesis.speak(utterance);
+                };
+
+                const pickNextSentence = () => {
+                    if (sentences.value.length === 0) return;
+
+                    const poolA = [];
+                    const poolB = [];
+                    const poolC = [];
+                    const now = Date.now();
+
+                    // 构建备选池时加入时间冷却和防连击检查
+                    sentences.value.forEach(s => {
+                        // 防止同一个句子连续出现
+                        if (s === currentSentence.value) return;
+
+                        const rec = records.value[s] || { level: 'C', lastTime: 0, count: 0 };
+                        const item = { text: s, lastTime: rec.lastTime || 0, rand: Math.random() };
+                        const timeSinceLast = now - (rec.lastTime || 0);
+
+                        if (rec.level === 'A') {
+                            if (timeSinceLast >= 60000) poolA.push(item); // 容易级别：1分钟冷却
+                        } else if (rec.level === 'B') {
+                            if (timeSinceLast >= 30000) poolB.push(item); // 模糊级别：30秒冷却
+                        } else {
+                            poolC.push(item); // 困难级别无冷却
                         }
-                    }
-                    
-                    if (nextEmptyIndex !== -1) {
-                        const block = rawLines.slice(i, nextEmptyIndex).join('\n').trim();
-                        if (block) parsedSentences.push(block);
-                        i = nextEmptyIndex + 1; 
+                    });
+
+                    // 优先取最近背过的（即 lastTime 越大的排在前面），然后是随机
+                    const sortDesc = (a, b) => {
+                        if (a.lastTime !== b.lastTime) return b.lastTime - a.lastTime;
+                        return a.rand - b.rand;
+                    };
+
+                    poolA.sort(sortDesc);
+                    poolB.sort(sortDesc);
+                    poolC.sort(sortDesc);
+
+                    const getFromPool = (pool) => {
+                        if (pool.length === 0) return null;
+                        const top5 = pool.slice(0, 5);
+                        const randomIndex = Math.floor(Math.random() * top5.length);
+                        return top5[randomIndex].text;
+                    };
+
+                    // 根据概率决定目标池：60% C级，30% B级，10% A级
+                    let targetLevel;
+                    const rand = Math.random();
+                    if (rand < 0.6) targetLevel = 'C';
+                    else if (rand < 0.9) targetLevel = 'B';
+                    else targetLevel = 'A';
+
+                    // 如果目标池空了（全在冷却中），则按级别降级查找其他池
+                    let next = null;
+                    if (targetLevel === 'C') next = getFromPool(poolC) || getFromPool(poolB) || getFromPool(poolA);
+                    else if (targetLevel === 'B') next = getFromPool(poolB) || getFromPool(poolC) || getFromPool(poolA);
+                    else next = getFromPool(poolA) || getFromPool(poolB) || getFromPool(poolC);
+
+                    if (next) {
+                        currentSentenceObj.value = next;
+                        isAllCooldown.value = false;
                     } else {
-                        const single = rawLines[i].trim();
-                        if (single) parsedSentences.push(single);
-                        i++;
+                        // 如果所有句子都在冷却时间中或不足
+                        isAllCooldown.value = true;
                     }
-                }
-                
-                sentences.value = parsedSentences;
-                
-                if (sentences.value.length > 0) {
-                    loadRecords();
+                };
+
+                const handleAnswer = (level) => {
+                    // 即使处于冷却状态，用户强按按钮也可以触发刷新尝试
+                    if (isAllCooldown.value) {
+                        pickNextSentence();
+                        return;
+                    }
+
+                    const s = currentSentence.value;
+                    if (!s) return;
                     
-                    const currentSentencesSet = new Set(sentences.value);
-                    let recordsChanged = false;
-                    for (const key in records.value) {
-                        if (!currentSentencesSet.has(key)) {
-                            delete records.value[key];
-                            recordsChanged = true;
-                        } else if (records.value[key].count === undefined) {
-                            records.value[key].count = 0;
-                            recordsChanged = true;
-                        }
-                    }
-                    if (recordsChanged) saveRecords();
+                    const currentCount = records.value[s]?.count || 0;
+                    records.value[s] = { level, lastTime: Date.now(), count: currentCount + 1 };
+                    saveRecords();
                     
                     pickNextSentence();
-                }
-                
-                loading.value = false;
-                needManualUpload.value = false;
-            };
+                };
 
-            const initFromFile = async () => {
-                try {
-                    const res = await fetch('w.txt?_=' + Date.now(), { cache: 'no-store' });
-                    if (!res.ok) throw new Error();
-                    const text = await res.text();
-                    parseText(text);
-                } catch (e) {
-                    needManualUpload.value = true;
+                const parseText = (text) => {
+                    const rawLines = text.split(/\r?\n/);
+                    const parsedSentences = [];
+                    let i = 0;
+                    
+                    while (i < rawLines.length) {
+                        if (rawLines[i].trim() === '') {
+                            i++;
+                            continue;
+                        }
+                        
+                        let nextEmptyIndex = -1;
+                        for (let j = 1; j <= 10; j++) {
+                            if (i + j >= rawLines.length) break;
+                            if (rawLines[i + j].trim() === '') {
+                                nextEmptyIndex = i + j;
+                                break;
+                            }
+                        }
+                        
+                        if (nextEmptyIndex !== -1) {
+                            const block = rawLines.slice(i, nextEmptyIndex).join('\n').trim();
+                            if (block) parsedSentences.push(block);
+                            i = nextEmptyIndex + 1; 
+                        } else {
+                            const single = rawLines[i].trim();
+                            if (single) parsedSentences.push(single);
+                            i++;
+                        }
+                    }
+                    
+                    sentences.value = parsedSentences;
+                    
+                    if (sentences.value.length > 0) {
+                        loadRecords();
+                        
+                        const currentSentencesSet = new Set(sentences.value);
+                        let recordsChanged = false;
+                        for (const key in records.value) {
+                            if (!currentSentencesSet.has(key)) {
+                                delete records.value[key];
+                                recordsChanged = true;
+                            } else if (records.value[key].count === undefined) {
+                                records.value[key].count = 0;
+                                recordsChanged = true;
+                            }
+                        }
+                        if (recordsChanged) saveRecords();
+                        
+                        pickNextSentence();
+                    }
+                    
                     loading.value = false;
-                }
-            };
+                    needManualUpload.value = false;
+                };
 
-            const handleFileUpload = (event) => {
-                const file = event.target.files[0];
-                if (!file) return;
-                loading.value = true;
-                needManualUpload.value = false;
-                const reader = new FileReader();
-                reader.onload = (e) => parseText(e.target.result);
-                reader.readAsText(file);
-            };
+                const initFromFile = async () => {
+                    try {
+                        const res = await fetch('w.txt?_=' + Date.now(), { cache: 'no-store' });
+                        if (!res.ok) throw new Error();
+                        const text = await res.text();
+                        parseText(text);
+                    } catch (e) {
+                        needManualUpload.value = true;
+                        loading.value = false;
+                    }
+                };
 
-            onMounted(() => {
-                initFromFile();
-            });
+                const handleFileUpload = (event) => {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    loading.value = true;
+                    needManualUpload.value = false;
+                    const reader = new FileReader();
+                    reader.onload = (e) => parseText(e.target.result);
+                    reader.readAsText(file);
+                };
 
-            return { 
-                countA, countB, countC, 
-                currentSentence,
-                handleAnswer, 
-                loading, needManualUpload, isAllCooldown, handleFileUpload,
-                speakSentence, 
-                showSearch, searchQuery, searchInput, searchResults,
-                closeSearch, highlightText, selectSentence
-            };
-        }
-    }).mount('#app');
-</script>
+                onMounted(() => {
+                    initFromFile();
+                });
+
+                return { 
+                    countA, countB, countC, 
+                    currentSentence,
+                    handleAnswer, 
+                    loading, needManualUpload, isAllCooldown, handleFileUpload,
+                    speakSentence, 
+                    showSearch, searchQuery, searchInput, searchResults,
+                    closeSearch, highlightText, selectSentence
+                };
+            }
+        }).mount('#app');
+    </script>
 </body>
-</html>   
+</html>
