@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>单词记忆 - 原生极速分词版</title>
+    <title>单词记忆 - 概率均衡版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     
@@ -132,8 +132,8 @@
 
                 <template v-else>
                     <div class="flex-grow flex items-center justify-center py-2 overflow-hidden">
-                        <p class="text-black text-xl md:text-2xl font-bold text-center leading-relaxed break-words tracking-wide whitespace-pre-wrap" 
-                           v-html="coloredSentence || currentSentence">
+                        <p class="text-black text-xl md:text-2xl font-bold text-center leading-relaxed break-words tracking-wide whitespace-pre-wrap">
+                            {{ currentSentence }}
                         </p>
                     </div>
                 </template>
@@ -173,51 +173,11 @@
                 const searchQuery = ref('');
                 const searchInput = ref(null);
 
-                const coloredSentence = ref('');
-
                 const countA = computed(() => sentences.value.filter(s => records.value[s]?.level === 'A').length);
                 const countB = computed(() => sentences.value.filter(s => records.value[s]?.level === 'B').length);
                 const countC = computed(() => sentences.value.filter(s => !records.value[s] || records.value[s].level === 'C').length);
 
                 const currentSentence = computed(() => currentSentenceObj.value || '');
-
-                // 核心改动：使用浏览器原生的 Intl.Segmenter 进行日文分词
-                const parseSentence = () => {
-                    if (!currentSentence.value) {
-                        coloredSentence.value = '';
-                        return;
-                    }
-                    
-                    try {
-                        // 初始化日文分词器，指定粒度为 'word' (词)
-                        const segmenter = new Intl.Segmenter('ja-JP', { granularity: 'word' });
-                        const segments = segmenter.segment(currentSentence.value);
-                        
-                        const colors = ['#1f77b4', '#d62728', '#2ca02c', '#ff7f0e', '#9467bd', '#8c564b', '#e377c2', '#bcbd22', '#17becf'];
-                        let html = '';
-                        let colorIndex = 0;
-                        
-                        // 遍历分词结果
-                        for (const { segment, isWordLike } of segments) {
-                            if (!isWordLike) {
-                                // 标点符号、空格置灰
-                                html += `<span style="color: #6b7280;">${segment}</span>`;
-                            } else {
-                                // 词语分配颜色
-                                html += `<span style="color: ${colors[colorIndex % colors.length]};">${segment}</span>`;
-                                colorIndex++;
-                            }
-                        }
-                        coloredSentence.value = html;
-                    } catch (e) {
-                        console.error("原生分词失败，回退到纯文本:", e);
-                        coloredSentence.value = currentSentence.value;
-                    }
-                };
-
-                watch(currentSentenceObj, () => {
-                    parseSentence();
-                });
 
                 watch(showSearch, (newVal) => {
                     if (newVal) {
@@ -444,7 +404,6 @@
                 return { 
                     countA, countB, countC, 
                     currentSentence,
-                    coloredSentence,
                     handleAnswer, 
                     loading, needManualUpload, isAllCooldown, handleFileUpload,
                     speakSentence, 
