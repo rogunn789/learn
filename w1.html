@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>单词记忆 - 检索版</title>
+    <title>单词记忆 - 概率均衡版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
@@ -17,7 +18,7 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #ffffff; /* 固定白色背景 */
+            background-color: #ffffff;
         }
         body { 
             font-family: 'Noto Serif JP', serif; 
@@ -25,20 +26,13 @@
         [v-cloak] { display: none; }
         
         .theme-text {
-            color: #1f2937; /* 深灰/黑色文字 */
+            color: #1f2937;
             transition: color 0.3s ease;
         }
         .theme-text:hover {
             color: #4b5563;
         }
-        
-        .theme-card {
-            background-color: #ffffff;
-            border-color: #e5e7eb;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-        }
 
-        /* 自定义滚动条 */
         ::-webkit-scrollbar {
             width: 6px;
         }
@@ -58,6 +52,13 @@
 
     <div id="app" v-cloak class="h-full w-full flex flex-col items-center justify-center p-4 box-border relative">
          
+        <button @click="speakSentence" 
+                v-if="currentSentence && !loading && !needManualUpload && !isAllCooldown"
+                class="absolute top-4 left-4 md:top-8 md:left-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors shadow-sm z-10"
+                title="朗读句子">
+            <i class="fa-solid fa-volume-high text-xl"></i>
+        </button>
+
         <button @click="showSearch = true" 
                 class="absolute top-4 right-4 md:top-8 md:right-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors shadow-sm z-10"
                 title="搜索关键字">
@@ -108,8 +109,8 @@
             <div class=" p-6 flex-grow  flex flex-col rounded-xl min-h-0 overflow-hidden">
                 
                 <template v-if="loading">
-                    <div class="flex-grow flex items-center justify-center theme-text text-base">
-                        古卷加载中...
+                    <div class="flex-grow flex flex-col items-center justify-center theme-text text-base">
+                        <span>古卷加载中...</span>
                     </div>
                 </template>
 
@@ -125,34 +126,32 @@
 
                 <template v-else-if="isAllCooldown">
                     <div class="flex-grow flex items-center justify-center text-center flex-col">
-                        <p class="theme-text text-lg leading-relaxed">句子皆在静心冷却之中。<br>请稍作休息。</p>
+                        <p class="theme-text text-lg leading-relaxed">句子皆在静心冷却之中。<br>请稍作休息，或尝试再次点击下方按钮。</p>
                     </div>
                 </template>
 
                 <template v-else>
                     <div class="flex-grow flex items-center justify-center py-2 overflow-hidden">
-                        <p @click="speakSentence" 
-                           :class="[currentSentenceColor, 'cursor-pointer hover:opacity-80 transition-opacity text-xl md:text-2xl font-bold text-center leading-relaxed break-words tracking-wide whitespace-pre-wrap']" 
-                           title="点击聆听">
+                        <p class="text-black text-xl md:text-2xl font-bold text-center leading-relaxed break-words tracking-wide whitespace-pre-wrap">
                             {{ currentSentence }}
                         </p>
                     </div>
-
-                    <div class="grid grid-cols-3 gap-4 mt-4 shrink-0">
-                        <button @click="handleAnswer('A')" class="flex flex-col items-center justify-center p-3 text-green-500 hover:text-green-600 hover:bg-green-50 rounded-xl transition-all" title="容易 (A)">
-                            <i class="fa-solid fa-leaf text-3xl mb-1"></i>
-                            <span class="text-xs font-bold">容易</span>
-                        </button>
-                        <button @click="handleAnswer('B')" class="flex flex-col items-center justify-center p-3 text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-xl transition-all" title="模糊 (B)">
-                            <i class="fa-solid fa-cloud text-3xl mb-1"></i>
-                            <span class="text-xs font-bold">模糊</span>
-                        </button>
-                        <button @click="handleAnswer('C')" class="flex flex-col items-center justify-center p-3 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="困难 (C)">
-                            <i class="fa-solid fa-mountain text-3xl mb-1"></i>
-                            <span class="text-xs font-bold">困难</span>
-                        </button>
-                    </div>
                 </template>
+                
+                <div class="grid grid-cols-3 gap-4 mt-4 shrink-0" v-if="!loading && !needManualUpload">
+                    <button @click="handleAnswer('A')" class="flex flex-col items-center justify-center p-3 text-green-500 hover:text-green-600 hover:bg-green-50 rounded-xl transition-all" title="容易 (A)">
+                        <i class="fa-solid fa-leaf text-3xl mb-1"></i>
+                        <span class="text-xs font-bold">容易</span>
+                    </button>
+                    <button @click="handleAnswer('B')" class="flex flex-col items-center justify-center p-3 text-yellow-500 hover:text-yellow-600 hover:bg-yellow-50 rounded-xl transition-all" title="模糊 (B)">
+                        <i class="fa-solid fa-cloud text-3xl mb-1"></i>
+                        <span class="text-xs font-bold">模糊</span>
+                    </button>
+                    <button @click="handleAnswer('C')" class="flex flex-col items-center justify-center p-3 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="困难 (C)">
+                        <i class="fa-solid fa-mountain text-3xl mb-1"></i>
+                        <span class="text-xs font-bold">困难</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -164,35 +163,22 @@
             setup() {
                 const sentences = ref([]);
                 const records = ref({}); 
-                const batch = ref([]);
-                const currentIndex = ref(0);
+                const currentSentenceObj = ref(null);
                 
                 const loading = ref(true);
                 const needManualUpload = ref(false);
                 const isAllCooldown = ref(false);
                 
-                // 搜索功能相关的状态
                 const showSearch = ref(false);
                 const searchQuery = ref('');
                 const searchInput = ref(null);
-
-                const currentSentenceColor = computed(() => {
-                    const s = currentSentence.value;
-                    if (!s) return 'text-red-600'; 
-                    
-                    const level = records.value[s]?.level;
-                    if (level === 'A') return 'text-green-600';
-                    if (level === 'B') return 'text-yellow-500';
-                    return 'text-red-600'; 
-                });
 
                 const countA = computed(() => sentences.value.filter(s => records.value[s]?.level === 'A').length);
                 const countB = computed(() => sentences.value.filter(s => records.value[s]?.level === 'B').length);
                 const countC = computed(() => sentences.value.filter(s => !records.value[s] || records.value[s].level === 'C').length);
 
-                const currentSentence = computed(() => batch.value[currentIndex.value] || '');
+                const currentSentence = computed(() => currentSentenceObj.value || '');
 
-                // 监听搜索面板打开，自动聚焦输入框
                 watch(showSearch, (newVal) => {
                     if (newVal) {
                         nextTick(() => {
@@ -201,14 +187,12 @@
                     }
                 });
 
-                // 计算搜索结果（转小写匹配，限制最多显示100条防止卡顿）
                 const searchResults = computed(() => {
                     const query = searchQuery.value.trim().toLowerCase();
                     if (!query) return [];
                     return sentences.value.filter(s => s.toLowerCase().includes(query)).slice(0, 100);
                 });
 
-                // 转义 HTML 防止 XSS，并包裹高亮标签
                 const highlightText = (text, query) => {
                     const escapeHtml = (str) => str.replace(/[&<>"']/g, m => ({
                         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -219,26 +203,18 @@
                     if (!cleanQuery) return escapedText;
 
                     const escapedQuery = escapeHtml(cleanQuery);
-                    // 使用正则全局忽略大小写匹配关键字
                     const regex = new RegExp(`(${escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
                     return escapedText.replace(regex, '<span class="bg-yellow-300 text-black font-bold px-1 rounded shadow-sm">$1</span>');
                 };
 
                 const closeSearch = () => {
                     showSearch.value = false;
-                    searchQuery.value = ''; // 关闭时清空搜索框
+                    searchQuery.value = ''; 
                 };
 
-                // 在搜索列表点击某一条时
                 const selectSentence = (sentence) => {
-                    // 将选中的句子直接插入到当前进度中（即刻显示）
-                    if (batch.value.length === 0) {
-                        batch.value = [sentence];
-                        currentIndex.value = 0;
-                        isAllCooldown.value = false;
-                    } else {
-                        batch.value.splice(currentIndex.value, 0, sentence);
-                    }
+                    currentSentenceObj.value = sentence;
+                    isAllCooldown.value = false;
                     closeSearch();
                 };
 
@@ -263,69 +239,76 @@
                     window.speechSynthesis.speak(utterance);
                 };
 
-                const generateBatch = () => {
+                const pickNextSentence = () => {
                     if (sentences.value.length === 0) return;
-                    const now = Date.now();
-                    const aCooldown = 120 * 1000; 
-                    const bCooldown = 30 * 1000;  
 
                     const poolA = [];
                     const poolB = [];
                     const poolC = [];
+                    const now = Date.now();
 
                     sentences.value.forEach(s => {
-                        const rec = records.value[s] || { level: 'C', lastTime: 0, count: 0 };
-                        const count = rec.count || 0;
-                        const lastTime = rec.lastTime || 0;
-                        const level = rec.level || 'C';
-                        const item = { text: s, level, lastTime, count, rand: Math.random() };
+                        if (s === currentSentence.value) return;
 
-                        if (level === 'C') {
-                            poolC.push(item);
-                        } else if (level === 'B' && now - lastTime >= bCooldown) {
-                            poolB.push(item);
-                        } else if (level === 'A' && now - lastTime >= aCooldown) {
-                            poolA.push(item);
-                        }
+                        const rec = records.value[s] || { level: 'C', lastTime: 0, count: 0 };
+                        const item = { text: s, lastTime: rec.lastTime || 0, rand: Math.random() };
+
+                        if (rec.level === 'A') poolA.push(item);
+                        else if (rec.level === 'B') poolB.push(item);
+                        else poolC.push(item); 
                     });
 
-                    const sortFn = (a, b) => {
-                        if (a.count !== b.count) return a.count - b.count;
-                        return b.lastTime - a.lastTime;
+                    const getFromPool = (pool, cooldownTime) => {
+                        if (pool.length === 0) return null;
+
+                        const validItems = pool.filter(item => (now - item.lastTime) >= cooldownTime);
+
+                        if (validItems.length > 0) {
+                            validItems.sort((a, b) => {
+                                if (a.lastTime !== b.lastTime) return a.lastTime - b.lastTime;
+                                return a.rand - b.rand; 
+                            });
+                            return validItems[0].text;
+                        } else {
+                            const randomIndex = Math.floor(Math.random() * pool.length);
+                            return pool[randomIndex].text;
+                        }
                     };
 
-                    poolA.sort(sortFn);
-                    poolB.sort(sortFn);
-                    poolC.sort(sortFn);
+                    const cooldownA = 3 * 60 * 1000; 
+                    const cooldownB = 1 * 60 * 1000; 
+                    const cooldownC = 1 * 60 * 1000; 
 
-                    let nextBatch = [];
-                    nextBatch.push(...poolC.splice(0, 20));
-                    nextBatch.push(...poolB.splice(0, 6));
-                    nextBatch.push(...poolA.splice(0, 4));
-
-                    if (nextBatch.length < 30) {
-                        const remaining = [...poolC, ...poolB, ...poolA];
-                        remaining.sort(sortFn);
-                        nextBatch.push(...remaining.splice(0, 30 - nextBatch.length));
-                    }
-
-                    if (nextBatch.length === 0) {
-                        isAllCooldown.value = true;
-                        return;
-                    }
-
-                    isAllCooldown.value = false;
+                    let targetLevel;
+                    const rand = Math.random();
                     
-                    nextBatch.sort((a, b) => {
-                        if (a.count !== b.count) return a.count - b.count;
-                        return a.rand - b.rand;
-                    });
+                    if (rand < 0.6) targetLevel = 'B';
+                    else if (rand < 0.9) targetLevel = 'C';
+                    else targetLevel = 'A';
 
-                    batch.value = nextBatch.map(item => item.text);
-                    currentIndex.value = 0;
+                    let next = null;
+                    if (targetLevel === 'B') {
+                        next = getFromPool(poolB, cooldownB) || getFromPool(poolC, cooldownC) || getFromPool(poolA, cooldownA);
+                    } else if (targetLevel === 'C') {
+                        next = getFromPool(poolC, cooldownC) || getFromPool(poolB, cooldownB) || getFromPool(poolA, cooldownA);
+                    } else {
+                        next = getFromPool(poolA, cooldownA) || getFromPool(poolB, cooldownB) || getFromPool(poolC, cooldownC);
+                    }
+
+                    if (next) {
+                        currentSentenceObj.value = next;
+                        isAllCooldown.value = false;
+                    } else {
+                        isAllCooldown.value = true;
+                    }
                 };
 
                 const handleAnswer = (level) => {
+                    if (isAllCooldown.value) {
+                        pickNextSentence();
+                        return;
+                    }
+
                     const s = currentSentence.value;
                     if (!s) return;
                     
@@ -333,8 +316,7 @@
                     records.value[s] = { level, lastTime: Date.now(), count: currentCount + 1 };
                     saveRecords();
                     
-                    currentIndex.value++;
-                    if (currentIndex.value >= batch.value.length) generateBatch();
+                    pickNextSentence();
                 };
 
                 const parseText = (text) => {
@@ -386,7 +368,7 @@
                         }
                         if (recordsChanged) saveRecords();
                         
-                        generateBatch();
+                        pickNextSentence();
                     }
                     
                     loading.value = false;
@@ -421,12 +403,10 @@
 
                 return { 
                     countA, countB, countC, 
-                    currentSentence, currentSentenceColor,
-                    batch, currentIndex, 
+                    currentSentence,
                     handleAnswer, 
                     loading, needManualUpload, isAllCooldown, handleFileUpload,
                     speakSentence, 
-                    // Search variables
                     showSearch, searchQuery, searchInput, searchResults,
                     closeSearch, highlightText, selectSentence
                 };
