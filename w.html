@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
-    <title>文本块记忆 - 智能同步版 v8</title>
+    <title>文本块记忆 - 精准搜索版 v9</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -42,7 +42,7 @@
             <div class="bg-gray-900 w-11/12 max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[75vh] overflow-hidden border border-gray-700 transform transition-all">
                 <div class="p-4 border-b border-gray-700 flex items-center gap-3 bg-gray-800">
                     <i class="fa-solid fa-magnifying-glass text-gray-500"></i>
-                    <input ref="searchInput" v-model="searchQuery" type="text" placeholder="输入零散字符模糊检索..." class="w-full text-lg bg-transparent border-none focus:outline-none text-white placeholder-gray-500" @keyup.esc="closeSearch">
+                    <input ref="searchInput" v-model="searchQuery" type="text" placeholder="输入关键字精准搜索 (如 ABC)..." class="w-full text-lg bg-transparent border-none focus:outline-none text-white placeholder-gray-500" @keyup.esc="closeSearch">
                     <button @click="closeSearch" class="text-gray-500 hover:text-white px-2 text-2xl leading-none">&times;</button>
                 </div>
                 <div class="overflow-y-auto flex-grow p-2">
@@ -50,9 +50,9 @@
                         <div v-for="(item, index) in searchResults" :key="index" 
                              @click="selectBlock(item)" 
                              class="p-4 rounded-lg hover:bg-gray-800 cursor-pointer transition-colors border-b border-gray-800 last:border-0 text-gray-300 text-base active:bg-gray-700" 
-                             v-html="fuzzyHighlight(item, searchQuery)">
+                             v-html="highlightText(item, searchQuery)">
                         </div>
-                        <div v-if="searchResults.length === 0" class="text-gray-500 text-center py-10">未找到相关文本块</div>
+                        <div v-if="searchResults.length === 0" class="text-gray-500 text-center py-10">未找到包含该关键字的文本块</div>
                     </div>
                 </div>
             </div>
@@ -136,7 +136,6 @@
             store.put({ id, ...record });
         };
 
-        // 清理数据库中不存在于当前文本中的旧数据
         const cleanupDB = async (db, validBlocks) => {
             const tx = db.transaction(STORE_NAME, 'readwrite');
             const store = tx.objectStore(STORE_NAME);
@@ -155,7 +154,7 @@
         createApp({
             setup() {
                 const db = ref(null);
-                const blocks = ref([]);     // 替代原来的 sentences
+                const blocks = ref([]);     
                 const records = ref({}); 
                 const currentBlockObj = ref(null);
                 const loading = ref(true);
@@ -187,43 +186,30 @@
                     }
                 });
 
-                const isFuzzyMatch = (text, query) => {
-                    let textLower = text.toLowerCase();
-                    let queryLower = query.toLowerCase();
-                    let qIdx = 0;
-                    for (let i = 0; i < textLower.length; i++) {
-                        if (textLower[i] === queryLower[qIdx]) qIdx++;
-                        if (qIdx === queryLower.length) return true;
-                    }
-                    return false;
-                };
-
+                // --- 恢复为标准的子串匹配查询 ---
                 const searchResults = computed(() => {
-                    const q = searchQuery.value.trim();
+                    const q = searchQuery.value.trim().toLowerCase();
                     if (!q) return [];
-                    return blocks.value.filter(b => isFuzzyMatch(b, q)).slice(0, 100);
+                    return blocks.value.filter(b => b.toLowerCase().includes(q)).slice(0, 100);
                 });
 
-                const fuzzyHighlight = (text, query) => {
+                // --- 恢复为连续关键字高亮 ---
+                const highlightText = (text, query) => {
+                    if (!text) return '';
+                    let cleanQuery = query.trim();
+                    if (!cleanQuery) return text;
+
                     const escapeHtml = (str) => str.replace(/[&<>"']/g, m => ({
                         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
                     })[m]);
 
-                    let cleanQuery = query.trim().toLowerCase();
-                    if (!cleanQuery) return escapeHtml(text);
+                    let escapedText = escapeHtml(text);
+                    let escapedQuery = escapeHtml(cleanQuery);
 
-                    let result = '';
-                    let qIdx = 0;
-                    for (let i = 0; i < text.length; i++) {
-                        let char = text[i];
-                        if (qIdx < cleanQuery.length && char.toLowerCase() === cleanQuery[qIdx]) {
-                            result += `<span class="text-yellow-400 font-bold bg-yellow-900/50 rounded px-[2px] mx-[1px]">${escapeHtml(char)}</span>`;
-                            qIdx++;
-                        } else {
-                            result += escapeHtml(char);
-                        }
-                    }
-                    return result;
+                    const safeRegexQuery = escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp(`(${safeRegexQuery})`, 'gi');
+                    
+                    return escapedText.replace(regex, '<span class="bg-yellow-500 text-black font-bold px-1 rounded shadow-sm">$1</span>');
                 };
 
                 const closeSearch = () => { showSearch.value = false; searchQuery.value = ''; };
@@ -276,21 +262,14 @@
                     pickNextBlock();
                 };
 
-                // --- 严格的文本块解析与拆分逻辑 ---
                 const parseText = (text) => {
-                    // 1. 标准化换行符，防止 Windows/Mac 差异
                     const normalizedText = text.replace(/\r\n/g, '\n');
-                    
-                    // 2. 严格按照空行（包含至少两个连续的换行符，中间可有空格）将文本切割成大块
                     const rawBlocks = normalizedText.split(/\n\s*\n/).map(b => b.trim()).filter(b => b.length > 0);
-                    
                     const finalBlocks = [];
 
-                    // 3. 检查每个大块的行数
                     rawBlocks.forEach(block => {
                         const lines = block.split('\n');
                         if (lines.length > 20) {
-                            // 如果超过 20 行，按行拆分该块
                             lines.forEach(line => {
                                 const trimmedLine = line.trim();
                                 if (trimmedLine.length > 0) {
@@ -298,14 +277,12 @@
                                 }
                             });
                         } else {
-                            // 不超过 20 行，作为一个完整的块保留
                             finalBlocks.push(block);
                         }
                     });
 
                     blocks.value = finalBlocks;
 
-                    // 4. 清理旧数据：将不在当前 w.txt 里的记录从内存中彻底删除
                     const currentSet = new Set(finalBlocks);
                     for (const key in records.value) {
                         if (!currentSet.has(key)) {
@@ -313,7 +290,6 @@
                         }
                     }
 
-                    // 同步清理 IndexedDB 中的旧记录
                     if (db.value) {
                         cleanupDB(db.value, finalBlocks);
                     }
@@ -361,7 +337,7 @@
                     countClear, countBlurry, countUnread,
                     handleAnswer, handleFileUpload, speakBlock,
                     showSearch, searchQuery, searchResults, searchInput,
-                    closeSearch, selectBlock, fuzzyHighlight
+                    closeSearch, selectBlock, highlightText
                 };
             }
         }).mount('#app');
