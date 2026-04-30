@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
-    <title>单词记忆 - 概率均衡版 v3</title>
+    <title>单词记忆 - 概率均衡版 v4</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,7 +18,7 @@
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-        /* 彻底禁止按钮双击放大 */
+        /* 禁止按钮双击放大，提高响应速度 */
         button, input { touch-action: manipulation; }
     </style>
 </head>
@@ -56,8 +56,18 @@
 
         <div class="w-full max-w-lg h-full flex flex-col py-2">
             <div class="flex justify-center items-center space-x-12 mb-4 text-xl font-bold tracking-widest shrink-0">
-                <span class="text-green-500" title="简单次数统计">{{ totalSimpleCount }}</span>
-                <span class="text-yellow-500" title="模糊次数统计">{{ totalBlurCount }}</span>
+                <div class="flex flex-col items-center">
+                    <span class="text-green-500">{{ countClear }}</span>
+                    <span class="text-[10px] text-gray-500">清晰>模糊</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-yellow-500">{{ countBlurry }}</span>
+                    <span class="text-[10px] text-gray-500">模糊≥清晰</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <span class="text-red-500">{{ countUnread }}</span>
+                    <span class="text-[10px] text-gray-500">未背过</span>
+                </div>
             </div>
 
             <div class="p-6 flex-grow flex flex-col rounded-xl overflow-hidden">
@@ -66,7 +76,7 @@
                 </template>
                 <template v-else-if="needManualUpload">
                     <div class="flex-grow flex flex-col items-center justify-center text-center">
-                        <label class="cursor-pointer bg-gray-800 hover:bg-gray-700 border border-gray-600 py-2 px-6 rounded-md transition">
+                        <label class="cursor-pointer bg-gray-800 hover:bg-gray-700 border border-gray-600 py-2 px-6 rounded-md transition text-white">
                             开启 w.txt 文件
                             <input type="file" class="hidden" accept=".txt" @change="handleFileUpload">
                         </label>
@@ -96,7 +106,7 @@
     <script>
         const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
 
-        // --- IndexedDB 简单包装 ---
+        // --- IndexedDB 存储逻辑 ---
         const DB_NAME = 'VocabAppDB';
         const STORE_NAME = 'records';
         const initDB = () => {
@@ -139,21 +149,40 @@
                 const currentSentenceObj = ref(null);
                 const loading = ref(true);
                 const needManualUpload = ref(false);
-                
                 const showSearch = ref(false);
                 const searchQuery = ref('');
                 const searchInput = ref(null);
 
-                const totalSimpleCount = computed(() => Object.values(records.value).reduce((sum, r) => sum + (r.simpleCount || 0), 0));
-                const totalBlurCount = computed(() => Object.values(records.value).reduce((sum, r) => sum + (r.blurCount || 0), 0));
+                // --- 修改后的统计逻辑 ---
+                // 1. 清晰(简单)次数 > 模糊次数 的句子
+                const countClear = computed(() => {
+                    return sentences.value.filter(s => {
+                        const r = records.value[s];
+                        return r && (r.simpleCount + r.blurCount > 0) && (r.simpleCount > r.blurCount);
+                    }).length;
+                });
+
+                // 2. 模糊次数 >= 清晰次数 的句子 (已背过)
+                const countBlurry = computed(() => {
+                    return sentences.value.filter(s => {
+                        const r = records.value[s];
+                        return r && (r.simpleCount + r.blurCount > 0) && (r.blurCount >= r.simpleCount);
+                    }).length;
+                });
+
+                // 3. 剩下没背过的
+                const countUnread = computed(() => {
+                    return sentences.value.filter(s => {
+                        const r = records.value[s];
+                        return !r || (r.simpleCount + r.blurCount === 0);
+                    }).length;
+                });
+
                 const currentSentence = computed(() => currentSentenceObj.value || '');
 
-                // 监听搜索框打开，自动聚焦
                 watch(showSearch, (newVal) => {
                     if (newVal) {
-                        nextTick(() => {
-                            if (searchInput.value) searchInput.value.focus();
-                        });
+                        nextTick(() => { if (searchInput.value) searchInput.value.focus(); });
                     }
                 });
 
@@ -163,41 +192,25 @@
                     return sentences.value.filter(s => s.toLowerCase().includes(q)).slice(0, 100);
                 });
 
-                // 修复：安全的搜索文本高亮函数，防止正则崩溃和 HTML 冲突
                 const highlightText = (text, query) => {
                     if (!text) return '';
                     let cleanQuery = query.trim();
                     if (!cleanQuery) return text;
-
-                    // 转义 HTML 字符
                     const escapeHtml = (str) => str.replace(/[&<>"']/g, m => ({
                         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
                     })[m]);
-
                     let escapedText = escapeHtml(text);
                     let escapedQuery = escapeHtml(cleanQuery);
-
-                    // 转义正则中的特殊字符，防止报错
                     const safeRegexQuery = escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     const regex = new RegExp(`(${safeRegexQuery})`, 'gi');
-                    
-                    return escapedText.replace(regex, '<span class="bg-yellow-500 text-black font-bold px-1 rounded shadow-sm">$1</span>');
+                    return escapedText.replace(regex, '<span class="bg-yellow-500 text-black font-bold px-1 rounded">$1</span>');
                 };
 
-                const closeSearch = () => {
-                    showSearch.value = false;
-                    searchQuery.value = ''; 
-                };
+                const closeSearch = () => { showSearch.value = false; searchQuery.value = ''; };
+                const selectSentence = (sentence) => { currentSentenceObj.value = sentence; closeSearch(); };
 
-                const selectSentence = (sentence) => {
-                    currentSentenceObj.value = sentence;
-                    closeSearch();
-                };
-
-                // --- 核心算法：获取下一个句子 ---
                 const pickNextSentence = () => {
                     if (sentences.value.length === 0) return;
-                    
                     const now = Date.now();
                     const rand = Math.random();
                     let next = null;
@@ -232,36 +245,24 @@
                         const fallbackPool = sentences.value.filter(s => s !== currentSentence.value);
                         next = fallbackPool.length > 0 ? fallbackPool[Math.floor(Math.random() * fallbackPool.length)] : sentences.value[0];
                     }
-
                     currentSentenceObj.value = next;
                 };
 
                 const handleAnswer = async (type) => {
                     const s = currentSentence.value;
                     if (!s) return;
-
-                    if (!records.value[s]) {
-                        records.value[s] = { simpleCount: 0, blurCount: 0, lastTime: 0 };
-                    }
-                    
+                    if (!records.value[s]) records.value[s] = { simpleCount: 0, blurCount: 0, lastTime: 0 };
                     if (type === 'Simple') records.value[s].simpleCount++;
                     else records.value[s].blurCount++;
-                    
                     records.value[s].lastTime = Date.now();
-                    
                     if (db.value) await saveRecordToDB(db.value, s, records.value[s]);
-                    
                     pickNextSentence();
                 };
 
-                // --- 内容解析：严格按空行截取 ---
                 const parseText = (text) => {
                     const blocks = text.split(/\n\s*\n/).map(b => b.trim()).filter(b => b.length > 0);
                     sentences.value = blocks;
-                    
-                    if (sentences.value.length > 0) {
-                        pickNextSentence();
-                    }
+                    if (sentences.value.length > 0) pickNextSentence();
                     loading.value = false;
                     needManualUpload.value = false;
                 };
@@ -269,7 +270,6 @@
                 const initData = async () => {
                     db.value = await initDB();
                     records.value = await getRecordsFromDB(db.value);
-
                     try {
                         const res = await fetch('w.txt?_=' + Date.now(), { cache: 'no-store' });
                         if (!res.ok) throw new Error();
@@ -302,7 +302,7 @@
 
                 return {
                     loading, needManualUpload, currentSentence,
-                    totalSimpleCount, totalBlurCount,
+                    countClear, countBlurry, countUnread,
                     handleAnswer, handleFileUpload, speakSentence,
                     showSearch, searchQuery, searchResults, searchInput,
                     closeSearch, selectSentence, highlightText
