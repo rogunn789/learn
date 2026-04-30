@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
-    <title>单词记忆 - 概率均衡版 v4</title>
+    <title>单词记忆 v5</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -14,11 +14,9 @@
         html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000000; color: #ffffff; }
         body { font-family: 'Noto Serif JP', serif; }
         [v-cloak] { display: none; }
-        .theme-text { color: #f3f4f6; transition: color 0.3s ease; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-        /* 禁止按钮双击放大，提高响应速度 */
         button, input { touch-action: manipulation; }
     </style>
 </head>
@@ -41,38 +39,28 @@
             <div class="bg-gray-900 w-11/12 max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[75vh] overflow-hidden border border-gray-700 transform transition-all">
                 <div class="p-4 border-b border-gray-700 flex items-center gap-3 bg-gray-800">
                     <i class="fa-solid fa-magnifying-glass text-gray-500"></i>
-                    <input ref="searchInput" v-model="searchQuery" type="text" placeholder="搜索关键字..." class="w-full text-lg bg-transparent border-none focus:outline-none text-white placeholder-gray-500" @keyup.esc="closeSearch">
+                    <input ref="searchInput" v-model="searchQuery" type="text" placeholder="输入关键字搜索..." class="w-full text-lg bg-transparent border-none focus:outline-none text-white placeholder-gray-500" @keyup.esc="closeSearch">
                     <button @click="closeSearch" class="text-gray-500 hover:text-white px-2 text-xl">&times;</button>
                 </div>
                 <div class="overflow-y-auto flex-grow p-2">
-                    <div v-if="!searchQuery" class="text-gray-600 text-center py-10">输入关键字检索全文</div>
-                    <div v-else-if="searchResults.length === 0" class="text-gray-600 text-center py-10">未找到包含该关键字的句子</div>
-                    <div v-else class="flex flex-col gap-1">
-                        <div v-for="(item, index) in searchResults" :key="index" @click="selectSentence(item)" class="p-4 rounded-lg hover:bg-gray-800 cursor-pointer transition-colors border-b border-gray-800 last:border-0 text-gray-200" v-html="highlightText(item, searchQuery)"></div>
+                    <div v-if="searchQuery" class="flex flex-col gap-1">
+                        <div v-for="(item, index) in searchResults" :key="index" @click="selectSentence(item)" class="p-4 rounded-lg hover:bg-gray-800 cursor-pointer transition-colors border-b border-gray-800 last:border-0 text-gray-200 text-sm md:text-base" v-html="highlightText(item, searchQuery)"></div>
+                        <div v-if="searchResults.length === 0" class="text-gray-600 text-center py-10">未找到相关结果</div>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="w-full max-w-lg h-full flex flex-col py-2">
-            <div class="flex justify-center items-center space-x-12 mb-4 text-xl font-bold tracking-widest shrink-0">
-                <div class="flex flex-col items-center">
-                    <span class="text-green-500">{{ countClear }}</span>
-                    <span class="text-[10px] text-gray-500">清晰>模糊</span>
-                </div>
-                <div class="flex flex-col items-center">
-                    <span class="text-yellow-500">{{ countBlurry }}</span>
-                    <span class="text-[10px] text-gray-500">模糊≥清晰</span>
-                </div>
-                <div class="flex flex-col items-center">
-                    <span class="text-red-500">{{ countUnread }}</span>
-                    <span class="text-[10px] text-gray-500">未背过</span>
-                </div>
+            <div class="flex justify-center items-center space-x-16 mb-6 text-2xl md:text-3xl font-bold tracking-widest shrink-0">
+                <span class="text-green-500">{{ countClear }}</span>
+                <span class="text-yellow-500">{{ countBlurry }}</span>
+                <span class="text-red-500">{{ countUnread }}</span>
             </div>
 
             <div class="p-6 flex-grow flex flex-col rounded-xl overflow-hidden">
                 <template v-if="loading">
-                    <div class="flex-grow flex items-center justify-center"><span>古卷加载中...</span></div>
+                    <div class="flex-grow flex items-center justify-center"><span>加载中...</span></div>
                 </template>
                 <template v-else-if="needManualUpload">
                     <div class="flex-grow flex flex-col items-center justify-center text-center">
@@ -106,7 +94,6 @@
     <script>
         const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
 
-        // --- IndexedDB 存储逻辑 ---
         const DB_NAME = 'VocabAppDB';
         const STORE_NAME = 'records';
         const initDB = () => {
@@ -153,30 +140,20 @@
                 const searchQuery = ref('');
                 const searchInput = ref(null);
 
-                // --- 修改后的统计逻辑 ---
-                // 1. 清晰(简单)次数 > 模糊次数 的句子
-                const countClear = computed(() => {
-                    return sentences.value.filter(s => {
-                        const r = records.value[s];
-                        return r && (r.simpleCount + r.blurCount > 0) && (r.simpleCount > r.blurCount);
-                    }).length;
-                });
+                const countClear = computed(() => sentences.value.filter(s => {
+                    const r = records.value[s];
+                    return r && (r.simpleCount + r.blurCount > 0) && (r.simpleCount > r.blurCount);
+                }).length);
 
-                // 2. 模糊次数 >= 清晰次数 的句子 (已背过)
-                const countBlurry = computed(() => {
-                    return sentences.value.filter(s => {
-                        const r = records.value[s];
-                        return r && (r.simpleCount + r.blurCount > 0) && (r.blurCount >= r.simpleCount);
-                    }).length;
-                });
+                const countBlurry = computed(() => sentences.value.filter(s => {
+                    const r = records.value[s];
+                    return r && (r.simpleCount + r.blurCount > 0) && (r.blurCount >= r.simpleCount);
+                }).length);
 
-                // 3. 剩下没背过的
-                const countUnread = computed(() => {
-                    return sentences.value.filter(s => {
-                        const r = records.value[s];
-                        return !r || (r.simpleCount + r.blurCount === 0);
-                    }).length;
-                });
+                const countUnread = computed(() => sentences.value.filter(s => {
+                    const r = records.value[s];
+                    return !r || (r.simpleCount + r.blurCount === 0);
+                }).length);
 
                 const currentSentence = computed(() => currentSentenceObj.value || '');
 
@@ -193,15 +170,11 @@
                 });
 
                 const highlightText = (text, query) => {
-                    if (!text) return '';
-                    let cleanQuery = query.trim();
-                    if (!cleanQuery) return text;
                     const escapeHtml = (str) => str.replace(/[&<>"']/g, m => ({
                         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
                     })[m]);
                     let escapedText = escapeHtml(text);
-                    let escapedQuery = escapeHtml(cleanQuery);
-                    const safeRegexQuery = escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const safeRegexQuery = escapeHtml(query.trim()).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     const regex = new RegExp(`(${safeRegexQuery})`, 'gi');
                     return escapedText.replace(regex, '<span class="bg-yellow-500 text-black font-bold px-1 rounded">$1</span>');
                 };
