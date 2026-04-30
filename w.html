@@ -2,8 +2,8 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
-    <title>单词记忆 - 概率均衡版 v2</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
+    <title>单词记忆 - 概率均衡版 v3</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,16 +11,15 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #ffffff; }
+        html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000000; color: #ffffff; }
         body { font-family: 'Noto Serif JP', serif; }
         [v-cloak] { display: none; }
-        .theme-text { color: #1f2937; transition: color 0.3s ease; }
+        .theme-text { color: #f3f4f6; transition: color 0.3s ease; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-   button, input {
-    touch-action: manipulation;
-}
+        /* 彻底禁止按钮双击放大 */
+        button, input { touch-action: manipulation; }
     </style>
 </head>
 <body>
@@ -29,23 +28,28 @@
          
         <button @click="speakSentence" 
                 v-if="currentSentence && !loading && !needManualUpload"
-                class="absolute top-4 left-4 md:top-8 md:left-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors shadow-sm z-10">
+                class="absolute top-4 left-4 md:top-8 md:left-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-100 transition-colors shadow-sm z-10">
             <i class="fa-solid fa-volume-high text-xl"></i>
         </button>
 
         <button @click="showSearch = true" 
-                class="absolute top-4 right-4 md:top-8 md:right-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors shadow-sm z-10">
+                class="absolute top-4 right-4 md:top-8 md:right-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-100 transition-colors shadow-sm z-10">
             <i class="fa-solid fa-magnifying-glass text-xl"></i>
         </button>
 
-        <div v-if="showSearch" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-start z-50 pt-16" @click.self="closeSearch">
-            <div class="bg-white w-11/12 max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[75vh] overflow-hidden">
-                <div class="p-4 border-b flex items-center gap-3 bg-gray-50">
-                    <input ref="searchInput" v-model="searchQuery" type="text" placeholder="搜索关键字..." class="w-full text-lg bg-transparent border-none focus:outline-none" @keyup.esc="closeSearch">
-                    <button @click="closeSearch" class="text-gray-400 text-xl">&times;</button>
+        <div v-if="showSearch" class="fixed inset-0 bg-black/40 backdrop-blur-sm flex justify-center items-start z-50 pt-16 md:pt-24" @click.self="closeSearch">
+            <div class="bg-gray-900 w-11/12 max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[75vh] overflow-hidden border border-gray-700 transform transition-all">
+                <div class="p-4 border-b border-gray-700 flex items-center gap-3 bg-gray-800">
+                    <i class="fa-solid fa-magnifying-glass text-gray-500"></i>
+                    <input ref="searchInput" v-model="searchQuery" type="text" placeholder="搜索关键字..." class="w-full text-lg bg-transparent border-none focus:outline-none text-white placeholder-gray-500" @keyup.esc="closeSearch">
+                    <button @click="closeSearch" class="text-gray-500 hover:text-white px-2 text-xl">&times;</button>
                 </div>
                 <div class="overflow-y-auto flex-grow p-2">
-                    <div v-for="(item, index) in searchResults" :key="index" @click="selectSentence(item)" class="p-4 rounded-lg hover:bg-blue-50 cursor-pointer border-b border-gray-100 last:border-0" v-html="highlightText(item, searchQuery)"></div>
+                    <div v-if="!searchQuery" class="text-gray-600 text-center py-10">输入关键字检索全文</div>
+                    <div v-else-if="searchResults.length === 0" class="text-gray-600 text-center py-10">未找到包含该关键字的句子</div>
+                    <div v-else class="flex flex-col gap-1">
+                        <div v-for="(item, index) in searchResults" :key="index" @click="selectSentence(item)" class="p-4 rounded-lg hover:bg-gray-800 cursor-pointer transition-colors border-b border-gray-800 last:border-0 text-gray-200" v-html="highlightText(item, searchQuery)"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -62,24 +66,24 @@
                 </template>
                 <template v-else-if="needManualUpload">
                     <div class="flex-grow flex flex-col items-center justify-center text-center">
-                        <label class="cursor-pointer bg-gray-100 hover:bg-gray-200 border border-gray-300 py-2 px-6 rounded-md transition">
+                        <label class="cursor-pointer bg-gray-800 hover:bg-gray-700 border border-gray-600 py-2 px-6 rounded-md transition">
                             开启 w.txt 文件
                             <input type="file" class="hidden" accept=".txt" @change="handleFileUpload">
                         </label>
                     </div>
                 </template>
                 <template v-else>
-                    <div class="flex-grow flex items-center justify-center py-2">
-                        <p class="text-black text-xl md:text-2xl font-bold text-center leading-relaxed whitespace-pre-wrap">
+                    <div class="flex-grow flex items-center justify-center py-2 overflow-hidden">
+                        <p class="text-white text-xl md:text-2xl font-bold text-center leading-relaxed break-words whitespace-pre-wrap">
                             {{ currentSentence }}
                         </p>
                     </div>
                     <div class="grid grid-cols-2 gap-8 mt-4 shrink-0">
-                        <button @click="handleAnswer('Simple')" class="flex flex-col items-center p-3 text-green-500 hover:bg-green-50 rounded-xl transition-all">
+                        <button @click="handleAnswer('Simple')" class="flex flex-col items-center p-3 text-green-500 hover:bg-gray-800 rounded-xl transition-all">
                             <i class="fa-solid fa-leaf text-3xl mb-1"></i>
                             <span class="text-xs font-bold">简单</span>
                         </button>
-                        <button @click="handleAnswer('Blur')" class="flex flex-col items-center p-3 text-yellow-500 hover:bg-yellow-50 rounded-xl transition-all">
+                        <button @click="handleAnswer('Blur')" class="flex flex-col items-center p-3 text-yellow-500 hover:bg-gray-800 rounded-xl transition-all">
                             <i class="fa-solid fa-cloud text-3xl mb-1"></i>
                             <span class="text-xs font-bold">模糊</span>
                         </button>
@@ -131,10 +135,11 @@
             setup() {
                 const db = ref(null);
                 const sentences = ref([]);
-                const records = ref({}); // 结构: { sentence: { simpleCount, blurCount, lastTime } }
+                const records = ref({}); 
                 const currentSentenceObj = ref(null);
                 const loading = ref(true);
                 const needManualUpload = ref(false);
+                
                 const showSearch = ref(false);
                 const searchQuery = ref('');
                 const searchInput = ref(null);
@@ -143,10 +148,51 @@
                 const totalBlurCount = computed(() => Object.values(records.value).reduce((sum, r) => sum + (r.blurCount || 0), 0));
                 const currentSentence = computed(() => currentSentenceObj.value || '');
 
+                // 监听搜索框打开，自动聚焦
+                watch(showSearch, (newVal) => {
+                    if (newVal) {
+                        nextTick(() => {
+                            if (searchInput.value) searchInput.value.focus();
+                        });
+                    }
+                });
+
                 const searchResults = computed(() => {
                     const q = searchQuery.value.trim().toLowerCase();
-                    return q ? sentences.value.filter(s => s.toLowerCase().includes(q)).slice(0, 50) : [];
+                    if (!q) return [];
+                    return sentences.value.filter(s => s.toLowerCase().includes(q)).slice(0, 100);
                 });
+
+                // 修复：安全的搜索文本高亮函数，防止正则崩溃和 HTML 冲突
+                const highlightText = (text, query) => {
+                    if (!text) return '';
+                    let cleanQuery = query.trim();
+                    if (!cleanQuery) return text;
+
+                    // 转义 HTML 字符
+                    const escapeHtml = (str) => str.replace(/[&<>"']/g, m => ({
+                        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+                    })[m]);
+
+                    let escapedText = escapeHtml(text);
+                    let escapedQuery = escapeHtml(cleanQuery);
+
+                    // 转义正则中的特殊字符，防止报错
+                    const safeRegexQuery = escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    const regex = new RegExp(`(${safeRegexQuery})`, 'gi');
+                    
+                    return escapedText.replace(regex, '<span class="bg-yellow-500 text-black font-bold px-1 rounded shadow-sm">$1</span>');
+                };
+
+                const closeSearch = () => {
+                    showSearch.value = false;
+                    searchQuery.value = ''; 
+                };
+
+                const selectSentence = (sentence) => {
+                    currentSentenceObj.value = sentence;
+                    closeSearch();
+                };
 
                 // --- 核心算法：获取下一个句子 ---
                 const pickNextSentence = () => {
@@ -156,20 +202,17 @@
                     const rand = Math.random();
                     let next = null;
 
-                    // 预处理数据
                     const dataList = sentences.value.map(s => {
                         const r = records.value[s] || { simpleCount: 0, blurCount: 0, lastTime: 0 };
                         return { text: s, ...r };
                     });
 
                     if (rand < 0.2) {
-                        // 20% 概率拿没背过的 (简单和模糊次数均为0)
                         const unread = dataList.filter(d => d.simpleCount === 0 && d.blurCount === 0 && d.text !== currentSentence.value);
                         if (unread.length > 0) next = unread[Math.floor(Math.random() * unread.length)].text;
                     } 
                     
-                    if (!next && rand < 0.7) { // (0.2 ~ 0.7 是 50% 概率)
-                        // 50% 概率拿 模糊次数最多 前10个 (冷却30秒)
+                    if (!next && rand < 0.7) { 
                         const blurPool = dataList
                             .filter(d => d.blurCount > 0 && d.text !== currentSentence.value && (now - d.lastTime > 30000))
                             .sort((a, b) => b.blurCount - a.blurCount)
@@ -177,8 +220,7 @@
                         if (blurPool.length > 0) next = blurPool[Math.floor(Math.random() * blurPool.length)].text;
                     }
 
-                    if (!next && rand < 1.0) { // (0.7 ~ 1.0 是 30% 概率)
-                        // 30% 概率拿 简单次数最少 前10个 (冷却60秒)
+                    if (!next && rand < 1.0) { 
                         const simplePool = dataList
                             .filter(d => d.simpleCount > 0 && d.text !== currentSentence.value && (now - d.lastTime > 60000))
                             .sort((a, b) => a.simpleCount - b.simpleCount)
@@ -186,7 +228,6 @@
                         if (simplePool.length > 0) next = simplePool[Math.floor(Math.random() * simplePool.length)].text;
                     }
 
-                    // 兜底随机
                     if (!next) {
                         const fallbackPool = sentences.value.filter(s => s !== currentSentence.value);
                         next = fallbackPool.length > 0 ? fallbackPool[Math.floor(Math.random() * fallbackPool.length)] : sentences.value[0];
@@ -208,7 +249,6 @@
                     
                     records.value[s].lastTime = Date.now();
                     
-                    // 保存到 IndexedDB
                     if (db.value) await saveRecordToDB(db.value, s, records.value[s]);
                     
                     pickNextSentence();
@@ -216,7 +256,6 @@
 
                 // --- 内容解析：严格按空行截取 ---
                 const parseText = (text) => {
-                    // 正则：匹配一个或多个空行。过滤掉两端空白并分割
                     const blocks = text.split(/\n\s*\n/).map(b => b.trim()).filter(b => b.length > 0);
                     sentences.value = blocks;
                     
@@ -266,9 +305,7 @@
                     totalSimpleCount, totalBlurCount,
                     handleAnswer, handleFileUpload, speakSentence,
                     showSearch, searchQuery, searchResults, searchInput,
-                    closeSearch: () => { showSearch.value = false; },
-                    selectSentence: (s) => { currentSentenceObj.value = s; showSearch.value = false; },
-                    highlightText: (text, q) => text.replace(new RegExp(`(${q})`, 'gi'), '<mark class="bg-yellow-200">$1</mark>')
+                    closeSearch, selectSentence, highlightText
                 };
             }
         }).mount('#app');
