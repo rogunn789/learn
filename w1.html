@@ -151,11 +151,23 @@
             };
         };
 
+        // 数组打乱函数 (Fisher-Yates 洗牌算法)
+        const shuffleArray = (array) => {
+            let currentIndex = array.length, randomIndex;
+            while (currentIndex > 0) {
+                randomIndex = Math.floor(Math.random() * currentIndex);
+                currentIndex--;
+                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+            }
+            return array;
+        };
+
         createApp({
             setup() {
                 const db = ref(null);
                 const blocks = ref([]);     
                 const records = ref({}); 
+                const queue = ref([]); // 新增：用于存放抽取好的10个句子
                 const currentBlockObj = ref(null);
                 const loading = ref(true);
                 const needManualUpload = ref(false);
@@ -186,14 +198,12 @@
                     }
                 });
 
-                // --- 恢复为标准的子串匹配查询 ---
                 const searchResults = computed(() => {
                     const q = searchQuery.value.trim().toLowerCase();
                     if (!q) return [];
                     return blocks.value.filter(b => b.toLowerCase().includes(q)).slice(0, 100);
                 });
 
-                // --- 恢复为连续关键字高亮 ---
                 const highlightText = (text, query) => {
                     if (!text) return '';
                     let cleanQuery = query.trim();
@@ -213,42 +223,87 @@
                 };
 
                 const closeSearch = () => { showSearch.value = false; searchQuery.value = ''; };
-                const selectBlock = (block) => { currentBlockObj.value = block; closeSearch(); };
+                const selectBlock = (block) => { 
+                    currentBlockObj.value = block; 
+                    closeSearch(); 
+                    queue.value = []; // 清空队列，使下一次学习重新触发 10 句算法抽取
+                };
 
+                // --- 核心修改：队列抽取算法 ---
                 const pickNextBlock = () => {
                     if (blocks.value.length === 0) return;
-                    const now = Date.now();
-                    const rand = Math.random();
-                    let next = null;
 
+                    // 1. 如果队列里还有句子，直接出队下一个
+                    if (queue.value.length > 0) {
+                        currentBlockObj.value = queue.value.shift();
+                        return;
+                    }
+
+                    // 2. 队列为空，重新生成 10 个句子的队列
+                    const now = Date.now();
                     const dataList = blocks.value.map(b => {
                         const r = records.value[b] || { simpleCount: 0, blurCount: 0, lastTime: 0 };
                         return { text: b, ...r };
                     });
 
-                    if (rand < 0.2) {
-                        const unread = dataList.filter(d => d.simpleCount === 0 && d.blurCount === 0 && d.text !== currentBlock.value);
-                        if (unread.length > 0) next = unread[Math.floor(Math.random() * unread.length)].text;
-                    } 
-                    if (!next && rand < 0.7) { 
-                        const blurPool = dataList
-                            .filter(d => d.blurCount > 0 && d.text !== currentBlock.value && (now - d.lastTime > 30000))
-                            .sort((a, b) => b.blurCount - a.blurCount)
-                            .slice(0, 10);
-                        if (blurPool.length > 0) next = blurPool[Math.floor(Math.random() * blurPool.length)].text;
+                    // 构建池子
+                    // 池子A：未学过
+                    let unreadPool = shuffleArray(dataList.filter(d => d.simpleCount === 0 && d.blurCount === 0));
+                    
+                    // 池子B：模糊（模糊次数>0，且距离上次 >= 2分钟/120000毫秒，按模糊次数降序）
+                    let blurryPool = dataList
+                        .filter(d => d.blurCount > 0 && (now - d.lastTime >= 120000))
+                        .sort((a, b) => b.blurCount - a.blurCount);
+
+                    // 池子C：简单（简单次数>0，且距离上次 >= 1分钟/60000毫秒，按简单次数升序表示最少简单）
+                    let simplePool = dataList
+                        .filter(d => d.simpleCount > 0 && (now - d.lastTime >= 60000))
+                        .sort((a, b) => a.simpleCount - b.simpleCount);
+
+                    let selected = [];
+                    let selectedSet = new Set();
+
+                    // 辅助函数：从特定池子中抽取不重复的指定数量
+                    const pickItems = (pool, count) => {
+                        let picked = [];
+                        for (let item of pool) {
+                            if (picked.length >= count) break;
+                            if (!selectedSet.has(item.text)) {
+                                picked.push(item);
+                                selectedSet.add(item.text);
+                            }
+                        }
+                        return picked;
+                    };
+
+                    // 抽取逻辑
+                    // 3个是未学过的
+                    selected.push(...pickItems(unreadPool, 3));
+                    // 4个是模糊次数最多的
+                    selected.push(...pickItems(blurryPool, 4));
+                    // 3个是简单次数最少的
+                    selected.push(...pickItems(simplePool, 3));
+
+                    // 如果以上不够或者不满足，就随机抽取补充至 10 个
+                    if (selected.length < 10) {
+                        let remainingPool = shuffleArray(dataList.filter(d => !selectedSet.has(d.text)));
+                        let needed = 10 - selected.length;
+                        selected.push(...pickItems(remainingPool, needed));
                     }
-                    if (!next && rand < 1.0) { 
-                        const simplePool = dataList
-                            .filter(d => d.simpleCount > 0 && d.text !== currentBlock.value && (now - d.lastTime > 60000))
-                            .sort((a, b) => a.simpleCount - b.simpleCount)
-                            .slice(0, 10);
-                        if (simplePool.length > 0) next = simplePool[Math.floor(Math.random() * simplePool.length)].text;
+
+                    // 打乱这 10 个句子的内部顺序，避免每次都是 未学->模糊->简单的死板顺序
+                    selected = shuffleArray(selected);
+
+                    // 写入队列
+                    queue.value = selected.map(item => item.text);
+
+                    // 取出第一个进行展示
+                    if (queue.value.length > 0) {
+                        currentBlockObj.value = queue.value.shift();
+                    } else {
+                        // 兜底（几乎不会触发，除非题库本身为空）
+                        currentBlockObj.value = blocks.value[0];
                     }
-                    if (!next) {
-                        const fallbackPool = blocks.value.filter(b => b !== currentBlock.value);
-                        next = fallbackPool.length > 0 ? fallbackPool[Math.floor(Math.random() * fallbackPool.length)] : blocks.value[0];
-                    }
-                    currentBlockObj.value = next;
                 };
 
                 const handleAnswer = async (type) => {
@@ -259,6 +314,7 @@
                     else records.value[b].blurCount++;
                     records.value[b].lastTime = Date.now();
                     if (db.value) await saveRecordToDB(db.value, b, records.value[b]);
+                    
                     pickNextBlock();
                 };
 
@@ -294,6 +350,7 @@
                         cleanupDB(db.value, finalBlocks);
                     }
                     
+                    queue.value = []; // 解析新文本时清空队列
                     if (blocks.value.length > 0) pickNextBlock();
                     loading.value = false;
                     needManualUpload.value = false;

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
-    <title>文本块记忆 - 精准搜索版 v9</title>
+    <title>文本块记忆 - SuperMemo优化版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -24,20 +24,17 @@
 
     <div id="app" v-cloak class="h-full w-full flex flex-col items-center justify-center p-4 box-border relative">
          
-        <!-- 朗读按钮 -->
         <button @click="speakBlock" 
                 v-if="currentBlock && !loading && !needManualUpload"
                 class="absolute top-4 left-4 md:top-8 md:left-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-100 transition-colors shadow-sm z-10">
             <i class="fa-solid fa-volume-high text-xl"></i>
         </button>
 
-        <!-- 搜索按钮 -->
         <button @click="showSearch = true" 
                 class="absolute top-4 right-4 md:top-8 md:right-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-100 transition-colors shadow-sm z-10">
             <i class="fa-solid fa-magnifying-glass text-xl"></i>
         </button>
 
-        <!-- 搜索弹窗 -->
         <div v-if="showSearch" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-start z-50 pt-16 md:pt-24" @click.self="closeSearch">
             <div class="bg-gray-900 w-11/12 max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[75vh] overflow-hidden border border-gray-700 transform transition-all">
                 <div class="p-4 border-b border-gray-700 flex items-center gap-3 bg-gray-800">
@@ -59,11 +56,10 @@
         </div>
 
         <div class="w-full max-w-lg h-full flex flex-col py-2">
-            <!-- 顶部统计：仅显示数字 -->
             <div class="flex justify-center items-center space-x-16 mb-6 text-2xl md:text-3xl font-bold tracking-widest shrink-0">
-                <span class="text-green-500">{{ countClear }}</span>
-                <span class="text-yellow-500">{{ countBlurry }}</span>
-                <span class="text-red-500">{{ countUnread }}</span>
+                <span class="text-green-500" title="已掌握 (n>0)">{{ countClear }}</span>
+                <span class="text-yellow-500" title="需复习 (n=0)">{{ countBlurry }}</span>
+                <span class="text-red-500" title="未学习">{{ countUnread }}</span>
             </div>
 
             <div class="p-6 flex-grow flex flex-col rounded-xl overflow-hidden">
@@ -151,7 +147,6 @@
             };
         };
 
-        // 数组打乱函数 (Fisher-Yates 洗牌算法)
         const shuffleArray = (array) => {
             let currentIndex = array.length, randomIndex;
             while (currentIndex > 0) {
@@ -167,7 +162,7 @@
                 const db = ref(null);
                 const blocks = ref([]);     
                 const records = ref({}); 
-                const queue = ref([]); // 新增：用于存放抽取好的10个句子
+                const queue = ref([]); 
                 const currentBlockObj = ref(null);
                 const loading = ref(true);
                 const needManualUpload = ref(false);
@@ -175,19 +170,21 @@
                 const searchQuery = ref('');
                 const searchInput = ref(null);
 
+                // 根据 SM-2 算法更新统计逻辑
                 const countClear = computed(() => blocks.value.filter(b => {
                     const r = records.value[b];
-                    return r && (r.simpleCount + r.blurCount > 0) && (r.simpleCount > r.blurCount);
+                    return r && r.n > 0; // n>0 代表已跨过第一级记忆门槛
                 }).length);
 
                 const countBlurry = computed(() => blocks.value.filter(b => {
                     const r = records.value[b];
-                    return r && (r.simpleCount + r.blurCount > 0) && (r.blurCount >= r.simpleCount);
+                    // n=0 代表正在重学，且曾经学过
+                    return r && r.n === 0 && (r.simpleCount > 0 || r.blurCount > 0);
                 }).length);
 
                 const countUnread = computed(() => blocks.value.filter(b => {
                     const r = records.value[b];
-                    return !r || (r.simpleCount + r.blurCount === 0);
+                    return !r || (r.simpleCount === 0 && r.blurCount === 0);
                 }).length);
 
                 const currentBlock = computed(() => currentBlockObj.value || '');
@@ -208,17 +205,13 @@
                     if (!text) return '';
                     let cleanQuery = query.trim();
                     if (!cleanQuery) return text;
-
                     const escapeHtml = (str) => str.replace(/[&<>"']/g, m => ({
                         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
                     })[m]);
-
                     let escapedText = escapeHtml(text);
                     let escapedQuery = escapeHtml(cleanQuery);
-
                     const safeRegexQuery = escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     const regex = new RegExp(`(${safeRegexQuery})`, 'gi');
-                    
                     return escapedText.replace(regex, '<span class="bg-yellow-500 text-black font-bold px-1 rounded shadow-sm">$1</span>');
                 };
 
@@ -226,94 +219,118 @@
                 const selectBlock = (block) => { 
                     currentBlockObj.value = block; 
                     closeSearch(); 
-                    queue.value = []; // 清空队列，使下一次学习重新触发 10 句算法抽取
+                    queue.value = []; 
                 };
 
-                // --- 核心修改：队列抽取算法 ---
+                // --- 核心算法：SuperMemo 到期抽取逻辑 ---
                 const pickNextBlock = () => {
                     if (blocks.value.length === 0) return;
 
-                    // 1. 如果队列里还有句子，直接出队下一个
                     if (queue.value.length > 0) {
                         currentBlockObj.value = queue.value.shift();
                         return;
                     }
 
-                    // 2. 队列为空，重新生成 10 个句子的队列
                     const now = Date.now();
                     const dataList = blocks.value.map(b => {
-                        const r = records.value[b] || { simpleCount: 0, blurCount: 0, lastTime: 0 };
+                        let r = records.value[b] || { simpleCount: 0, blurCount: 0, lastTime: 0 };
+                        // 兼容旧数据结构，初始化 SM-2 字段
+                        if (r.EF === undefined) {
+                            r.EF = 2.5; 
+                            r.n = (r.simpleCount > r.blurCount) ? 1 : 0; 
+                            r.interval = 1; 
+                            r.nextReviewTime = r.lastTime || 0;
+                        }
                         return { text: b, ...r };
                     });
 
-                    // 构建池子
-                    // 池子A：未学过
-                    let unreadPool = shuffleArray(dataList.filter(d => d.simpleCount === 0 && d.blurCount === 0));
-                    
-                    // 池子B：模糊（模糊次数>0，且距离上次 >= 2分钟/120000毫秒，按模糊次数降序）
-                    let blurryPool = dataList
-                        .filter(d => d.blurCount > 0 && (now - d.lastTime >= 120000))
-                        .sort((a, b) => b.blurCount - a.blurCount);
+                    // 1. 已到期池 (按超期时间最久排序)
+                    let duePool = dataList
+                        .filter(d => (d.simpleCount > 0 || d.blurCount > 0) && d.nextReviewTime <= now)
+                        .sort((a, b) => a.nextReviewTime - b.nextReviewTime);
 
-                    // 池子C：简单（简单次数>0，且距离上次 >= 1分钟/60000毫秒，按简单次数升序表示最少简单）
-                    let simplePool = dataList
-                        .filter(d => d.simpleCount > 0 && (now - d.lastTime >= 60000))
-                        .sort((a, b) => a.simpleCount - b.simpleCount);
+                    // 2. 未学习池
+                    let newPool = shuffleArray(dataList.filter(d => d.simpleCount === 0 && d.blurCount === 0));
+
+                    // 3. 未到期池 (作为无牌可抽时的兜底)
+                    let futurePool = dataList
+                        .filter(d => (d.simpleCount > 0 || d.blurCount > 0) && d.nextReviewTime > now)
+                        .sort((a, b) => a.nextReviewTime - b.nextReviewTime);
 
                     let selected = [];
-                    let selectedSet = new Set();
 
-                    // 辅助函数：从特定池子中抽取不重复的指定数量
-                    const pickItems = (pool, count) => {
-                        let picked = [];
-                        for (let item of pool) {
-                            if (picked.length >= count) break;
-                            if (!selectedSet.has(item.text)) {
-                                picked.push(item);
-                                selectedSet.add(item.text);
-                            }
-                        }
-                        return picked;
-                    };
-
-                    // 抽取逻辑
-                    // 3个是未学过的
-                    selected.push(...pickItems(unreadPool, 3));
-                    // 4个是模糊次数最多的
-                    selected.push(...pickItems(blurryPool, 4));
-                    // 3个是简单次数最少的
-                    selected.push(...pickItems(simplePool, 3));
-
-                    // 如果以上不够或者不满足，就随机抽取补充至 10 个
-                    if (selected.length < 10) {
-                        let remainingPool = shuffleArray(dataList.filter(d => !selectedSet.has(d.text)));
-                        let needed = 10 - selected.length;
-                        selected.push(...pickItems(remainingPool, needed));
+                    // 优先填入到期卡片，最多取 8 张，留 2 张给新卡片（避免一直复习无新进展）
+                    if (duePool.length > 0) {
+                        const takeDueCount = Math.min(duePool.length, 8);
+                        selected.push(...duePool.slice(0, takeDueCount));
                     }
 
-                    // 打乱这 10 个句子的内部顺序，避免每次都是 未学->模糊->简单的死板顺序
-                    selected = shuffleArray(selected);
+                    // 用新卡片填补至 10 张
+                    if (selected.length < 10 && newPool.length > 0) {
+                        const need = 10 - selected.length;
+                        selected.push(...newPool.slice(0, need));
+                    }
 
-                    // 写入队列
+                    // 如果还是不够（可能是纯复习末期），用剩余的复习卡片或提前复习的卡片填补
+                    if (selected.length < 10 && duePool.length > 8) {
+                        const need = 10 - selected.length;
+                        selected.push(...duePool.slice(8, 8 + need));
+                    }
+                    if (selected.length < 10 && futurePool.length > 0) {
+                        const need = 10 - selected.length;
+                        selected.push(...futurePool.slice(0, need));
+                    }
+
+                    selected = shuffleArray(selected);
                     queue.value = selected.map(item => item.text);
 
-                    // 取出第一个进行展示
                     if (queue.value.length > 0) {
                         currentBlockObj.value = queue.value.shift();
                     } else {
-                        // 兜底（几乎不会触发，除非题库本身为空）
                         currentBlockObj.value = blocks.value[0];
                     }
                 };
 
+                // --- 核心算法：SuperMemo 权重计算 ---
                 const handleAnswer = async (type) => {
                     const b = currentBlock.value;
                     if (!b) return;
-                    if (!records.value[b]) records.value[b] = { simpleCount: 0, blurCount: 0, lastTime: 0 };
-                    if (type === 'Simple') records.value[b].simpleCount++;
-                    else records.value[b].blurCount++;
-                    records.value[b].lastTime = Date.now();
-                    if (db.value) await saveRecordToDB(db.value, b, records.value[b]);
+
+                    let rec = records.value[b] || { 
+                        simpleCount: 0, blurCount: 0, 
+                        EF: 2.5, n: 0, interval: 0, nextReviewTime: 0 
+                    };
+
+                    if (rec.EF === undefined) {
+                        rec.EF = 2.5; rec.n = 0; rec.interval = 1; rec.nextReviewTime = 0;
+                    }
+
+                    const now = Date.now();
+
+                    if (type === 'Simple') {
+                        rec.simpleCount++;
+                        // 相当于 SM-2 中的 Quality 5 (完美回忆)
+                        if (rec.n === 0) rec.interval = 2;       // 首次记住，间隔 2 分钟
+                        else if (rec.n === 1) rec.interval = 10; // 第二次记住，间隔 10 分钟
+                        else rec.interval = Math.round(rec.interval * rec.EF); // 后续乘数级放大
+
+                        rec.n++;
+                        rec.EF = Math.max(1.3, rec.EF + 0.1); // 增加难度系数因子
+                    } else { 
+                        rec.blurCount++;
+                        // 相当于 SM-2 中的 Quality 2 (模糊/答错)
+                        rec.n = 0; // 连击打断
+                        rec.interval = 1; // 惩罚回 1 分钟后强制复习
+                        rec.EF = Math.max(1.3, rec.EF - 0.32); // 显著降低难度系数因子
+                    }
+
+                    // 计算下次复习时间戳
+                    rec.lastTime = now;
+                    rec.nextReviewTime = now + (rec.interval * 60 * 1000);
+                    
+                    records.value[b] = rec;
+
+                    if (db.value) await saveRecordToDB(db.value, b, rec);
                     
                     pickNextBlock();
                 };
@@ -350,7 +367,7 @@
                         cleanupDB(db.value, finalBlocks);
                     }
                     
-                    queue.value = []; // 解析新文本时清空队列
+                    queue.value = []; 
                     if (blocks.value.length > 0) pickNextBlock();
                     loading.value = false;
                     needManualUpload.value = false;
