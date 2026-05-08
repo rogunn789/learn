@@ -62,7 +62,7 @@
                 <span class="text-red-500" title="未学习">{{ countUnread }}</span>
             </div>
 
-            <div class="lex-grow flex flex-col rounded-xl">
+            <div class="lex-grow flex flex-col rounded-xl" style="height: 85vh !important;" >
                 <template v-if="loading">
                     <div class="flex-grow flex items-center justify-center text-gray-400"><span>古卷加载中...</span></div>
                 </template>
@@ -76,7 +76,7 @@
                 </template>
                 <template v-else>
                     <div class="flex-grow flex items-center justify-center py-2 overflow-scroll">
-                        <p class="text-white text-xl md:text-2xl font-bold text-center leading-relaxed break-words whitespace-pre-wrap"　style="height: 100% !important;"    >
+                        <p class="text-white text-xl md:text-2xl font-bold text-left leading-relaxed break-words whitespace-pre-wrap"　style="height: 100% !important;"    >
                             {{ currentBlock }}
                         </p>
                     </div>
