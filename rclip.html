@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>音频复读机 (手机端界面设计)</title>
+    <style>
+        :root {
+            /* 深度参考 image_0.png 的暗色系调色板 */
+            --bg-color: #121217;       /* 整体背景 */
+            --panel-bg: #1e1e25;      /* 文本区、设置卡片背景 */
+            --text-color: #dcdcdc;     /* 默认文字颜色 */
+            --accent-color: #f9a825;    /* image_0.png 中的橙黄色强调色 */
+            --dim-text: #8a8a9a;       /* 未激活文本颜色 */
+            --border-color: #33333f;
+            --handle-color: #ff3b30;    /* 拖拽手柄保持大红 */
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            /* 适配手机端安全区域 */
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            overflow: hidden; /* 整体不滚动 */
+        }
+
+        /* ==========================================
+           1. 顶部文本区 (Transcript Area) - 参考 image_0.png
+           ========================================== */
+        #header-bar {
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 16px;
+            font-weight: bold;
+            color: var(--dim-text);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        #file-upload-header {
+            color: var(--accent-color);
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        #transcript-container {
+            flex: 1; /* 占满剩余高度 */
+            overflow-y: auto; /* 允许纵向滚动 */
+            padding: 15px 20px;
+            background-color: var(--panel-bg);
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        /* 隐藏滚动条 */
+        #transcript-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        .transcript-block {
+            padding: 8px 0;
+            font-size: 15px;
+            line-height: 1.6;
+            color: var(--dim-text); /* 默认调暗 */
+            transition: all 0.3s ease;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        /* 序号样式，参考 image_0.png */
+        .transcript-index {
+            font-size: 11px;
+            color: var(--dim-text);
+            margin-right: 8px;
+            opacity: 0.7;
+        }
+
+        /* 核心高亮样式：激活的文本块（亮度增加） */
+        .transcript-block.active {
+            color: var(--text-color);
+            font-weight: 500;
+        }
+
+        /* "自动滚动" 按钮，参考 image_0.png 位置 */
+        #btn-autoscroll {
+            position: absolute;
+            bottom: 10px;
+            right: 15px;
+            background: rgba(40, 40, 50, 0.8);
+            border: 1px solid var(--border-color);
+            color: var(--accent-color);
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 4px;
+            z-index: 5;
+            pointer-events: none; /* 暂时做展示 */
+        }
+
+        /* ==========================================
+           2. 中部设置区 (Settings Area)
+           ========================================== */
+        #settings-panel {
+            padding: 15px 20px;
+            background: rgba(20, 20, 25, 0.95);
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .control-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .control-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: var(--dim-text);
+        }
+
+        input[type="range"] {
+            flex: 1;
+            accent-color: var(--accent-color);
+            height: 18px;
+        }
+
+        .val-display {
+            font-family: monospace;
+            font-size: 13px;
+            color: var(--accent-color);
+            width: 40px;
+            text-align: right;
+        }
+
+        /* 参考 image_0.png 的按钮样式 */
+        .btn-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        button {
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+            color: var(--text-color);
+        }
+
+        button.btn-outline {
+            background: transparent;
+        }
+
+        button.btn-orange {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+            color: #000;
+            font-weight: bold;
+        }
+
+        button:hover { opacity: 0.8; }
+        button:disabled { background-color: #2e2e38; color: #666; cursor: not-allowed; border-color: transparent; }
+
+        /* ==========================================
+           3. 下部波形区 (Waveform Area) - 参考 image_0.png
+           ========================================== */
+        #waveform-wrapper {
+            width: 100%;
+            height: 120px; /* 参考 image_0.png 波形高度 */
+            background: rgba(15, 15, 20, 0.95);
+            position: relative;
+            padding: 15px 0; /* 给红球留空间 */
+            box-sizing: border-box;
+            border-top: 1px solid var(--border-color);
+        }
+
+        #waveform {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* 穿透 Shadow DOM 的红色大圆球拖拽手柄 */
+        ::part(region-handle-left),
+        ::part(region-handle-right) {
+            width: 28px !important;
+            height: 28px !important;
+            background-color: var(--handle-color) !important;
+            border-radius: 50% !important;
+            top: -14px !important;
+            bottom: auto !important;
+            border: 3px solid #ffffff !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5) !important;
+            opacity: 0.95 !important;
+            cursor: ew-resize !important;
+            transition: transform 0.1s ease;
+            z-index: 10 !important;
+        }
+
+        ::part(region-handle-left):active,
+        ::part(region-handle-right):active {
+            transform: scale(1.15) !important;
+        }
+
+        /* ==========================================
+           4. 底部控制栏 (Bottom Control Bar) - 展示
+           ========================================== */
+        #bottom-bar {
+            height: 50px;
+            background: #121217;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-evenly;
+            padding: 0 20px;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .bar-icon {
+            font-size: 22px;
+            color: var(--dim-text);
+            opacity: 0.7;
+        }
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/browser-id3-writer@4.4.0/browser-id3-writer.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
+    <div id="header-bar">
+        <label for="audioUpload" id="file-upload-header">点击这里上传 MP3</label>
+        <input type="file" id="audioUpload" accept="audio/mp3, audio/mpeg" style="display:none;">
+    </div>
+    
+    <div id="transcript-container">
+        <div id="transcript-inner">
+            <div class="transcript-block active"><span class="transcript-index">1</span>雨雲が本州南岸に停滞し</div>
+            <div class="transcript-block"><span class="transcript-index">2</span>私が住む内陸部でも大雨が降った</div>
+            <div class="transcript-block"><span class="transcript-index">3</span>そのため</div>
+            <div class="transcript-block"><span class="transcript-index">4</span>近所の川が氾濫し</div>
+        </div>
+        <div id="btn-autoscroll">自动滚动</div> </div>
+
+    <div id="settings-panel">
+        <div class="control-group">
+            <div class="control-item full-width">
+                <label>播放速度:</label>
+                <input type="range" id="speedSlider" value="3" min="0" max="6" step="1">
+                <span class="val-display" id="speedVal">1.0x</span>
+            </div>
+            <div class="control-item full-width">
+                <label>复读延迟:</label>
+                <input type="range" id="delaySlider" value="0" min="0" max="8" step="1">
+                <span class="val-display" id="delayVal">0.0s</span>
+            </div>
+        </div>
+
+        <div class="btn-panel">
+            <button id="btnAutoSegment" class="btn-outline">重新生成片段</button>
+            <button id="btnExport" class="btn-orange">导出包含字幕的 MP3</button>
+        </div>
+    </div>
+
+    <div id="waveform-wrapper">
+        <div id="waveform"></div>
+    </div>
+
+    <div id="bottom-bar">
+        <div class="bar-icon fa-solid fa-backward-step"></div>
+        <div class="bar-icon fa-solid fa-rotate-left"></div>
+        <div class="bar-icon fa-solid fa-play"></div>
+        <div class="bar-icon fa-solid fa-retweet" style="color: var(--accent-color); opacity: 1;"></div> <div class="bar-icon fa-solid fa-forward-step"></div>
+    </div>
+
+<script type="module">
+    import WaveSurfer from 'https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.esm.js';
+    import RegionsPlugin from 'https://unpkg.com/wavesurfer.js@7/dist/plugins/regions.esm.js';
+
+    // DOM 元素引用
+    const audioUpload = document.getElementById('audioUpload');
+    const headerBarLabel = document.getElementById('file-upload-header');
+    const btnAutoSegment = document.getElementById('btnAutoSegment');
+    const btnExport = document.getElementById('btnExport');
+    
+    const speedSlider = document.getElementById('speedSlider');
+    const speedVal = document.getElementById('speedVal');
+    const delaySlider = document.getElementById('delaySlider');
+    const delayVal = document.getElementById('delayVal');
+    
+    const transcriptContainer = document.getElementById('transcript-container');
+    const transcriptInner = document.getElementById('transcript-inner');
+
+    let originalFile = null;
+    let currentLoopRegion = null; 
+    let loopTimeoutId = null;     
+
+    // 静音参数（由于界面只展示不修改，这里写死，参考之前的 fullText 值）
+    const silenceTimeThresholdValue = 0.5; //
+    const amplitudeThresholdValue = 0.02; //
+
+    // 档位映射数组
+    const speedOptions = [0.5, 0.75, 0.9, 1.0, 1.25, 1.5, 2.0]; //
+    const delayOptions = [0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.5, 5.0, 6.0]; //
+
+    // 初始化 WaveSurfer
+    const wavesurfer = WaveSurfer.create({
+        container: '#waveform',
+        waveColor: '#a1c4fd',       // image_0.png 的蓝色波形色
+        progressColor: '#ffcc80',   // image_0.png 的橙黄进度色
+        cursorColor: '#ff3b30',     // 手柄红色
+        height: 'auto',              // 占满父容器
+        normalize: true, 
+        minPxPerSec: 80,             // 手机端放大更清晰，方便拖拽
+        mediaControls: false,        // 使用自定义界面控制
+        fillParent: true,
+        scrollbar: false             // 界面参考 image_0.png 隐藏滚动条
+    });
+
+    const wsRegions = wavesurfer.registerPlugin(RegionsPlugin.create());
+
+    // UI 数值监听
+    speedSlider.addEventListener('input', (e) => {
+        wavesurfer.setPlaybackRate(speedOptions[parseInt(e.target.value)]);
+        speedVal.textContent = speedOptions[parseInt(e.target.value)].toFixed(2) + 'x';
+    });
+    delaySlider.addEventListener('input', (e) => {
+        delayVal.textContent = delayOptions[parseInt(e.target.value)].toFixed(1) + 's';
+    });
+
+    function clearLoopTimeout() {
+        if (loopTimeoutId) {
+            clearTimeout(loopTimeoutId);
+            loopTimeoutId = null;
+        }
+    }
+
+    // 文件上传处理
+    audioUpload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            originalFile = file;
+            const objectUrl = URL.createObjectURL(file);
+            wavesurfer.load(objectUrl);
+            wsRegions.clearRegions();
+            transcriptInner.innerHTML = ''; // 清空字幕
+            btnAutoSegment.disabled = true;
+            btnExport.disabled = true;
+            currentLoopRegion = null;
+            clearLoopTimeout();
+            // 顶部显示文件名
+            headerBarLabel.textContent = file.name.length > 25 ? file.name.substring(0, 22) + '...' : file.name;
+        }
+    });
+
+    wavesurfer.on('decode', () => {
+        btnAutoSegment.disabled = false;
+        btnExport.disabled = false;
+        autoSegment(); // 自动分段
+    });
+
+    // ==========================================
+    // 自动切片 & 文本区联动 DOM 构建
+    // ==========================================
+    function autoSegment() {
+        wsRegions.clearRegions();
+        transcriptInner.innerHTML = ''; // 清空文本 DOM
+        currentLoopRegion = null;
+        clearLoopTimeout();
+        
+        const decodedData = wavesurfer.getDecodedData();
+        if (!decodedData) return;
+
+        const channelData = decodedData.getChannelData(0); 
+        const sampleRate = decodedData.sampleRate;
+        const silenceDurationThreshold = silenceTimeThresholdValue; // 使用写死的值
+        const amplitudeThreshold = amplitudeThresholdValue; // 使用写死的值
+
+        let isSilent = true;
+        let silenceStartSample = 0;
+        let audioStartSample = 0;
+        let regionsData = [];
+
+        for (let i = 0; i < channelData.length; i++) {
+            const amplitude = Math.abs(channelData[i]);
+            if (amplitude > amplitudeThreshold) {
+                if (isSilent) {
+                    const silenceDuration = (i - silenceStartSample) / sampleRate;
+                    if (silenceDuration >= silenceDurationThreshold) {
+                        if (audioStartSample < silenceStartSample) {
+                            regionsData.push({
+                                start: audioStartSample / sampleRate,
+                                end: silenceStartSample / sampleRate
+                            });
+                        }
+                        audioStartSample = i;
+                    }
+                    isSilent = false;
+                }
+            } else {
+                if (!isSilent) {
+                    isSilent = true;
+                    silenceStartSample = i;
+                }
+            }
+        }
+        if (audioStartSample < channelData.length) {
+             regionsData.push({
+                 start: audioStartSample / sampleRate,
+                 end: channelData.length / sampleRate
+             });
+        }
+
+        // 构建 Region 和 Transcript DOM 联动
+        let regionCount = 1;
+        regionsData.forEach(r => {
+            if (r.end - r.start > 0.2) {
+                // 创建波形片段
+                const region = wsRegions.addRegion({
+                    start: r.start,
+                    end: r.end,
+                    color: 'rgba(255, 204, 128, 0.15)', // 暗色模式下的遮罩
+                    drag: true,
+                    resize: true
+                });
+                region.myTextContent = ''; // 存储文本内容
+
+                // 创建对应的 Transcript DOM
+                const block = document.createElement('div');
+                block.className = 'transcript-block';
+                block.setAttribute('data-region-id', region.id); // 绑定唯一 ID，用于滚动查找
+                
+                // 序号参考 image_0.png
+                const indexSpan = document.createElement('span');
+                indexSpan.className = 'transcript-index';
+                indexSpan.textContent = regionCount++;
+                
+                const textSpan = document.createElement('span');
+                textSpan.className = 'transcript-text';
+                textSpan.textContent = `此处双击编辑台词 ${regionCount - 1}`; // 默认展示内容
+                
+                block.appendChild(indexSpan);
+                block.appendChild(textSpan);
+                transcriptInner.appendChild(block);
+
+                // 交互 1：单击文本块播放对应片段
+                block.addEventListener('click', () => {
+                    wavesurfer.pause();
+                    clearLoopTimeout();
+                    currentLoopRegion = region;
+                    wavesurfer.setTime(region.start);
+                    region.play();
+                });
+
+                // 交互 2：双击编辑文本
+                block.addEventListener('dblclick', (e) => {
+                    e.stopPropagation();
+                    const newText = prompt('请输入该片段台词：', region.myTextContent);
+                    if (newText !== null) {
+                        region.myTextContent = newText.trim();
+                        textSpan.textContent = region.myTextContent || '[无内容]';
+                    }
+                });
+            }
+        });
+    }
+
+    btnAutoSegment.addEventListener('click', autoSegment);
+
+    // ==========================================
+    // 边界调整防碰撞 logic
+    // ==========================================
+    let isAdjusting = false; 
+    
+    wsRegions.on('region-updated', (region) => {
+        if (isAdjusting) return;
+        
+        if (wavesurfer.isPlaying()) {
+            wavesurfer.pause();
+        }
+        clearLoopTimeout();
+        
+        const regions = wsRegions.getRegions().sort((a, b) => a.start - b.start);
+        const index = regions.indexOf(region);
+        
+        let newStart = region.start;
+        let newEnd = region.end;
+        let hitBound = false;
+
+        if (index > 0 && newStart <= regions[index - 1].end) {
+            newStart = regions[index - 1].end + 0.005; 
+            hitBound = true;
+        }
+        if (index < regions.length - 1 && newEnd >= regions[index + 1].start) {
+            newEnd = regions[index + 1].start - 0.005;
+            hitBound = true;
+        }
+        
+        if (newEnd - newStart < 0.1) {
+             if (index > 0 && newStart === regions[index - 1].end + 0.005) {
+                 newEnd = newStart + 0.1;
+             } else {
+                 newStart = newEnd - 0.1;
+             }
+             hitBound = true;
+        }
+
+        if (hitBound) {
+            isAdjusting = true;
+            region.setOptions({ start: newStart, end: newEnd });
+            isAdjusting = false;
+        }
+        currentLoopRegion = region;
+    });
+
+    // 单击片段激活高亮与滚动
+    wsRegions.on('region-clicked', (region, e) => {
+        e.stopPropagation();
+        region.play(); // 也会触发 region-in
+    });
+
+    // ==========================================
+    // 核心功能：复读、延迟、文本区自动滚动实现
+    // ==========================================
+    wsRegions.on('region-in', (region) => {
+        // 1. 查找并高亮对应的文本块
+        const allBlocks = transcriptInner.querySelectorAll('.transcript-block');
+        allBlocks.forEach(b => b.classList.remove('active')); // 清空所有高亮
+
+        const activeBlock = transcriptInner.querySelector(`.transcript-block[data-region-id="${region.id}"]`);
+        if (activeBlock) {
+            activeBlock.classList.add('active'); // 参考 image_0.png 高亮
+            // 核心：滚动到文本区域中心
+            activeBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    });
+
+    wsRegions.on('region-out', (region) => {
+        // 复读逻辑与延迟
+        // 手机端始终默认复读打开
+        const delayMs = delayOptions[parseInt(delaySlider.value)] * 1000;
+        wavesurfer.pause();
+        wavesurfer.setTime(region.end); // 指针移到结尾等待
+        clearLoopTimeout(); 
+        
+        loopTimeoutId = setTimeout(() => {
+            if (delayMs > 0) wavesurfer.pause(); // 延迟中不准播放
+            region.play(); // 自动从头播放片段，也会触发 region-in 滚动DOM
+        }, delayMs > 0 ? delayMs : 10);
+    });
+
+    wavesurfer.on('interaction', () => {
+        currentLoopRegion = null;
+        clearLoopTimeout();
+        // 取消高亮展示 dimmer 的文本
+        const allBlocks = transcriptInner.querySelectorAll('.transcript-block');
+        allBlocks.forEach(b => b.classList.remove('active'));
+    });
+
+    // 格式化时间的 LRC 函数
+    function formatLRC(seconds) {
+        const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+        const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+        const xx = Math.floor((seconds % 1) * 100).toString().padStart(2, '0');
+        return `[${m}:${s}.${xx}]`;
+    }
+
+    // 导出内嵌 LRC 的 MP3
+    btnExport.addEventListener('click', async () => {
+        if (!originalFile) return;
+        
+        try {
+            btnExport.textContent = "处理中...";
+            btnExport.disabled = true;
+
+            const regions = wsRegions.getRegions().sort((a, b) => a.start - b.start);
+            let lrcText = '';
+            
+            regions.forEach(region => {
+                const text = region.myTextContent || ''; // 使用之前编辑的值
+                lrcText += `${formatLRC(region.start)}${text}\n`;
+            });
+
+            const arrayBuffer = await originalFile.arrayBuffer();
+            const writer = new browserID3Writer(arrayBuffer);
+            
+            // 写入 LRC 标签
+            writer.setFrame('USLT', {
+                description: 'Repeater LRC',
+                lyrics: lrcText,
+                language: 'jpn' 
+            });
+            writer.addTag();
+
+            const blob = writer.getBlob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = originalFile.name.replace(/\.mp3$/i, '') + '_shadowing.mp3';
+            a.click();
+            URL.revokeObjectURL(url);
+            
+        } catch (error) {
+            console.error(error);
+            alert("导出失败，MP3 可能已加密。");
+        } finally {
+            btnExport.textContent = "导出包含字幕的 MP3";
+            btnExport.disabled = false;
+        }
+    });
+
+</script>
+</body>
+</html>
