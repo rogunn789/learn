@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
-    <title>文本块记忆 - SuperMemo优化版</title>
+    <title>文本块记忆 </title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -24,16 +24,33 @@
 
     <div id="app" v-cloak class="h-full w-full flex flex-col items-center justify-center p-4 box-border relative">
          
+        <!-- 左上角发音按钮 -->
         <button @click="speakBlock" 
-                v-if="currentBlock && !loading && !needManualUpload"
-                class="absolute top-4 left-4 md:top-8 md:left-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-100 transition-colors shadow-sm z-10">
-            <i class="fa-solid fa-volume-high text-xl"></i>
+                v-if="currentBlock && !loading && !needManualUpload && blocks.length > 0"
+                class="absolute top-4 left-4 md:top-8 md:left-8 w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-100 transition-colors shadow-sm z-10">
+            <i class="fa-solid fa-volume-high text-lg md:text-xl"></i>
         </button>
 
-        <button @click="showSearch = true" 
-                class="absolute top-4 right-4 md:top-8 md:right-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-100 transition-colors shadow-sm z-10">
-            <i class="fa-solid fa-magnifying-glass text-xl"></i>
-        </button>
+        <!-- 顶部居中显示该卡片的平均浏览时间 -->
+        <div v-if="currentBlock && !loading && !needManualUpload && blocks.length > 0" 
+             class="absolute top-5 md:top-9 left-1/2 transform -translate-x-1/2 flex items-center justify-center bg-gray-800 px-4 py-1.5 rounded-full border border-gray-600 shadow-md z-10 text-gray-300 font-bold tracking-wider text-base md:text-lg">
+            <i class="fa-regular fa-clock mr-2 text-sm text-gray-400"></i>
+            {{ Math.round(currentAvgTime) }}s
+        </div>
+
+        <!-- 右上角按钮组：搜索 + 移除 -->
+        <div class="absolute top-4 right-4 md:top-8 md:right-8 flex space-x-3 z-10">
+            <button @click="showSearch = true" 
+                    class="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-100 transition-colors shadow-sm">
+                <i class="fa-solid fa-magnifying-glass text-lg md:text-xl"></i>
+            </button>
+            <button @click="removeCurrentCard" 
+                    v-if="currentBlock && !loading && !needManualUpload && blocks.length > 0"
+                    title="移除此卡片"
+                    class="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full bg-gray-800 hover:bg-red-800 text-gray-100 transition-colors shadow-sm">
+                <i class="fa-solid fa-trash-can text-lg md:text-xl"></i>
+            </button>
+        </div>
 
         <div v-if="showSearch" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-start z-50 pt-16 md:pt-24" @click.self="closeSearch">
             <div class="bg-gray-900 w-11/12 max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[75vh] overflow-hidden border border-gray-700 transform transition-all">
@@ -55,14 +72,14 @@
             </div>
         </div>
 
-        <div class="w-full max-w-lg h-full flex flex-col py-2">
-            <div class="flex justify-center items-center space-x-16 mb-6 text-2xl md:text-3xl font-bold tracking-widest shrink-0">
-                <span class="text-green-500" title="已掌握 (n>0)">{{ countClear }}</span>
-                <span class="text-yellow-500" title="需复习 (n=0)">{{ countBlurry }}</span>
-                <span class="text-red-500" title="未学习">{{ countUnread }}</span>
+        <div class="w-full max-w-lg h-full flex flex-col py-2 mt-12 md:mt-16">
+            <!-- 顶部统计：已学习卡片数 / 未学习卡片数 -->
+            <div v-if="blocks.length > 0" class="flex justify-center items-center space-x-16 mb-4 text-2xl md:text-3xl font-bold tracking-widest shrink-0">
+                <span class="text-green-500" title="已浏览">{{ countRead }}</span>
+                <span class="text-red-500" title="未浏览">{{ countUnread }}</span>
             </div>
 
-            <div class="flex-grow flex flex-col rounded-xl" style="height: 100%;" >
+            <div class="flex-grow flex flex-col rounded-xl overflow-hidden" style="height: 100%;">
                 <template v-if="loading">
                     <div class="flex-grow flex items-center justify-center text-gray-400"><span>古卷加载中...</span></div>
                 </template>
@@ -74,20 +91,30 @@
                         </label>
                     </div>
                 </template>
-                <template v-else>
-                    <div class="flex-grow flex items-center justify-center py-2 overflow-scroll">
-                        <p class="text-white text-xl md:text-2xl font-bold text-left leading-relaxed break-words whitespace-pre-wrap"　style="height: 100% !important;"    >
-                            {{ currentBlock }}
-                        </p>
+                <template v-else-if="blocks.length === 0">
+                    <div class="flex-grow flex flex-col items-center justify-center text-center text-gray-400 px-4">
+                        <i class="fa-solid fa-box-open text-5xl mb-4"></i>
+                        <p>所有卡片已被移除或文件为空。<br>请检查源文件或清空浏览器缓存重置。</p>
                     </div>
-                    <div class="grid grid-cols-2 gap-8 mt-4 shrink-0">
-                        <button @click="handleAnswer('Simple')" class="flex flex-col items-center p-4 text-green-500 hover:bg-gray-800 rounded-xl transition-all active:scale-95">
-                            <i class="fa-solid fa-leaf text-4xl mb-2"></i>
-                            <span class="text-sm font-bold tracking-widest">简单</span>
-                        </button>
-                        <button @click="handleAnswer('Blur')" class="flex flex-col items-center p-4 text-yellow-500 hover:bg-gray-800 rounded-xl transition-all active:scale-95">
-                            <i class="fa-solid fa-cloud text-4xl mb-2"></i>
-                            <span class="text-sm font-bold tracking-widest">模糊</span>
+                </template>
+                <template v-else>
+                    <!-- 文本展示区，居中且上部对齐 -->
+                    <div @click="revealCard" class="flex-grow flex items-start justify-center pt-8 pb-4 overflow-y-auto relative cursor-pointer w-full group">
+                        <p :class="['text-xl md:text-2xl font-bold text-center leading-relaxed break-words whitespace-pre-wrap w-full transition-all', currentTextColor]">
+                            {{ isRevealed ? currentBlock : firstLine }}
+                        </p>
+                        
+                        <div v-if="!isRevealed" class="absolute bottom-4 text-gray-500 text-sm animate-pulse flex items-center flex-col">
+                            <i class="fa-solid fa-hand-pointer mb-1"></i>
+                            点击屏幕显示全部内容
+                        </div>
+                    </div>
+                    
+                    <!-- 底部单个按钮 -->
+                    <div class="w-full mt-4 shrink-0 flex justify-center pb-2">
+                        <button @click="nextCard" class="w-full max-w-xs flex flex-col items-center justify-center p-4 bg-gray-800 hover:bg-gray-700 border border-gray-600 rounded-xl transition-all active:scale-95 shadow-lg group">
+                            <i class="fa-solid fa-arrow-right text-3xl mb-2 text-blue-400 group-hover:text-blue-300"></i>
+                            <span class="text-sm font-bold tracking-widest text-gray-200">下一张</span>
                         </button>
                     </div>
                 </template>
@@ -169,25 +196,38 @@
                 const showSearch = ref(false);
                 const searchQuery = ref('');
                 const searchInput = ref(null);
+                
+                const cardStartTime = ref(0); 
+                const isRevealed = ref(false); 
 
-                // 根据 SM-2 算法更新统计逻辑
-                const countClear = computed(() => blocks.value.filter(b => {
-                    const r = records.value[b];
-                    return r && r.n > 0; // n>0 代表已跨过第一级记忆门槛
-                }).length);
+                const colorPalette = [
+                    'text-white', 'text-green-300', 'text-blue-300', 'text-yellow-300', 
+                    'text-purple-300', 'text-pink-300', 'text-teal-300', 'text-orange-300'
+                ];
+                const currentTextColor = ref('text-white');
 
-                const countBlurry = computed(() => blocks.value.filter(b => {
+                const countRead = computed(() => blocks.value.filter(b => {
                     const r = records.value[b];
-                    // n=0 代表正在重学，且曾经学过
-                    return r && r.n === 0 && (r.simpleCount > 0 || r.blurCount > 0);
+                    return r && r.viewCount > 0; 
                 }).length);
 
                 const countUnread = computed(() => blocks.value.filter(b => {
                     const r = records.value[b];
-                    return !r || (r.simpleCount === 0 && r.blurCount === 0);
+                    return !r || !r.viewCount || r.viewCount === 0;
                 }).length);
 
                 const currentBlock = computed(() => currentBlockObj.value || '');
+                
+                const firstLine = computed(() => {
+                    if (!currentBlock.value) return '';
+                    const lines = currentBlock.value.split('\n');
+                    return lines[0] + (lines.length > 1 ? '\n...' : '');
+                });
+
+                const currentAvgTime = computed(() => {
+                    if (!currentBlock.value || !records.value[currentBlock.value]) return 0;
+                    return records.value[currentBlock.value].avgViewTime || 0;
+                });
 
                 watch(showSearch, (newVal) => {
                     if (newVal) {
@@ -216,118 +256,118 @@
                 };
 
                 const closeSearch = () => { showSearch.value = false; searchQuery.value = ''; };
+                
                 const selectBlock = (block) => { 
                     currentBlockObj.value = block; 
                     closeSearch(); 
                     queue.value = []; 
+                    isRevealed.value = false; 
+                    cardStartTime.value = Date.now(); 
                 };
 
-                // --- 核心算法：SuperMemo 到期抽取逻辑 ---
+                const revealCard = () => {
+                    if (!isRevealed.value) {
+                        isRevealed.value = true;
+                    }
+                };
+
+                const removeCurrentCard = async () => {
+                    const b = currentBlock.value;
+                    if (!b) return;
+                    
+                    if (!confirm('确定要将此卡片移出题库吗？移除后将不再出现。')) return;
+
+                    let rec = records.value[b] || { viewCount: 0, totalViewTime: 0, avgViewTime: 0 };
+                    rec.isRemoved = true; 
+                    records.value[b] = rec;
+                    if (db.value) await saveRecordToDB(db.value, b, rec);
+
+                    blocks.value = blocks.value.filter(item => item !== b);
+                    queue.value = queue.value.filter(item => item !== b);
+
+                    if (blocks.value.length === 0) {
+                        currentBlockObj.value = "";
+                        return;
+                    }
+
+                    if (queue.value.length > 0) {
+                        currentBlockObj.value = queue.value.shift();
+                        isRevealed.value = false;
+                        cardStartTime.value = Date.now();
+                    } else {
+                        pickNextBlock();
+                    }
+                };
+
                 const pickNextBlock = () => {
                     if (blocks.value.length === 0) return;
 
                     if (queue.value.length > 0) {
                         currentBlockObj.value = queue.value.shift();
+                        isRevealed.value = false;
+                        cardStartTime.value = Date.now(); 
                         return;
                     }
 
-                    const now = Date.now();
-                    const dataList = blocks.value.map(b => {
-                        let r = records.value[b] || { simpleCount: 0, blurCount: 0, lastTime: 0 };
-                        // 兼容旧数据结构，初始化 SM-2 字段
-                        if (r.EF === undefined) {
-                            r.EF = 2.5; 
-                            r.n = (r.simpleCount > r.blurCount) ? 1 : 0; 
-                            r.interval = 1; 
-                            r.nextReviewTime = r.lastTime || 0;
-                        }
-                        return { text: b, ...r };
+                    const availableColors = colorPalette.filter(c => c !== currentTextColor.value);
+                    currentTextColor.value = availableColors[Math.floor(Math.random() * availableColors.length)];
+
+                    let dataList = blocks.value.map(b => {
+                        let r = records.value[b] || { viewCount: 0, totalViewTime: 0, avgViewTime: 0 };
+                        return { 
+                            text: b, 
+                            avgViewTime: r.avgViewTime || 0,
+                            viewCount: r.viewCount || 0
+                        };
                     });
 
-                    // 1. 已到期池 (按超期时间最久排序)
-                    let duePool = dataList
-                        .filter(d => (d.simpleCount > 0 || d.blurCount > 0) && d.nextReviewTime <= now)
-                        .sort((a, b) => a.nextReviewTime - b.nextReviewTime);
+                    let unreadPool = dataList.filter(d => d.viewCount === 0);
+                    let readPool = dataList.filter(d => d.viewCount > 0);
 
-                    // 2. 未学习池
-                    let newPool = shuffleArray(dataList.filter(d => d.simpleCount === 0 && d.blurCount === 0));
+                    shuffleArray(unreadPool);
+                    readPool.sort((a, b) => b.avgViewTime - a.avgViewTime);
 
-                    // 3. 未到期池 (作为无牌可抽时的兜底)
-                    let futurePool = dataList
-                        .filter(d => (d.simpleCount > 0 || d.blurCount > 0) && d.nextReviewTime > now)
-                        .sort((a, b) => a.nextReviewTime - b.nextReviewTime);
+                    let oldCards = [];
+                    let newCards = [];
 
-                    let selected = [];
+                    newCards.push(...unreadPool.splice(0, 2));
 
-                    // 优先填入到期卡片，最多取 8 张，留 2 张给新卡片（避免一直复习无新进展）
-                    if (duePool.length > 0) {
-                        const takeDueCount = Math.min(duePool.length, 8);
-                        selected.push(...duePool.slice(0, takeDueCount));
+                    let needed = 10 - newCards.length;
+                    oldCards.push(...readPool.splice(0, needed));
+
+                    if (oldCards.length + newCards.length < 10) {
+                        needed = 10 - (oldCards.length + newCards.length);
+                        newCards.push(...unreadPool.splice(0, needed));
                     }
 
-                    // 用新卡片填补至 10 张
-                    if (selected.length < 10 && newPool.length > 0) {
-                        const need = 10 - selected.length;
-                        selected.push(...newPool.slice(0, need));
-                    }
-
-                    // 如果还是不够（可能是纯复习末期），用剩余的复习卡片或提前复习的卡片填补
-                    if (selected.length < 10 && duePool.length > 8) {
-                        const need = 10 - selected.length;
-                        selected.push(...duePool.slice(8, 8 + need));
-                    }
-                    if (selected.length < 10 && futurePool.length > 0) {
-                        const need = 10 - selected.length;
-                        selected.push(...futurePool.slice(0, need));
-                    }
-
-                    selected = shuffleArray(selected);
+                    let selected = [...oldCards, ...newCards];
+                    
                     queue.value = selected.map(item => item.text);
-
-                    if (queue.value.length > 0) {
-                        currentBlockObj.value = queue.value.shift();
-                    } else {
-                        currentBlockObj.value = blocks.value[0];
-                    }
+                    currentBlockObj.value = queue.value.shift();
+                    isRevealed.value = false;
+                    cardStartTime.value = Date.now();
                 };
 
-                // --- 核心算法：SuperMemo 权重计算 ---
-                const handleAnswer = async (type) => {
+                const nextCard = async () => {
                     const b = currentBlock.value;
                     if (!b) return;
 
-                    let rec = records.value[b] || { 
-                        simpleCount: 0, blurCount: 0, 
-                        EF: 2.5, n: 0, interval: 0, nextReviewTime: 0 
-                    };
-
-                    if (rec.EF === undefined) {
-                        rec.EF = 2.5; rec.n = 0; rec.interval = 1; rec.nextReviewTime = 0;
-                    }
-
                     const now = Date.now();
-
-                    if (type === 'Simple') {
-                        rec.simpleCount++;
-                        // 相当于 SM-2 中的 Quality 5 (完美回忆)
-                        if (rec.n === 0) rec.interval = 2;       // 首次记住，间隔 2 分钟
-                        else if (rec.n === 1) rec.interval = 10; // 第二次记住，间隔 10 分钟
-                        else rec.interval = Math.round(rec.interval * rec.EF); // 后续乘数级放大
-
-                        rec.n++;
-                        rec.EF = Math.max(1.3, rec.EF + 0.1); // 增加难度系数因子
-                    } else { 
-                        rec.blurCount++;
-                        // 相当于 SM-2 中的 Quality 2 (模糊/答错)
-                        rec.n = 0; // 连击打断
-                        rec.interval = 1; // 惩罚回 1 分钟后强制复习
-                        rec.EF = Math.max(1.3, rec.EF - 0.32); // 显著降低难度系数因子
+                    let spentSeconds = (now - cardStartTime.value) / 1000;
+                    
+                    if (spentSeconds > 60) {
+                        spentSeconds = 60;
                     }
 
-                    // 计算下次复习时间戳
-                    rec.lastTime = now;
-                    rec.nextReviewTime = now + (rec.interval * 60 * 1000);
-                    
+                    let rec = records.value[b] || { viewCount: 0, totalViewTime: 0, avgViewTime: 0 };
+                    if (rec.viewCount === undefined) {
+                        rec = { viewCount: 0, totalViewTime: 0, avgViewTime: 0 };
+                    }
+
+                    rec.viewCount += 1;
+                    rec.totalViewTime += spentSeconds;
+                    rec.avgViewTime = rec.totalViewTime / rec.viewCount;
+
                     records.value[b] = rec;
 
                     if (db.value) await saveRecordToDB(db.value, b, rec);
@@ -338,7 +378,7 @@
                 const parseText = (text) => {
                     const normalizedText = text.replace(/\r\n/g, '\n');
                     const rawBlocks = normalizedText.split(/\n\s*\n/).map(b => b.trim()).filter(b => b.length > 0);
-                    const finalBlocks = [];
+                    const allParsedBlocks = [];
 
                     rawBlocks.forEach(block => {
                         const lines = block.split('\n');
@@ -346,17 +386,17 @@
                             lines.forEach(line => {
                                 const trimmedLine = line.trim();
                                 if (trimmedLine.length > 0) {
-                                    finalBlocks.push(trimmedLine);
+                                    allParsedBlocks.push(trimmedLine);
                                 }
                             });
                         } else {
-                            finalBlocks.push(block);
+                            allParsedBlocks.push(block);
                         }
                     });
 
-                    blocks.value = finalBlocks;
-
-                    const currentSet = new Set(finalBlocks);
+                    const currentSet = new Set(allParsedBlocks);
+                    
+                    // 1. 彻底清理内存和数据库中：在 w.txt 已经不存在的旧卡片记录
                     for (const key in records.value) {
                         if (!currentSet.has(key)) {
                             delete records.value[key];
@@ -364,11 +404,18 @@
                     }
 
                     if (db.value) {
-                        cleanupDB(db.value, finalBlocks);
+                        cleanupDB(db.value, allParsedBlocks);
                     }
                     
+                    // 2. 过滤掉被手动移除的卡片与不在 w.txt 中的卡片
+                    blocks.value = allParsedBlocks.filter(b => {
+                        return !(records.value[b] && records.value[b].isRemoved);
+                    });
+
                     queue.value = []; 
-                    if (blocks.value.length > 0) pickNextBlock();
+                    if (blocks.value.length > 0) {
+                        pickNextBlock();
+                    }
                     loading.value = false;
                     needManualUpload.value = false;
                 };
@@ -407,9 +454,10 @@
                 onMounted(() => initData());
 
                 return {
-                    loading, needManualUpload, currentBlock,
-                    countClear, countBlurry, countUnread,
-                    handleAnswer, handleFileUpload, speakBlock,
+                    loading, needManualUpload, currentBlock, currentAvgTime,
+                    blocks, firstLine, isRevealed, revealCard,
+                    countRead, countUnread, currentTextColor,
+                    nextCard, removeCurrentCard, handleFileUpload, speakBlock,
                     showSearch, searchQuery, searchResults, searchInput,
                     closeSearch, selectBlock, highlightText
                 };
