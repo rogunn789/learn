@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="dark h-full bg-slate-950 text-slate-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EchoMaster - 智能网络复读机</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#eep2ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                            900: '#312e81'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icon CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Wavesurfer.js v7 and Regions Plugin CDN -->
+    <script src="https://unpkg.com/wavesurfer.js@7/dist/wavesurfer.min.js"></script>
+    <script src="https://unpkg.com/wavesurfer.js@7/dist/plugins/regions.min.js"></script>
+    
+    <style>
+        /* Custom scrollbars for dark mode */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        /* Custom range slider styling */
+        input[type=range] {
+            accent-color: #6366f1;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased bg-slate-950 text-slate-100 select-none">
+
+    <!-- Top Navigation Bar -->
+    <header class="h-14 border-b border-slate-800 bg-slate-900/80 px-4 flex items-center justify-between z-20 shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                <i class="fa-solid font-bold fa-repeat text-white text-lg"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-base tracking-wide bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">EchoMaster</h1>
+                <p class="text-[10px] text-slate-400 -mt-1">智能语言学习复读机</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-3 text-xs">
+            <!-- Preset Sample Button -->
+            <button id="btn-load-demo" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-indigo-200 border border-indigo-500/30 transition flex items-center space-x-1.5 shadow-sm">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                <span>加载示例课程</span>
+            </button>
+            <!-- Keyboard Shortcuts Info -->
+            <button id="btn-shortcuts" class="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition" title="快捷键说明">
+                <i class="fa-solid fa-keyboard text-sm"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 overflow-hidden">
+        
+        <!-- Left Panel: Waveform, Player & Segmentation Controls (7 cols on lg, 8 on xl) -->
+        <div class="lg:col-span-7 xl:col-span-8 flex flex-col space-y-4 overflow-y-auto lg:overflow-visible pr-1">
+
+            <!-- File Upload & Dropzone Card -->
+            <div id="drop-zone" class="glass-panel rounded-2xl p-4 border-2 border-dashed border-slate-700 hover:border-brand-500/50 transition duration-200 group relative">
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center text-indigo-400 group-hover:scale-105 transition">
+                            <i class="fa-solid fa-file-audio text-xl"></i>
+                        </div>
+                        <div>
+                            <div class="text-xs font-semibold text-slate-200" id="file-status-text">可拖入 MP3 音频与 LRC 字幕文件</div>
+                            <div class="text-[11px] text-slate-400" id="file-sub-status">或点击右侧按钮选择文件</div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-2">
+                        <label class="px-3 py-1.5 text-xs font-medium rounded-lg bg-brand-600 hover:bg-brand-500 text-white cursor-pointer transition shadow-md shadow-brand-600/20">
+                            <i class="fa-solid fa-music mr-1"></i> 选择 MP3
+                            <input type="file" id="input-audio" accept="audio/mp3,audio/wav,audio/m4a,audio/*" class="hidden">
+                        </label>
+                        <label class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer border border-slate-700 transition">
+                            <i class="fa-solid fa-closed-captioning mr-1"></i> 选择 LRC
+                            <input type="file" id="input-lrc" accept=".lrc,.txt" class="hidden">
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Waveform Viewport Panel -->
+            <div class="glass-panel rounded-2xl p-4 flex flex-col space-y-3 relative overflow-hidden">
+                <div class="flex items-center justify-between text-xs text-slate-400">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" id="status-indicator"></span>
+                        <span id="current-filename" class="font-medium text-slate-300 truncate max-w-[200px] sm:max-w-[300px]">未加载音频</span>
+                    </div>
+                    <div class="font-mono text-xs bg-slate-900/80 px-2 py-1 rounded border border-slate-800">
+                        <span id="time-current" class="text-indigo-400 font-bold">00:00.0</span> / <span id="time-total" class="text-slate-400">00:00.0</span>
+                    </div>
+                </div>
+
+                <!-- Waveform Canvas Container -->
+                <div id="waveform-container" class="w-full bg-slate-950/60 rounded-xl border border-slate-800/80 p-2 relative min-h-[110px] flex items-center justify-center">
+                    <div id="waveform-loader" class="text-xs text-slate-500 flex items-center space-x-2">
+                        <i class="fa-solid fa-waveform-lines text-base animate-bounce"></i>
+                        <span>等待音频文件载入...</span>
+                    </div>
+                    <div id="waveform" class="w-full"></div>
+                </div>
+
+                <!-- Waveform Toolbar (Zoom & Region Controls) -->
+                <div class="flex items-center justify-between text-xs text-slate-400 pt-1">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-magnifying-glass-minus text-slate-500"></i>
+                        <input id="slider-zoom" type="range" min="10" max="200" value="50" class="w-24 sm:w-32 h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+                        <i class="fa-solid fa-magnifying-glass-plus text-slate-500"></i>
+                        <span class="text-[10px] text-slate-500 hidden sm:inline ml-1">波形缩放</span>
+                    </div>
+                    
+                    <div class="flex items-center space-x-3">
+                        <label class="flex items-center space-x-1.5 cursor-pointer text-xs hover:text-slate-200">
+                            <input type="checkbox" id="chk-show-region" checked class="rounded border-slate-700 text-brand-600 focus:ring-brand-500 bg-slate-900">
+                            <span>高亮当前播放句区间</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Audio Control Panel -->
+            <div class="glass-panel rounded-2xl p-5 flex flex-col space-y-4">
+                
+                <!-- Primary Action Buttons Row -->
+                <div class="flex items-center justify-center space-x-3 sm:space-x-5">
+                    <!-- Prev Sentence Button -->
+                    <button id="btn-prev" class="w-11 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white transition flex items-center justify-center border border-slate-700/60 shadow-md active:scale-95" title="上一句 (Left Arrow)">
+                        <i class="fa-solid fa-backward-step text-base"></i>
+                    </button>
+
+                    <!-- Replay Current Sentence -->
+                    <button id="btn-replay" class="w-11 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-400 hover:text-indigo-300 transition flex items-center justify-center border border-slate-700/60 shadow-md active:scale-95" title="重播当前句 (R)">
+                        <i class="fa-solid fa-rotate-left text-base"></i>
+                    </button>
+
+                    <!-- Play / Pause Button -->
+                    <button id="btn-play-pause" class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-500 hover:from-brand-500 hover:to-indigo-400 text-white transition flex items-center justify-center shadow-lg shadow-brand-600/30 active:scale-95" title="播放 / 暂停 (Space)">
+                        <i class="fa-solid fa-play text-xl ml-0.5" id="icon-play"></i>
+                    </button>
+
+                    <!-- Single Sentence Repeat Toggle -->
+                    <button id="btn-toggle-loop" class="w-11 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700/60 transition flex items-center justify-center relative shadow-md active:scale-95" title="单句循环复读开关 (L)">
+                        <i class="fa-solid fa-repeat text-base"></i>
+                        <span id="loop-badge" class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-slate-600 border-2 border-slate-900"></span>
+                    </button>
+
+                    <!-- Next Sentence Button -->
+                    <button id="btn-next" class="w-11 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white transition flex items-center justify-center border border-slate-700/60 shadow-md active:scale-95" title="下一句 (Right Arrow)">
+                        <i class="fa-solid fa-forward-step text-base"></i>
+                    </button>
+                </div>
+
+                <!-- Secondary Controls: Speed Selector & Volume -->
+                <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+                    <!-- Playback Speed Selector Pills -->
+                    <div class="flex items-center space-x-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800">
+                        <span class="text-[11px] text-slate-400 px-2 font-medium">倍速:</span>
+                        <button data-speed="0.5" class="btn-speed px-2 py-0.5 text-xs rounded-lg text-slate-400 hover:text-white transition">0.5x</button>
+                        <button data-speed="0.75" class="btn-speed px-2 py-0.5 text-xs rounded-lg text-slate-400 hover:text-white transition">0.75x</button>
+                        <button data-speed="1.0" class="btn-speed px-2 py-0.5 text-xs rounded-lg bg-brand-600 text-white font-semibold shadow-sm">1.0x</button>
+                        <button data-speed="1.25" class="btn-speed px-2 py-0.5 text-xs rounded-lg text-slate-400 hover:text-white transition">1.25x</button>
+                        <button data-speed="1.5" class="btn-speed px-2 py-0.5 text-xs rounded-lg text-slate-400 hover:text-white transition">1.5x</button>
+                    </div>
+
+                    <!-- Volume Slider -->
+                    <div class="flex items-center space-x-2 bg-slate-950/60 px-3 py-1 rounded-xl border border-slate-800">
+                        <i class="fa-solid fa-volume-high text-xs text-slate-400" id="icon-volume"></i>
+                        <input id="slider-volume" type="range" min="0" max="1" step="0.05" value="0.9" class="w-20 h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Auto Silence Segmentation Settings Card -->
+            <div class="glass-panel rounded-2xl p-4 flex flex-col space-y-3">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <i class="fa-solid fa-scissors text-indigo-400"></i>
+                        <h2 class="text-xs font-bold text-slate-200">智能波形静音断句 (中点自动切割)</h2>
+                    </div>
+                    <span class="text-[10px] text-slate-400 bg-indigo-950/80 border border-indigo-800/50 text-indigo-300 px-2 py-0.5 rounded-full">静音中点划界算法</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-950/50 p-3 rounded-xl border border-slate-800/60">
+                    <!-- Silence Duration Threshold -->
+                    <div class="flex flex-col space-y-1">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">静音断句阈值 (秒)</span>
+                            <span id="val-silence-time" class="text-indigo-400 font-mono font-bold">0.5s</span>
+                        </div>
+                        <input id="slider-silence-time" type="range" min="0.1" max="2.0" step="0.1" value="0.5" class="h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+                        <p class="text-[10px] text-slate-500">连续静音持续多长时间划分独立语句 (默认 0.5s)</p>
+                    </div>
+
+                    <!-- Sensitivity / Amplitude Threshold -->
+                    <div class="flex flex-col space-y-1">
+                        <div class="flex justify-between text-xs">
+                            <span class="text-slate-400">静音判定灵敏度</span>
+                            <span id="val-silence-vol" class="text-indigo-400 font-mono font-bold">中等 (0.015)</span>
+                        </div>
+                        <input id="slider-silence-vol" type="range" min="0.003" max="0.05" step="0.002" value="0.015" class="h-1.5 bg-slate-800 rounded-lg cursor-pointer">
+                        <p class="text-[10px] text-slate-500">切割点自动落于两语音段之间静音区间的几何中心点</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-between pt-1">
+                    <span class="text-[11px] text-slate-400 flex items-center">
+                        <i class="fa-solid fa-circle-info text-indigo-400 mr-1.5"></i>
+                        分割点将精准设在相邻语篇静音区正中间，平滑过渡无吞音
+                    </span>
+                    <button id="btn-auto-segment" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-medium transition flex items-center space-x-2 shadow-md shadow-indigo-600/20 active:scale-95 shrink-0">
+                        <i class="fa-solid fa-bolt text-amber-300"></i>
+                        <span>执行静音中点自动断句</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Panel: Subtitle Synchronized & Editable List (5 cols on lg, 4 on xl) -->
+        <div class="lg:col-span-5 xl:col-span-4 flex flex-col h-[520px] lg:h-full glass-panel rounded-2xl overflow-hidden">
+            
+            <!-- Subtitle Header & Status -->
+            <div class="p-3.5 border-b border-slate-800 bg-slate-900/90 flex items-center justify-between shrink-0">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-list-ol text-brand-500"></i>
+                    <span class="text-xs font-bold text-slate-200">字幕列表 (可编辑)</span>
+                    <span id="badge-sentence-count" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">0 句</span>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <span id="mode-badge" class="text-[10px] px-2 py-0.5 rounded bg-brand-950 text-brand-300 border border-brand-800 font-medium">LRC 模式</span>
+                    <!-- Export LRC Button -->
+                    <button id="btn-export-lrc" class="px-2.5 py-1 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center space-x-1 shadow-sm font-medium">
+                        <i class="fa-solid fa-file-export text-[11px]"></i>
+                        <span>导出 LRC</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sentence Filter Input -->
+            <div class="px-3 py-2 bg-slate-950/40 border-b border-slate-800/80 shrink-0">
+                <div class="relative">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-500"></i>
+                    <input id="input-search" type="text" placeholder="搜索或过滤字幕文本..." class="w-full bg-slate-900/90 text-xs text-slate-200 pl-8 pr-3 py-1.5 rounded-lg border border-slate-800 focus:outline-none focus:border-indigo-500 transition placeholder:text-slate-600">
+                </div>
+            </div>
+
+            <!-- Scrollable Subtitle List with Inline Editing -->
+            <div id="sentence-list" class="flex-1 overflow-y-auto p-3 space-y-2 relative">
+                <!-- Empty Placeholder -->
+                <div id="empty-list-placeholder" class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500 space-y-3">
+                    <div class="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600">
+                        <i class="fa-solid fa-closed-captioning text-2xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-slate-400">暂无句子数据</p>
+                        <p class="text-[11px] text-slate-600 mt-1">载入 LRC 文件或执行自动断句，可在此处直接修改并导出新的 LRC 文件</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- List Footer Bar -->
+            <div class="p-2.5 bg-slate-900/90 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between shrink-0">
+                <span class="text-slate-500">双击或点击文本框可实时修改字幕</span>
+                <button id="btn-clear-list" class="hover:text-rose-400 transition">
+                    <i class="fa-solid fa-trash-can mr-1"></i>清空列表
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Keyboard Shortcuts Modal Dialog -->
+    <div id="modal-shortcuts" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div class="flex items-center space-x-2 text-indigo-400 font-bold text-sm">
+                    <i class="fa-solid fa-keyboard"></i>
+                    <span>快捷键指南</span>
+                </div>
+                <button id="btn-close-modal" class="text-slate-400 hover:text-white text-base">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-2.5 text-xs text-slate-300">
+                <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-800">
+                    <span>播放 / 暂停</span>
+                    <kbd class="px-2 py-1 rounded bg-slate-800 text-indigo-300 font-mono text-[11px] border border-slate-700">Space</kbd>
+                </div>
+                <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-800">
+                    <span>上一句 / 下一句</span>
+                    <kbd class="px-2 py-1 rounded bg-slate-800 text-indigo-300 font-mono text-[11px] border border-slate-700">← / →</kbd>
+                </div>
+                <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-800">
+                    <span>单句重播</span>
+                    <kbd class="px-2 py-1 rounded bg-slate-800 text-indigo-300 font-mono text-[11px] border border-slate-700">R</kbd>
+                </div>
+                <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-800">
+                    <span>开启/关闭 单句循环复读</span>
+                    <kbd class="px-2 py-1 rounded bg-slate-800 text-indigo-300 font-mono text-[11px] border border-slate-700">L</kbd>
+                </div>
+            </div>
+
+            <div class="pt-2 text-center">
+                <button id="btn-modal-ok" class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition">
+                    知道了
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global Application State
+        const state = {
+            wavesurfer: null,
+            wsRegions: null,
+            audioBuffer: null,
+            sentences: [],        // Array of { id, start, end, text }
+            currentIndex: -1,     // Current active sentence index
+            isLoopSentence: false,// Single sentence repeat mode flag
+            playbackRate: 1.0,
+            silenceMinSec: 0.5,   // Default 0.5s threshold
+            silenceThreshold: 0.015,
+            currentFilename: "demo_course"
+        };
+
+        // Built-in Sample LRC for immediate testing
+        const DEMO_LRC = `[00:00.50]Welcome to EchoMaster, your smart audio repeater.
+[00:04.20]This web application helps you learn languages effectively.
+[00:08.80]You can load your own MP3 files and LRC subtitles.
+[00:13.10]If you don't have subtitle files, try the Auto-Segmentation feature.
+[00:18.50]Adjust the silence threshold to automatically split sentences.
+[00:23.00]Use shortcut keys like Space for play or pause, and arrows for switching lines.
+[00:28.50]Happy learning and continuous improvement!`;
+
+        // Public royalty-free MP3 sample for standard testing
+        const DEMO_AUDIO_URL = 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=english-speech-sample-12548.mp3';
+
+        const DOM = {
+            dropZone: document.getElementById('drop-zone'),
+            inputAudio: document.getElementById('input-audio'),
+            inputLrc: document.getElementById('input-lrc'),
+            btnLoadDemo: document.getElementById('btn-load-demo'),
+            btnPlayPause: document.getElementById('btn-play-pause'),
+            iconPlay: document.getElementById('icon-play'),
+            btnPrev: document.getElementById('btn-prev'),
+            btnNext: document.getElementById('btn-next'),
+            btnReplay: document.getElementById('btn-replay'),
+            btnToggleLoop: document.getElementById('btn-toggle-loop'),
+            loopBadge: document.getElementById('loop-badge'),
+            sliderZoom: document.getElementById('slider-zoom'),
+            sliderVolume: document.getElementById('slider-volume'),
+            sliderSilenceTime: document.getElementById('slider-silence-time'),
+            sliderSilenceVol: document.getElementById('slider-silence-vol'),
+            valSilenceTime: document.getElementById('val-silence-time'),
+            valSilenceVol: document.getElementById('val-silence-vol'),
+            btnAutoSegment: document.getElementById('btn-auto-segment'),
+            chkShowRegion: document.getElementById('chk-show-region'),
+            sentenceList: document.getElementById('sentence-list'),
+            emptyPlaceholder: document.getElementById('empty-list-placeholder'),
+            badgeSentenceCount: document.getElementById('badge-sentence-count'),
+            modeBadge: document.getElementById('mode-badge'),
+            btnExportLrc: document.getElementById('btn-export-lrc'),
+            inputSearch: document.getElementById('input-search'),
+            btnClearList: document.getElementById('btn-clear-list'),
+            timeCurrent: document.getElementById('time-current'),
+            timeTotal: document.getElementById('time-total'),
+            currentFilename: document.getElementById('current-filename'),
+            fileStatusText: document.getElementById('file-status-text'),
+            fileSubStatus: document.getElementById('file-sub-status'),
+            btnShortcuts: document.getElementById('btn-shortcuts'),
+            modalShortcuts: document.getElementById('modal-shortcuts'),
+            btnCloseModal: document.getElementById('btn-close-modal'),
+            btnModalOk: document.getElementById('btn-modal-ok'),
+            waveformLoader: document.getElementById('waveform-loader')
+        };
+
+        function initWaveSurfer() {
+            state.wsRegions = WaveSurfer.Regions.create();
+
+            state.wavesurfer = WaveSurfer.create({
+                container: '#waveform',
+                waveColor: '#334155',
+                progressColor: '#6366f1',
+                cursorColor: '#818cf8',
+                cursorWidth: 2,
+                barWidth: 2,
+                barGap: 2,
+                barRadius: 2,
+                height: 90,
+                plugins: [state.wsRegions]
+            });
+
+            state.wavesurfer.on('ready', () => {
+                DOM.waveformLoader.classList.add('hidden');
+                DOM.timeTotal.textContent = formatTime(state.wavesurfer.getDuration());
+                fetchAudioBuffer();
+            });
+
+            state.wavesurfer.on('play', () => {
+                DOM.iconPlay.className = 'fa-solid fa-pause text-xl';
+            });
+
+            state.wavesurfer.on('pause', () => {
+                DOM.iconPlay.className = 'fa-solid fa-play text-xl ml-0.5';
+            });
+
+            state.wavesurfer.on('timeupdate', (currentTime) => {
+                DOM.timeCurrent.textContent = formatTime(currentTime);
+                handleTimeSync(currentTime);
+            });
+        }
+
+        async function fetchAudioBuffer() {
+            try {
+                state.audioBuffer = state.wavesurfer.getDecodedData();
+            } catch (err) {
+                console.warn("AudioBuffer standard retrieval failed, attempt manually decoding:", err);
+            }
+        }
+
+        function formatTime(seconds) {
+            if (isNaN(seconds) || seconds === null) return '00:00.0';
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            const ms = Math.floor((seconds % 1) * 10);
+            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${ms}`;
+        }
+
+        function formatLrcTimestamp(seconds) {
+            if (isNaN(seconds) || seconds < 0) seconds = 0;
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            const ms = Math.floor((seconds % 1) * 100); // 2-digit hundredths of a second
+            return `[${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms).padStart(2, '0')}]`;
+        }
+
+        function parseLRC(lrcText) {
+            const lines = lrcText.split('\n');
+            const timeRegex = /\[(\d{2}):(\d{2})(?:\.|\:)(\d{2,3})\]/g;
+            const parsed = [];
+
+            lines.forEach((line) => {
+                line = line.trim();
+                if (!line) return;
+
+                let match;
+                const timestamps = [];
+                let cleanText = line;
+
+                while ((match = timeRegex.exec(line)) !== null) {
+                    const min = parseInt(match[1], 10);
+                    const sec = parseInt(match[2], 10);
+                    let msStr = match[3];
+                    if (msStr.length === 2) msStr += '0';
+                    const ms = parseInt(msStr, 10);
+                    const totalTime = min * 60 + sec + ms / 1000;
+                    timestamps.push(totalTime);
+                    cleanText = cleanText.replace(match[0], '');
+                }
+
+                cleanText = cleanText.trim();
+                if (cleanText && timestamps.length > 0) {
+                    timestamps.forEach(time => {
+                        parsed.push({ start: time, text: cleanText });
+                    });
+                }
+            });
+
+            parsed.sort((a, b) => a.start - b.start);
+
+            const duration = state.wavesurfer ? state.wavesurfer.getDuration() : 300;
+            const result = parsed.map((item, index) => {
+                const nextStart = parsed[index + 1] ? parsed[index + 1].start : duration;
+                return {
+                    id: index,
+                    start: item.start,
+                    end: Math.max(item.start + 0.5, nextStart),
+                    text: item.text
+                };
+            });
+
+            return result;
+        }
+
+        /**
+         * Auto Silence Segmentation with Silence Midpoint Splitting.
+         * The split point between adjacent speech segments is placed exactly at the MIDPOINT of the silence gap:
+         * boundary = (speechA_end + speechB_start) / 2
+         */
+        function analyzeSilenceSegmentation() {
+            if (!state.audioBuffer && state.wavesurfer) {
+                state.audioBuffer = state.wavesurfer.getDecodedData();
+            }
+
+            if (!state.audioBuffer) {
+                alert("请先加载有效的音频文件！");
+                return;
+            }
+
+            const channelData = state.audioBuffer.getChannelData(0);
+            const sampleRate = state.audioBuffer.sampleRate;
+            const duration = state.audioBuffer.duration;
+            
+            // 20ms chunks
+            const chunkSize = Math.floor(sampleRate * 0.02);
+            const totalChunks = Math.floor(channelData.length / chunkSize);
+
+            const minSilenceChunks = Math.floor(state.silenceMinSec / 0.02);
+            const threshold = state.silenceThreshold;
+
+            let inSpeech = false;
+            let speechStart = 0;
+            let silenceChunkCount = 0;
+            const rawSpeechBlocks = [];
+
+            for (let i = 0; i < totalChunks; i++) {
+                const startIdx = i * chunkSize;
+                let sumSquare = 0;
+                for (let j = 0; j < chunkSize; j++) {
+                    const sample = channelData[startIdx + j];
+                    sumSquare += sample * sample;
+                }
+                const rms = Math.sqrt(sumSquare / chunkSize);
+                const currentTime = (i * chunkSize) / sampleRate;
+
+                if (rms >= threshold) {
+                    silenceChunkCount = 0;
+                    if (!inSpeech) {
+                        inSpeech = true;
+                        speechStart = currentTime;
+                    }
+                } else {
+                    if (inSpeech) {
+                        silenceChunkCount++;
+                        if (silenceChunkCount >= minSilenceChunks) {
+                            inSpeech = false;
+                            const speechEnd = currentTime - (silenceChunkCount * 0.02);
+                            if (speechEnd - speechStart >= 0.2) { // Filter out ultra-short noise pops < 0.2s
+                                rawSpeechBlocks.push({ speechStart, speechEnd });
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (inSpeech) {
+                rawSpeechBlocks.push({ speechStart, speechEnd: duration });
+            }
+
+            if (rawSpeechBlocks.length === 0) {
+                alert("未检测到有效语音段！请降低静音判定灵敏度或缩短断句阈值。");
+                return;
+            }
+
+            // Calculate boundaries placed at the MIDPOINT of silent gaps
+            const sentences = [];
+            for (let k = 0; k < rawSpeechBlocks.length; k++) {
+                const currentBlock = rawSpeechBlocks[k];
+                
+                // Determine sentence start
+                let start;
+                if (k === 0) {
+                    // First sentence start
+                    start = Math.max(0, currentBlock.speechStart - 0.1);
+                } else {
+                    // Midpoint between previous speech end and current speech start
+                    const prevBlock = rawSpeechBlocks[k - 1];
+                    start = (prevBlock.speechEnd + currentBlock.speechStart) / 2;
+                }
+
+                // Determine sentence end
+                let end;
+                if (k === rawSpeechBlocks.length - 1) {
+                    // Last sentence end
+                    end = Math.min(duration, currentBlock.speechEnd + 0.1);
+                } else {
+                    // Midpoint between current speech end and next speech start
+                    const nextBlock = rawSpeechBlocks[k + 1];
+                    end = (currentBlock.speechEnd + nextBlock.speechStart) / 2;
+                }
+
+                sentences.push({
+                    id: k,
+                    start: Number(start.toFixed(3)),
+                    end: Number(end.toFixed(3)),
+                    text: `片段 #${k + 1}`
+                });
+            }
+
+            state.sentences = sentences;
+            DOM.modeBadge.textContent = "静音中点断句";
+            DOM.modeBadge.className = "text-[10px] px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 font-medium";
+
+            renderSentenceList();
+            if (state.sentences.length > 0) {
+                setActiveSentence(0, false);
+            }
+        }
+
+        function renderSentenceList() {
+            const filterText = DOM.inputSearch.value.toLowerCase().trim();
+            DOM.sentenceList.innerHTML = '';
+
+            const filtered = state.sentences.filter(s => (s.text || '').toLowerCase().includes(filterText));
+            DOM.badgeSentenceCount.textContent = `${filtered.length} 句`;
+
+            if (filtered.length === 0) {
+                DOM.sentenceList.appendChild(DOM.emptyPlaceholder);
+                DOM.emptyPlaceholder.classList.remove('hidden');
+                return;
+            } else {
+                DOM.emptyPlaceholder.classList.add('hidden');
+            }
+
+            filtered.forEach((sentence) => {
+                const isActive = sentence.id === state.currentIndex;
+                const itemDiv = document.createElement('div');
+                itemDiv.id = `sentence-item-${sentence.id}`;
+                itemDiv.className = `p-2.5 rounded-xl border transition flex items-center justify-between space-x-3 ${
+                    isActive 
+                    ? 'bg-brand-600/20 border-brand-500/80 text-white shadow-md shadow-brand-500/10' 
+                    : 'bg-slate-900/60 hover:bg-slate-800/80 border-slate-800/80 text-slate-300'
+                }`;
+
+                itemDiv.onclick = () => {
+                    jumpToSentence(sentence.id, true);
+                };
+
+                // Index badge
+                const leftContainer = document.createElement('div');
+                leftContainer.className = 'flex items-center space-x-2 overflow-hidden flex-1';
+
+                const indexBadge = document.createElement('span');
+                indexBadge.className = 'text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-950/80 text-indigo-400 border border-slate-800 shrink-0';
+                indexBadge.textContent = `#${sentence.id + 1}`;
+
+                // Editable text input field
+                const textInput = document.createElement('input');
+                textInput.type = 'text';
+                textInput.value = sentence.text || '';
+                textInput.placeholder = '点击此处编辑字幕文本...';
+                textInput.className = 'w-full bg-slate-950/60 text-xs text-slate-100 px-2 py-1 rounded border border-slate-700/60 focus:border-indigo-500 focus:bg-slate-950 focus:outline-none transition';
+
+                // Real-time editable update to state
+                textInput.addEventListener('input', (e) => {
+                    sentence.text = e.target.value;
+                });
+
+                // Prevent click on input from immediately playing/seeking
+                textInput.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+
+                leftContainer.appendChild(indexBadge);
+                leftContainer.appendChild(textInput);
+
+                // Time timestamp & Replay button
+                const rightContainer = document.createElement('div');
+                rightContainer.className = 'flex items-center space-x-2 shrink-0';
+
+                const timeBadge = document.createElement('span');
+                timeBadge.className = 'text-[10px] text-slate-500 font-mono hidden sm:inline';
+                timeBadge.textContent = `${formatTime(sentence.start)}`;
+
+                const playBtn = document.createElement('button');
+                playBtn.className = 'w-7 h-7 rounded-lg bg-slate-800 hover:bg-brand-600 text-slate-400 hover:text-white flex items-center justify-center transition';
+                playBtn.title = '单句重播';
+                playBtn.innerHTML = `<i class="fa-solid ${isActive && state.wavesurfer.isPlaying() ? 'fa-pause' : 'fa-play'} text-xs"></i>`;
+
+                rightContainer.appendChild(timeBadge);
+                rightContainer.appendChild(playBtn);
+
+                itemDiv.appendChild(leftContainer);
+                itemDiv.appendChild(rightContainer);
+
+                DOM.sentenceList.appendChild(itemDiv);
+            });
+        }
+
+        /**
+         * Compiles state.sentences into standard LRC file format and triggers browser download.
+         */
+        function exportLRC() {
+            if (!state.sentences || state.sentences.length === 0) {
+                alert("当前列表没有可以导出的字幕/句子内容！");
+                return;
+            }
+
+            let lrcContent = `[ti:${state.currentFilename}]\n`;
+            lrcContent += `[by:EchoMaster Repeater]\n`;
+
+            state.sentences.forEach(s => {
+                const timeStr = formatLrcTimestamp(s.start);
+                const textStr = (s.text || '').trim();
+                lrcContent += `${timeStr}${textStr}\n`;
+            });
+
+            // Create Blob and download
+            const blob = new Blob([lrcContent], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.href = url;
+            const cleanName = (state.currentFilename || 'repeater_subtitle').replace(/\.[^/.]+$/, "");
+            downloadAnchor.download = `${cleanName}.lrc`;
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            document.body.removeChild(downloadAnchor);
+            URL.revokeObjectURL(url);
+        }
+
+        function handleTimeSync(currentTime) {
+            if (state.sentences.length === 0) return;
+
+            const currentSentence = state.sentences[state.currentIndex];
+
+            // Single sentence looping logic
+            if (state.isLoopSentence && currentSentence) {
+                if (currentTime >= currentSentence.end - 0.08 || currentTime < currentSentence.start) {
+                    state.wavesurfer.setTime(currentSentence.start);
+                    return;
+                }
+            }
+
+            // Normal dynamic sync
+            const foundIndex = state.sentences.findIndex(s => currentTime >= s.start && currentTime < s.end);
+            if (foundIndex !== -1 && foundIndex !== state.currentIndex) {
+                setActiveSentence(foundIndex, false);
+            }
+        }
+
+        function setActiveSentence(index, shouldSeek = true) {
+            if (index < 0 || index >= state.sentences.length) return;
+            state.currentIndex = index;
+
+            const sentence = state.sentences[index];
+
+            if (shouldSeek && state.wavesurfer) {
+                state.wavesurfer.setTime(sentence.start);
+            }
+
+            if (DOM.chkShowRegion.checked && state.wsRegions) {
+                state.wsRegions.clearRegions();
+                state.wsRegions.addRegion({
+                    start: sentence.start,
+                    end: sentence.end,
+                    color: 'rgba(99, 102, 241, 0.25)',
+                    drag: false,
+                    resize: false
+                });
+            }
+
+            renderSentenceList();
+
+            const activeElem = document.getElementById(`sentence-item-${index}`);
+            if (activeElem) {
+                activeElem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        function jumpToSentence(index, playImmediate = true) {
+            setActiveSentence(index, true);
+            if (playImmediate && state.wavesurfer) {
+                state.wavesurfer.play();
+            }
+        }
+
+        function loadAudioFile(file) {
+            DOM.waveformLoader.classList.remove('hidden');
+            state.currentFilename = file.name;
+            DOM.currentFilename.textContent = file.name;
+
+            const url = URL.createObjectURL(file);
+            state.wavesurfer.load(url);
+
+            DOM.fileStatusText.textContent = `已加载音频: ${file.name}`;
+            DOM.fileSubStatus.textContent = "可拖入 LRC 字幕或点击下方静音自动断句";
+        }
+
+        function loadLrcFile(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target.result;
+                state.sentences = parseLRC(text);
+                DOM.modeBadge.textContent = "LRC 模式";
+                DOM.modeBadge.className = "text-[10px] px-2 py-0.5 rounded bg-brand-950 text-brand-300 border border-brand-800 font-medium";
+                renderSentenceList();
+                if (state.sentences.length > 0) {
+                    setActiveSentence(0, false);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function loadDemoLesson() {
+            state.currentFilename = "English_Lesson_Sample";
+            DOM.currentFilename.textContent = "示例课程 - English Speech";
+            DOM.waveformLoader.classList.remove('hidden');
+
+            state.wavesurfer.load(DEMO_AUDIO_URL);
+            state.sentences = parseLRC(DEMO_LRC);
+
+            DOM.modeBadge.textContent = "LRC 示例模式";
+            DOM.modeBadge.className = "text-[10px] px-2 py-0.5 rounded bg-brand-950 text-brand-300 border border-brand-800 font-medium";
+
+            DOM.fileStatusText.textContent = "已载入示例英语课程及同步字幕";
+            DOM.fileSubStatus.textContent = "可双击编辑字幕后点击“导出 LRC”";
+
+            renderSentenceList();
+            if (state.sentences.length > 0) {
+                setActiveSentence(0, false);
+            }
+        }
+
+        function bindEvents() {
+            // Drag and Drop
+            DOM.dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                DOM.dropZone.classList.add('border-brand-500', 'bg-brand-950/20');
+            });
+
+            DOM.dropZone.addEventListener('dragleave', () => {
+                DOM.dropZone.classList.remove('border-brand-500', 'bg-brand-950/20');
+            });
+
+            DOM.dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                DOM.dropZone.classList.remove('border-brand-500', 'bg-brand-950/20');
+                
+                const files = Array.from(e.dataTransfer.files);
+                files.forEach(file => {
+                    if (file.type.startsWith('audio/') || file.name.match(/\.(mp3|wav|m4a|ogg)$/i)) {
+                        loadAudioFile(file);
+                    } else if (file.name.endsWith('.lrc') || file.name.endsWith('.txt')) {
+                        loadLrcFile(file);
+                    }
+                });
+            });
+
+            // Inputs
+            DOM.inputAudio.addEventListener('change', (e) => {
+                if (e.target.files[0]) loadAudioFile(e.target.files[0]);
+            });
+
+            DOM.inputLrc.addEventListener('change', (e) => {
+                if (e.target.files[0]) loadLrcFile(e.target.files[0]);
+            });
+
+            DOM.btnLoadDemo.addEventListener('click', loadDemoLesson);
+
+            // Playback controls
+            DOM.btnPlayPause.addEventListener('click', () => {
+                if (state.wavesurfer) state.wavesurfer.playPause();
+            });
+
+            DOM.btnPrev.addEventListener('click', () => {
+                if (state.currentIndex > 0) {
+                    jumpToSentence(state.currentIndex - 1, true);
+                }
+            });
+
+            DOM.btnNext.addEventListener('click', () => {
+                if (state.currentIndex < state.sentences.length - 1) {
+                    jumpToSentence(state.currentIndex + 1, true);
+                }
+            });
+
+            DOM.btnReplay.addEventListener('click', () => {
+                if (state.currentIndex >= 0) {
+                    jumpToSentence(state.currentIndex, true);
+                }
+            });
+
+            // Toggle Single Sentence Loop
+            DOM.btnToggleLoop.addEventListener('click', () => {
+                state.isLoopSentence = !state.isLoopSentence;
+                if (state.isLoopSentence) {
+                    DOM.btnToggleLoop.classList.add('bg-brand-600', 'text-white', 'border-brand-500');
+                    DOM.loopBadge.className = "absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 border-2 border-slate-900 animate-pulse";
+                } else {
+                    DOM.btnToggleLoop.classList.remove('bg-brand-600', 'text-white', 'border-brand-500');
+                    DOM.loopBadge.className = "absolute -top-1 -right-1 w-3 h-3 rounded-full bg-slate-600 border-2 border-slate-900";
+                }
+            });
+
+            // Speed Control Selector
+            document.querySelectorAll('.btn-speed').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const speed = parseFloat(e.target.dataset.speed);
+                    state.playbackRate = speed;
+                    if (state.wavesurfer) {
+                        state.wavesurfer.setPlaybackRate(speed);
+                    }
+                    document.querySelectorAll('.btn-speed').forEach(b => {
+                        b.className = "btn-speed px-2 py-0.5 text-xs rounded-lg text-slate-400 hover:text-white transition";
+                    });
+                    e.target.className = "btn-speed px-2 py-0.5 text-xs rounded-lg bg-brand-600 text-white font-semibold shadow-sm";
+                });
+            });
+
+            // Zoom slider
+            DOM.sliderZoom.addEventListener('input', (e) => {
+                if (state.wavesurfer) {
+                    state.wavesurfer.zoom(Number(e.target.value));
+                }
+            });
+
+            // Volume slider
+            DOM.sliderVolume.addEventListener('input', (e) => {
+                if (state.wavesurfer) {
+                    state.wavesurfer.setVolume(Number(e.target.value));
+                }
+            });
+
+            // Region Checkbox
+            DOM.chkShowRegion.addEventListener('change', (e) => {
+                if (!e.target.checked && state.wsRegions) {
+                    state.wsRegions.clearRegions();
+                } else if (state.currentIndex >= 0) {
+                    setActiveSentence(state.currentIndex, false);
+                }
+            });
+
+            // Silence controls
+            DOM.sliderSilenceTime.addEventListener('input', (e) => {
+                state.silenceMinSec = parseFloat(e.target.value);
+                DOM.valSilenceTime.textContent = `${state.silenceMinSec.toFixed(1)}s`;
+            });
+
+            DOM.sliderSilenceVol.addEventListener('input', (e) => {
+                state.silenceThreshold = parseFloat(e.target.value);
+                let label = "中等";
+                if (state.silenceThreshold < 0.008) label = "极高灵敏";
+                else if (state.silenceThreshold > 0.03) label = "低灵敏";
+                DOM.valSilenceVol.textContent = `${label} (${state.silenceThreshold})`;
+            });
+
+            DOM.btnAutoSegment.addEventListener('click', analyzeSilenceSegmentation);
+
+            // Export LRC Button
+            DOM.btnExportLrc.addEventListener('click', exportLRC);
+
+            // Search Filter
+            DOM.inputSearch.addEventListener('input', renderSentenceList);
+
+            DOM.btnClearList.addEventListener('click', () => {
+                state.sentences = [];
+                state.currentIndex = -1;
+                if (state.wsRegions) state.wsRegions.clearRegions();
+                renderSentenceList();
+            });
+
+            // Keyboard Shortcuts Modal
+            DOM.btnShortcuts.addEventListener('click', () => DOM.modalShortcuts.classList.remove('hidden'));
+            DOM.btnCloseModal.addEventListener('click', () => DOM.modalShortcuts.classList.add('hidden'));
+            DOM.btnModalOk.addEventListener('click', () => DOM.modalShortcuts.classList.add('hidden'));
+
+            // Global Keyboard Shortcuts
+            window.addEventListener('keydown', (e) => {
+                if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+
+                if (e.code === 'Space') {
+                    e.preventDefault();
+                    if (state.wavesurfer) state.wavesurfer.playPause();
+                } else if (e.code === 'ArrowLeft') {
+                    e.preventDefault();
+                    DOM.btnPrev.click();
+                } else if (e.code === 'ArrowRight') {
+                    e.preventDefault();
+                    DOM.btnNext.click();
+                } else if (e.code === 'KeyR') {
+                    e.preventDefault();
+                    DOM.btnReplay.click();
+                } else if (e.code === 'KeyL') {
+                    e.preventDefault();
+                    DOM.btnToggleLoop.click();
+                }
+            });
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initWaveSurfer();
+            bindEvents();
+            loadDemoLesson();
+        });
+    </script>
+</body>
+</html>
