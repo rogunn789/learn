@@ -1,4 +1,7 @@
 (function () {
+  /*****************************************************************
+   * 1. 动态注入 CSS 样式
+   *****************************************************************/
   const style = document.createElement('style');
   style.textContent = `
     /* 浮动控制按钮样式 */
@@ -71,8 +74,8 @@
    * 2. 获取 URL 中的密码参数
    *****************************************************************/
   const urlParams = new URLSearchParams(window.location.search);
-  // 从 URL 读取 pwd 或 password 参数，若未传则设为空字符串
-  const DICT_PASSWORD = urlParams.get('pawd') || urlParams.get('pawd') || '';
+  // 从 URL 读取 pwd 或 password 参数
+  const DICT_PASSWORD = urlParams.get('pwd') || urlParams.get('password') || urlParams.get('pawd') || '';
   const DICT_URL = "https://rogunn789.github.io/learn/mj155.zip";
 
   let isEnabled = true; // 翻译功能生效状态标志
@@ -283,23 +286,20 @@
   }
 
   /*****************************************************************
-   * 5. UI 弹窗与事件触发
+   * 5. UI 弹窗与事件触发（PC & 移动端兼容增强）
    *****************************************************************/
   let popover = null;
 
   function createUI() {
-    // 1. 创建弹窗
     popover = document.createElement('div');
     popover.className = 'dict-popover';
     document.body.appendChild(popover);
 
-    
     const toggleBtn = document.createElement('button');
     toggleBtn.className = 'yomitan-toggle-btn enabled';
     toggleBtn.innerText = '划词翻译：开启';
     document.body.appendChild(toggleBtn);
 
-    // 3. 按钮点击切换逻辑
     toggleBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       isEnabled = !isEnabled;
@@ -313,15 +313,14 @@
       }
     });
 
-    // 4. 点击空白处隐匿弹窗
     document.addEventListener('click', (e) => {
       if (popover && !popover.contains(e.target) && e.target !== toggleBtn) {
         popover.style.display = 'none';
       }
     });
 
-    // 5. 全局点击划词取词
-    document.addEventListener('click', async (e) => {
+    // 核心处理函数
+    const handleLookup = async (e) => {
       if (!isEnabled || e.target === toggleBtn || popover.contains(e.target)) return;
 
       const targetText = getTextFromClickPosition(e);
@@ -335,10 +334,21 @@
           e.pageY || (e.changedTouches ? e.changedTouches[0].pageY : 0)
         );
       }
+    };
+
+    // 支持 PC 鼠标松开 (mouseup) 与 移动端点击 (click)
+    document.addEventListener('mouseup', (e) => {
+      // 避免左键以外的点击触发（比如右键菜单）
+      if (e.button !== 0) return;
+      handleLookup(e);
     });
   }
 
+  /**
+   * 优化后的 PC/移动端光标位置文本提取
+   */
   function getTextFromClickPosition(e) {
+    // 1. 优先获取用户手动拉蓝选中的文本（PC划词/双击选词）
     const selection = window.getSelection();
     const selectedText = selection.toString().trim();
     if (selectedText) return selectedText;
@@ -350,22 +360,43 @@
     }
 
     let textNode = null, offset = 0;
-    if (document.caretPositionFromPoint) {
-      const pos = document.caretPositionFromPoint(clientX, clientY);
-      if (pos) { textNode = pos.offsetNode; offset = pos.offset; }
-    } else if (document.caretRangeFromPoint) {
+
+    // Standard Chrome / Safari / Edge / Firefox
+    if (document.caretRangeFromPoint) {
       const range = document.caretRangeFromPoint(clientX, clientY);
-      if (range) { textNode = range.startContainer; offset = range.startOffset; }
+      if (range) {
+        textNode = range.startContainer;
+        offset = range.startOffset;
+      }
+    } else if (document.caretPositionFromPoint) {
+      const pos = document.caretPositionFromPoint(clientX, clientY);
+      if (pos) {
+        textNode = pos.offsetNode;
+        offset = pos.offset;
+      }
     }
 
-    if (textNode && textNode.nodeType !== Node.TEXT_NODE && textNode.childNodes.length > 0) {
-      textNode = textNode.childNodes[0];
-      offset = 0;
+    // 如果获取到的是元素节点（如 <p>、<div>），深入查找其内部文本子节点
+    if (textNode && textNode.nodeType !== Node.TEXT_NODE) {
+      if (textNode.childNodes.length > 0) {
+        let child = textNode.childNodes[offset] || textNode.childNodes[0];
+        while (child && child.nodeType !== Node.TEXT_NODE && child.childNodes.length > 0) {
+          child = child.childNodes[0];
+        }
+        if (child && child.nodeType === Node.TEXT_NODE) {
+          textNode = child;
+          offset = 0;
+        }
+      }
     }
 
+    // 提取点击处的字符，并向左微调 1 个字符以提高 PC 边缘点击容错率
     if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-      return textNode.data.substring(offset, offset + 12).trim();
+      const fullText = textNode.data;
+      const startPos = Math.max(0, offset > 0 ? offset - 1 : 0);
+      return fullText.substring(startPos, startPos + 12).trim();
     }
+
     return "";
   }
 
