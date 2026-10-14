@@ -293,25 +293,25 @@
     popover.className = 'dict-popover';
     document.body.appendChild(popover);
 
-    // 2. 创建控制按钮
-    // const toggleBtn = document.createElement('button');
-    // toggleBtn.className = 'yomitan-toggle-btn enabled';
-    // toggleBtn.innerText = '划词翻译：开启';
-    // document.body.appendChild(toggleBtn);
+    
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'yomitan-toggle-btn enabled';
+    toggleBtn.innerText = '划词翻译：开启';
+    document.body.appendChild(toggleBtn);
 
-    // // 3. 按钮点击切换逻辑
-    // toggleBtn.addEventListener('click', (e) => {
-    //   e.stopPropagation();
-    //   isEnabled = !isEnabled;
-    //   if (isEnabled) {
-    //     toggleBtn.innerText = '划词翻译：开启';
-    //     toggleBtn.className = 'yomitan-toggle-btn enabled';
-    //   } else {
-    //     toggleBtn.innerText = '划词翻译：关闭';
-    //     toggleBtn.className = 'yomitan-toggle-btn disabled';
-    //     popover.style.display = 'none';
-    //   }
-    // });
+    // 3. 按钮点击切换逻辑
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      isEnabled = !isEnabled;
+      if (isEnabled) {
+        toggleBtn.innerText = '划词翻译：开启';
+        toggleBtn.className = 'yomitan-toggle-btn enabled';
+      } else {
+        toggleBtn.innerText = '划词翻译：关闭';
+        toggleBtn.className = 'yomitan-toggle-btn disabled';
+        popover.style.display = 'none';
+      }
+    });
 
     // 4. 点击空白处隐匿弹窗
     document.addEventListener('click', (e) => {
