@@ -103,22 +103,22 @@
                 <div class="flex items-center justify-between gap-2">
                     <div class="flex items-center space-x-2 min-w-0">
                         <div class="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-indigo-400 shrink-0">
-                            <i class="fa-solid fa-file-audio text-sm"></i>
+                            <i class="fa-solid fa-photo-film text-sm"></i>
                         </div>
                         <div class="min-w-0">
-                            <div class="text-xs font-semibold text-slate-200 truncate" id="file-status-text">可拖入 MP3/LRC 文件</div>
-                            <div class="text-[10px] text-slate-400 truncate hidden sm:block" id="file-sub-status">或点击右侧选择文件</div>
+                            <div class="text-xs font-semibold text-slate-200 truncate" id="file-status-text">可拖入 MP3/MP4/LRC/SRT 文件</div>
+                            <div class="text-[10px] text-slate-400 truncate hidden sm:block" id="file-sub-status">支持 MP4 视频提取音频与 SRT/LRC 字幕</div>
                         </div>
                     </div>
                     
                     <div class="flex items-center space-x-1.5 shrink-0">
                         <label class="px-2.5 py-1 text-xs font-medium rounded-lg bg-brand-600 hover:bg-brand-500 text-white cursor-pointer transition shadow-md">
-                            <i class="fa-solid fa-music mr-1"></i> MP3
-                            <input type="file" id="input-audio" accept="audio/mp3,audio/wav,audio/m4a,audio/*" class="hidden">
+                            <i class="fa-solid fa-file-audio mr-1"></i> 音/视频
+                            <input type="file" id="input-audio" accept="audio/*,video/mp4,video/*,.mp3,.wav,.m4a,.mp4,.mkv,.webm" class="hidden">
                         </label>
                         <label class="px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer border border-slate-700 transition">
-                            <i class="fa-solid fa-closed-captioning mr-1"></i> LRC
-                            <input type="file" id="input-lrc" accept=".lrc,.txt" class="hidden">
+                            <i class="fa-solid fa-closed-captioning mr-1"></i> 字幕
+                            <input type="file" id="input-lrc" accept=".lrc,.srt,.txt" class="hidden">
                         </label>
                     </div>
                 </div>
@@ -129,7 +129,7 @@
                 <div class="flex items-center justify-between text-xs text-slate-400">
                     <div class="flex items-center space-x-2 min-w-0">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-                        <span id="current-filename" class="font-medium text-slate-300 truncate max-w-[160px] sm:max-w-[300px]">未加载音频</span>
+                        <span id="current-filename" class="font-medium text-slate-300 truncate max-w-[160px] sm:max-w-[300px]">未加载文件</span>
                     </div>
                     <div class="font-mono text-[11px] bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800 shrink-0">
                         <span id="time-current" class="text-indigo-400 font-bold">00:00.0</span> / <span id="time-total" class="text-slate-400">00:00.0</span>
@@ -140,7 +140,7 @@
                 <div id="waveform-container" class="w-full bg-slate-950/60 rounded-lg border border-slate-800/80 p-1 relative h-16 sm:h-20 flex items-center justify-center overflow-hidden">
                     <div id="waveform-loader" class="text-xs text-slate-500 flex items-center space-x-2">
                         <i class="fa-solid fa-waveform-lines text-base animate-bounce"></i>
-                        <span>等待音频载入...</span>
+                        <span>等待音视频载入...</span>
                     </div>
                     <div id="waveform" class="w-full"></div>
                 </div>
@@ -212,7 +212,7 @@
                 </div>
             </div>
 
-            <!-- Auto Silence Collapsible Accordion (Folded on Mobile) -->
+            <!-- Auto Silence Collapsible Accordion -->
             <details class="glass-panel rounded-xl p-2.5 sm:p-3 shrink-0 group">
                 <summary class="flex items-center justify-between cursor-pointer select-none text-xs font-bold text-slate-200">
                     <div class="flex items-center space-x-2">
@@ -265,7 +265,7 @@
                     <span id="mode-badge" class="text-[9px] px-1.5 py-0.5 rounded bg-brand-950 text-brand-300 border border-brand-800 font-medium">LRC 模式</span>
                     <button id="btn-export-lrc" class="px-2 py-0.5 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center space-x-1 shadow-sm font-medium">
                         <i class="fa-solid fa-file-export text-[10px]"></i>
-                        <span>导出</span>
+                        <span>导出 LRC</span>
                     </button>
                 </div>
             </div>
@@ -286,7 +286,7 @@
                     </div>
                     <div>
                         <p class="text-xs font-medium text-slate-400">暂无句子数据</p>
-                        <p class="text-[10px] text-slate-600 mt-0.5">加载音频和 LRC 文件或运行断句</p>
+                        <p class="text-[10px] text-slate-600 mt-0.5">导入 MP3/MP4 及 LRC/SRT 字幕</p>
                     </div>
                 </div>
             </div>
@@ -315,10 +315,7 @@
                 </button>
             </div>
 
-            <!-- Cached Items Scroll Container -->
-            <div id="history-items-container" class="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[150px]">
-                <!-- Dynamic history list items -->
-            </div>
+            <div id="history-items-container" class="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[150px]"></div>
 
             <div class="pt-2 border-t border-slate-800 flex justify-between items-center shrink-0">
                 <button id="btn-clear-all-history" class="text-xs text-rose-400 hover:text-rose-300">
@@ -370,7 +367,7 @@
     </div>
 
     <script>
-        // IndexedDB Helper Module for Audio & LRC Cache
+        // IndexedDB Helper
         const DB_NAME = 'EchoMasterDB';
         const DB_VERSION = 1;
         const STORE_NAME = 'audio_history';
@@ -535,9 +532,12 @@
                 DOM.timeTotal.textContent = formatTime(state.wavesurfer.getDuration());
                 fetchAudioBuffer();
 
-                // 音频就绪后，若已存在 LRC，重新计算区间校准
                 if (state.currentLrcText) {
-                    state.sentences = parseLRC(state.currentLrcText);
+                    if (state.currentLrcText.includes('-->')) {
+                        state.sentences = parseSRT(state.currentLrcText);
+                    } else {
+                        state.sentences = parseLRC(state.currentLrcText);
+                    }
                     renderSentenceList();
                 }
             });
@@ -580,11 +580,7 @@
             return `[${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms).padStart(2, '0')}]`;
         }
 
-        /**
-         * 修复且增强版的 LRC 解析器：
-         * 1. 兼容 [01:02.34], [1:02.3], [01:02:34], [01:02] 等多种格式
-         * 2. 安全防范 wavesurfer 尚未就绪时的 NaN 赋值
-         */
+        // 解析 LRC 字幕
         function parseLRC(lrcText) {
             if (!lrcText) return [];
             const lines = lrcText.split(/\r?\n/);
@@ -624,13 +620,10 @@
 
             parsed.sort((a, b) => a.start - b.start);
 
-            // 防患波形未准备就绪时返回 NaN 导致 Wavesurfer 划区报 JavaScript 崩溃
             let duration = 300;
             if (state.wavesurfer) {
                 const d = state.wavesurfer.getDuration();
-                if (!isNaN(d) && d > 0) {
-                    duration = d;
-                }
+                if (!isNaN(d) && d > 0) duration = d;
             }
 
             return parsed.map((item, index) => {
@@ -642,6 +635,54 @@
                     text: item.text
                 };
             });
+        }
+
+        // 解析 SRT 字幕
+        function parseSRT(srtText) {
+            if (!srtText) return [];
+            const normalized = srtText.trim().replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+            const blocks = normalized.split(/\n\n+/);
+            const parsed = [];
+
+            blocks.forEach((block) => {
+                const lines = block.split('\n');
+                let timeLineIndex = -1;
+                for (let i = 0; i < lines.length; i++) {
+                    if (lines[i].includes('-->')) {
+                        timeLineIndex = i;
+                        break;
+                    }
+                }
+                if (timeLineIndex === -1) return;
+
+                const timeMatch = lines[timeLineIndex].match(/(\d{2}):(\d{2}):(\d{2})[,.](\d{1,3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[,.](\d{1,3})/);
+                if (timeMatch) {
+                    const startH = parseInt(timeMatch[1], 10);
+                    const startM = parseInt(timeMatch[2], 10);
+                    const startS = parseInt(timeMatch[3], 10);
+                    const startMs = parseInt(timeMatch[4].padEnd(3, '0').slice(0, 3), 10);
+
+                    const endH = parseInt(timeMatch[5], 10);
+                    const endM = parseInt(timeMatch[6], 10);
+                    const endS = parseInt(timeMatch[7], 10);
+                    const endMs = parseInt(timeMatch[8].padEnd(3, '0').slice(0, 3), 10);
+
+                    const start = startH * 3600 + startM * 60 + startS + startMs / 1000;
+                    const end = endH * 3600 + endM * 60 + endS + endMs / 1000;
+
+                    const textLines = lines.slice(timeLineIndex + 1).join(' ').trim();
+                    if (textLines) {
+                        parsed.push({
+                            id: parsed.length,
+                            start: Number(start.toFixed(3)),
+                            end: Number(Math.max(start + 0.3, end).toFixed(3)),
+                            text: textLines
+                        });
+                    }
+                }
+            });
+
+            return parsed;
         }
 
         function triggerCurrentCacheSave() {
@@ -661,7 +702,7 @@
             }
 
             if (!state.audioBuffer) {
-                alert("请先加载有效的音频文件！");
+                alert("请先加载有效的音频或 MP4 视频文件！");
                 return;
             }
 
@@ -899,6 +940,7 @@
             }
         }
 
+        // 加载 MP3 / MP4 等音视频文件
         function loadAudioFile(file) {
             DOM.waveformLoader.classList.remove('hidden');
             state.currentFilename = file.name;
@@ -909,19 +951,27 @@
             state.wavesurfer.load(url);
 
             DOM.fileStatusText.textContent = `已加载: ${file.name}`;
-            DOM.fileSubStatus.textContent = "可拖入 LRC 字幕或点击静音断句";
+            DOM.fileSubStatus.textContent = "可拖入 LRC/SRT 字幕或点击静音断句";
             triggerCurrentCacheSave();
         }
 
+        // 统一字幕载入入口（支持 LRC / SRT）
         function loadLrcFile(file) {
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (e) => {
                 state.currentLrcText = e.target.result;
-                state.sentences = parseLRC(state.currentLrcText);
-                
-                DOM.modeBadge.textContent = "LRC 模式";
-                DOM.modeBadge.className = "text-[9px] px-1.5 py-0.5 rounded bg-brand-950 text-brand-300 border border-brand-800 font-medium";
+                const filenameLower = file.name.toLowerCase();
+
+                if (filenameLower.endsWith('.srt') || state.currentLrcText.includes('-->')) {
+                    state.sentences = parseSRT(state.currentLrcText);
+                    DOM.modeBadge.textContent = "SRT 模式";
+                    DOM.modeBadge.className = "text-[9px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800 font-medium";
+                } else {
+                    state.sentences = parseLRC(state.currentLrcText);
+                    DOM.modeBadge.textContent = "LRC 模式";
+                    DOM.modeBadge.className = "text-[9px] px-1.5 py-0.5 rounded bg-brand-950 text-brand-300 border border-brand-800 font-medium";
+                }
                 
                 renderSentenceList();
                 if (state.sentences.length > 0) {
@@ -1043,7 +1093,7 @@
         }
 
         function bindEvents() {
-            // Drag and Drop
+            // Drag and Drop 支持音视频及 SRT/LRC 字幕
             DOM.dropZone.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 DOM.dropZone.classList.add('border-brand-500', 'bg-brand-950/20');
@@ -1058,9 +1108,10 @@
                 DOM.dropZone.classList.remove('border-brand-500', 'bg-brand-950/20');
                 const files = Array.from(e.dataTransfer.files);
                 files.forEach(file => {
-                    if (file.type.startsWith('audio/') || file.name.match(/\.(mp3|wav|m4a|ogg)$/i)) {
+                    const nameLower = file.name.toLowerCase();
+                    if (file.type.startsWith('audio/') || file.type.startsWith('video/') || nameLower.match(/\.(mp3|wav|m4a|ogg|mp4|mkv|webm|mov)$/i)) {
                         loadAudioFile(file);
-                    } else if (file.name.endsWith('.lrc') || file.name.endsWith('.txt')) {
+                    } else if (nameLower.endsWith('.lrc') || nameLower.endsWith('.srt') || nameLower.endsWith('.txt')) {
                         loadLrcFile(file);
                     }
                 });
@@ -1076,7 +1127,7 @@
             DOM.inputLrc.addEventListener('change', (e) => {
                 if (e.target.files[0]) {
                     loadLrcFile(e.target.files[0]);
-                    e.target.value = ''; // 重置元素值，确保重复选择同名 LRC 时依然能够响应
+                    e.target.value = '';
                 }
             });
 
@@ -1087,7 +1138,6 @@
                 if (state.wavesurfer) state.wavesurfer.playPause();
             });
 
-            // Prev / Next Button with Random Jump Support
             DOM.btnPrev.addEventListener('click', () => {
                 if (state.sentences.length === 0) return;
                 if (state.isRandomMode) {
@@ -1112,7 +1162,6 @@
                 }
             });
 
-            // Single Loop Toggle
             DOM.btnToggleLoop.addEventListener('click', () => {
                 state.isLoopSentence = !state.isLoopSentence;
                 if (state.isLoopSentence) {
@@ -1124,7 +1173,6 @@
                 }
             });
 
-            // Toggle Random Playback Mode
             DOM.btnToggleRandom.addEventListener('click', () => {
                 state.isRandomMode = !state.isRandomMode;
                 if (state.isRandomMode) {
@@ -1136,7 +1184,6 @@
                 }
             });
 
-            // Speed Selector
             document.querySelectorAll('.btn-speed').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const speed = parseFloat(e.target.dataset.speed);
@@ -1189,7 +1236,6 @@
                 renderSentenceList();
             });
 
-            // History Modal
             DOM.btnHistory.addEventListener('click', () => {
                 renderHistoryModal();
                 DOM.modalHistory.classList.remove('hidden');
@@ -1198,18 +1244,16 @@
             DOM.btnHistoryOk.addEventListener('click', () => DOM.modalHistory.classList.add('hidden'));
 
             DOM.btnClearAllHistory.addEventListener('click', async () => {
-                if (confirm("确定要清空本地所有缓存的历史课程和音频吗？")) {
+                if (confirm("确定要清空本地所有缓存的历史课程和音视频吗？")) {
                     await clearAllHistoryItems();
                     renderHistoryModal();
                 }
             });
 
-            // Keyboard Shortcuts Modal
             DOM.btnShortcuts.addEventListener('click', () => DOM.modalShortcuts.classList.remove('hidden'));
             DOM.btnCloseModal.addEventListener('click', () => DOM.modalShortcuts.classList.add('hidden'));
             DOM.btnModalOk.addEventListener('click', () => DOM.modalShortcuts.classList.add('hidden'));
 
-            // Global Keybindings
             window.addEventListener('keydown', (e) => {
                 if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
 
