@@ -2,7 +2,7 @@
 <html lang="zh-CN" class="dark h-full bg-slate-950 text-slate-100">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>EchoMaster - 智能网络复读机</title>
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -31,10 +31,10 @@
     <script src="https://unpkg.com/wavesurfer.js@7/dist/plugins/regions.min.js"></script>
     
     <style>
-        /* Custom scrollbars for dark mode */
+        /* Custom scrollbars */
         ::-webkit-scrollbar {
-            width: 6px;
-            height: 6px;
+            width: 5px;
+            height: 5px;
         }
         ::-webkit-scrollbar-track {
             background: #0f172a;
@@ -51,263 +51,287 @@
             backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.08);
         }
-        /* Custom range slider styling */
         input[type=range] {
             accent-color: #6366f1;
         }
+        details summary::-webkit-details-marker {
+            display: none;
+        }
     </style>
 </head>
-<body class="h-full flex flex-col font-sans antialiased bg-slate-950 text-slate-100 select-none">
+<body class="h-[100dvh] w-full flex flex-col font-sans antialiased bg-slate-950 text-slate-100 select-none overflow-hidden">
 
     <!-- Top Navigation Bar -->
-    <header class="h-14 border-b border-slate-800 bg-slate-900/80 px-4 flex items-center justify-between z-20 shrink-0">
-        <div class="flex items-center space-x-3">
-            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-500/20">
-                <i class="fa-solid font-bold fa-repeat text-white text-lg"></i>
+    <header class="h-12 sm:h-14 border-b border-slate-800 bg-slate-900/90 px-3 sm:px-4 flex items-center justify-between z-20 shrink-0">
+        <div class="flex items-center space-x-2 sm:space-x-3">
+            <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-500/20 shrink-0">
+                <i class="fa-solid font-bold fa-repeat text-white text-sm sm:text-lg"></i>
             </div>
             <div>
-                <h1 class="font-bold text-base tracking-wide bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">EchoMaster</h1>
-                <p class="text-[10px] text-slate-400 -mt-1">智能语言学习复读机</p>
+                <h1 class="font-bold text-sm sm:text-base tracking-wide bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">EchoMaster</h1>
+                <p class="text-[9px] sm:text-[10px] text-slate-400 -mt-0.5 hidden sm:block">智能语言学习复读机</p>
             </div>
         </div>
 
-        <div class="flex items-center space-x-3 text-xs">
+        <div class="flex items-center space-x-1.5 sm:space-x-3 text-xs">
+            <!-- History Button -->
+            <button id="btn-history" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 hover:text-amber-300 border border-amber-500/30 transition flex items-center space-x-1 shadow-sm relative">
+                <i class="fa-solid fa-clock-rotate-left"></i>
+                <span class="hidden sm:inline">历史缓存</span>
+                <span id="badge-history-count" class="ml-1 text-[10px] px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 font-mono">0</span>
+            </button>
             <!-- Preset Sample Button -->
-            <button id="btn-load-demo" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-indigo-200 border border-indigo-500/30 transition flex items-center space-x-1.5 shadow-sm">
+            <button id="btn-load-demo" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-indigo-200 border border-indigo-500/30 transition flex items-center space-x-1 shadow-sm">
                 <i class="fa-solid fa-wand-magic-sparkles"></i>
-                <span>加载示例课程</span>
+                <span class="hidden sm:inline">加载示例</span>
             </button>
             <!-- Keyboard Shortcuts Info -->
-            <button id="btn-shortcuts" class="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition" title="快捷键说明">
-                <i class="fa-solid fa-keyboard text-sm"></i>
+            <button id="btn-shortcuts" class="p-1.5 sm:p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white transition" title="快捷键说明">
+                <i class="fa-solid fa-keyboard text-xs sm:text-sm"></i>
             </button>
         </div>
     </header>
 
-    <!-- Main Content Container -->
-    <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 p-4 overflow-hidden">
+    <!-- Main Content Container: Mobile Vertical Split / Desktop Grid Split -->
+    <main class="flex-1 flex flex-col lg:grid lg:grid-cols-12 gap-2 sm:gap-4 p-2 sm:p-4 overflow-hidden min-h-0">
         
-        <!-- Left Panel: Waveform, Player & Segmentation Controls (7 cols on lg, 8 on xl) -->
-        <div class="lg:col-span-7 xl:col-span-8 flex flex-col space-y-4 overflow-y-auto lg:overflow-visible pr-1">
+        <!-- TOP SECTION (Mobile: Fixed Upper Portion, No Page Scroll) -->
+        <div class="lg:col-span-7 xl:col-span-8 flex flex-col space-y-2 sm:space-y-3 shrink-0 lg:shrink lg:overflow-y-auto">
 
-            <!-- File Upload & Dropzone Card -->
-            <div id="drop-zone" class="glass-panel rounded-2xl p-4 border-2 border-dashed border-slate-700 hover:border-brand-500/50 transition duration-200 group relative">
-                <div class="flex flex-col sm:flex-row items-center justify-between gap-3">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center text-indigo-400 group-hover:scale-105 transition">
-                            <i class="fa-solid fa-file-audio text-xl"></i>
+            <!-- File Upload Bar -->
+            <div id="drop-zone" class="glass-panel rounded-xl p-2 sm:p-3 border-2 border-dashed border-slate-700 hover:border-brand-500/50 transition duration-200 group relative shrink-0">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center space-x-2 min-w-0">
+                        <div class="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-indigo-400 shrink-0">
+                            <i class="fa-solid fa-file-audio text-sm"></i>
                         </div>
-                        <div>
-                            <div class="text-xs font-semibold text-slate-200" id="file-status-text">可拖入 MP3 音频与 LRC 字幕文件</div>
-                            <div class="text-[11px] text-slate-400" id="file-sub-status">或点击右侧按钮选择文件</div>
+                        <div class="min-w-0">
+                            <div class="text-xs font-semibold text-slate-200 truncate" id="file-status-text">可拖入 MP3/LRC 文件</div>
+                            <div class="text-[10px] text-slate-400 truncate hidden sm:block" id="file-sub-status">或点击右侧选择文件</div>
                         </div>
                     </div>
                     
-                    <div class="flex items-center space-x-2">
-                        <label class="px-3 py-1.5 text-xs font-medium rounded-lg bg-brand-600 hover:bg-brand-500 text-white cursor-pointer transition shadow-md shadow-brand-600/20">
-                            <i class="fa-solid fa-music mr-1"></i> 选择 MP3
+                    <div class="flex items-center space-x-1.5 shrink-0">
+                        <label class="px-2.5 py-1 text-xs font-medium rounded-lg bg-brand-600 hover:bg-brand-500 text-white cursor-pointer transition shadow-md">
+                            <i class="fa-solid fa-music mr-1"></i> MP3
                             <input type="file" id="input-audio" accept="audio/mp3,audio/wav,audio/m4a,audio/*" class="hidden">
                         </label>
-                        <label class="px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer border border-slate-700 transition">
-                            <i class="fa-solid fa-closed-captioning mr-1"></i> 选择 LRC
+                        <label class="px-2.5 py-1 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 cursor-pointer border border-slate-700 transition">
+                            <i class="fa-solid fa-closed-captioning mr-1"></i> LRC
                             <input type="file" id="input-lrc" accept=".lrc,.txt" class="hidden">
                         </label>
                     </div>
                 </div>
             </div>
 
-            <!-- Waveform Viewport Panel -->
-            <div class="glass-panel rounded-2xl p-4 flex flex-col space-y-3 relative overflow-hidden">
+            <!-- Waveform Panel -->
+            <div class="glass-panel rounded-xl p-2.5 sm:p-3 flex flex-col space-y-2 relative shrink-0">
                 <div class="flex items-center justify-between text-xs text-slate-400">
-                    <div class="flex items-center space-x-2">
-                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" id="status-indicator"></span>
-                        <span id="current-filename" class="font-medium text-slate-300 truncate max-w-[200px] sm:max-w-[300px]">未加载音频</span>
+                    <div class="flex items-center space-x-2 min-w-0">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                        <span id="current-filename" class="font-medium text-slate-300 truncate max-w-[160px] sm:max-w-[300px]">未加载音频</span>
                     </div>
-                    <div class="font-mono text-xs bg-slate-900/80 px-2 py-1 rounded border border-slate-800">
+                    <div class="font-mono text-[11px] bg-slate-900/80 px-2 py-0.5 rounded border border-slate-800 shrink-0">
                         <span id="time-current" class="text-indigo-400 font-bold">00:00.0</span> / <span id="time-total" class="text-slate-400">00:00.0</span>
                     </div>
                 </div>
 
-                <!-- Waveform Canvas Container -->
-                <div id="waveform-container" class="w-full bg-slate-950/60 rounded-xl border border-slate-800/80 p-2 relative min-h-[110px] flex items-center justify-center">
+                <!-- Waveform Canvas -->
+                <div id="waveform-container" class="w-full bg-slate-950/60 rounded-lg border border-slate-800/80 p-1 relative h-16 sm:h-20 flex items-center justify-center overflow-hidden">
                     <div id="waveform-loader" class="text-xs text-slate-500 flex items-center space-x-2">
                         <i class="fa-solid fa-waveform-lines text-base animate-bounce"></i>
-                        <span>等待音频文件载入...</span>
+                        <span>等待音频载入...</span>
                     </div>
                     <div id="waveform" class="w-full"></div>
                 </div>
 
-                <!-- Waveform Toolbar (Zoom & Region Controls) -->
-                <div class="flex items-center justify-between text-xs text-slate-400 pt-1">
+                <!-- Waveform Zoom Bar -->
+                <div class="flex items-center justify-between text-xs text-slate-400">
                     <div class="flex items-center space-x-2">
-                        <i class="fa-solid fa-magnifying-glass-minus text-slate-500"></i>
-                        <input id="slider-zoom" type="range" min="10" max="200" value="50" class="w-24 sm:w-32 h-1.5 bg-slate-800 rounded-lg cursor-pointer">
-                        <i class="fa-solid fa-magnifying-glass-plus text-slate-500"></i>
-                        <span class="text-[10px] text-slate-500 hidden sm:inline ml-1">波形缩放</span>
+                        <i class="fa-solid fa-magnifying-glass-minus text-slate-500 text-[10px]"></i>
+                        <input id="slider-zoom" type="range" min="10" max="200" value="50" class="w-20 sm:w-32 h-1 bg-slate-800 rounded-lg cursor-pointer">
+                        <i class="fa-solid fa-magnifying-glass-plus text-slate-500 text-[10px]"></i>
                     </div>
                     
-                    <div class="flex items-center space-x-3">
-                        <label class="flex items-center space-x-1.5 cursor-pointer text-xs hover:text-slate-200">
-                            <input type="checkbox" id="chk-show-region" checked class="rounded border-slate-700 text-brand-600 focus:ring-brand-500 bg-slate-900">
-                            <span>高亮当前播放句区间</span>
-                        </label>
+                    <label class="flex items-center space-x-1 cursor-pointer text-[11px] hover:text-slate-200">
+                        <input type="checkbox" id="chk-show-region" checked class="rounded border-slate-700 text-brand-600 focus:ring-brand-500 bg-slate-900">
+                        <span>高亮句区间</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Primary Action Controls -->
+            <div class="glass-panel rounded-xl p-2.5 sm:p-3 flex flex-col space-y-2 shrink-0">
+                <div class="flex items-center justify-center space-x-2 sm:space-x-4">
+                    <!-- Prev Sentence -->
+                    <button id="btn-prev" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition flex items-center justify-center border border-slate-700/60 shadow active:scale-95" title="上一句">
+                        <i class="fa-solid fa-backward-step text-sm"></i>
+                    </button>
+
+                    <!-- Replay Sentence -->
+                    <button id="btn-replay" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-400 transition flex items-center justify-center border border-slate-700/60 shadow active:scale-95" title="重播当前句">
+                        <i class="fa-solid fa-rotate-left text-sm"></i>
+                    </button>
+
+                    <!-- Play / Pause -->
+                    <button id="btn-play-pause" class="w-11 h-11 sm:w-12 sm:h-12 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-500 hover:from-brand-500 text-white transition flex items-center justify-center shadow-lg shadow-brand-600/30 active:scale-95" title="播放 / 暂停">
+                        <i class="fa-solid fa-play text-lg ml-0.5" id="icon-play"></i>
+                    </button>
+
+                    <!-- Single Loop Toggle -->
+                    <button id="btn-toggle-loop" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700/60 transition flex items-center justify-center relative shadow active:scale-95" title="单句循环">
+                        <i class="fa-solid fa-repeat text-sm"></i>
+                        <span id="loop-badge" class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-slate-600 border-2 border-slate-900"></span>
+                    </button>
+
+                    <!-- NEW: Random Mode Toggle -->
+                    <button id="btn-toggle-random" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700/60 transition flex items-center justify-center relative shadow active:scale-95" title="随机片段播放">
+                        <i class="fa-solid fa-shuffle text-sm"></i>
+                        <span id="random-badge" class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-slate-600 border-2 border-slate-900"></span>
+                    </button>
+
+                    <!-- Next Sentence -->
+                    <button id="btn-next" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition flex items-center justify-center border border-slate-700/60 shadow active:scale-95" title="下一句">
+                        <i class="fa-solid fa-forward-step text-sm"></i>
+                    </button>
+                </div>
+
+                <!-- Secondary Controls Row -->
+                <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
+                    <div class="flex items-center space-x-1 bg-slate-950/60 p-0.5 rounded-lg border border-slate-800 text-[11px]">
+                        <button data-speed="0.75" class="btn-speed px-1.5 py-0.5 rounded text-slate-400 hover:text-white">0.75x</button>
+                        <button data-speed="1.0" class="btn-speed px-1.5 py-0.5 rounded bg-brand-600 text-white font-semibold">1.0x</button>
+                        <button data-speed="1.25" class="btn-speed px-1.5 py-0.5 rounded text-slate-400 hover:text-white">1.25x</button>
+                        <button data-speed="1.5" class="btn-speed px-1.5 py-0.5 rounded text-slate-400 hover:text-white">1.5x</button>
+                    </div>
+
+                    <div class="flex items-center space-x-1 bg-slate-950/60 px-2 py-0.5 rounded-lg border border-slate-800">
+                        <i class="fa-solid fa-volume-high text-[10px] text-slate-400"></i>
+                        <input id="slider-volume" type="range" min="0" max="1" step="0.05" value="0.9" class="w-14 sm:w-20 h-1 bg-slate-800 rounded-lg cursor-pointer">
                     </div>
                 </div>
             </div>
 
-            <!-- Main Audio Control Panel -->
-            <div class="glass-panel rounded-2xl p-5 flex flex-col space-y-4">
-                
-                <!-- Primary Action Buttons Row -->
-                <div class="flex items-center justify-center space-x-3 sm:space-x-5">
-                    <!-- Prev Sentence Button -->
-                    <button id="btn-prev" class="w-11 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white transition flex items-center justify-center border border-slate-700/60 shadow-md active:scale-95" title="上一句 (Left Arrow)">
-                        <i class="fa-solid fa-backward-step text-base"></i>
-                    </button>
-
-                    <!-- Replay Current Sentence -->
-                    <button id="btn-replay" class="w-11 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-indigo-400 hover:text-indigo-300 transition flex items-center justify-center border border-slate-700/60 shadow-md active:scale-95" title="重播当前句 (R)">
-                        <i class="fa-solid fa-rotate-left text-base"></i>
-                    </button>
-
-                    <!-- Play / Pause Button -->
-                    <button id="btn-play-pause" class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-500 hover:from-brand-500 hover:to-indigo-400 text-white transition flex items-center justify-center shadow-lg shadow-brand-600/30 active:scale-95" title="播放 / 暂停 (Space)">
-                        <i class="fa-solid fa-play text-xl ml-0.5" id="icon-play"></i>
-                    </button>
-
-                    <!-- Single Sentence Repeat Toggle -->
-                    <button id="btn-toggle-loop" class="w-11 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700/60 transition flex items-center justify-center relative shadow-md active:scale-95" title="单句循环复读开关 (L)">
-                        <i class="fa-solid fa-repeat text-base"></i>
-                        <span id="loop-badge" class="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-slate-600 border-2 border-slate-900"></span>
-                    </button>
-
-                    <!-- Next Sentence Button -->
-                    <button id="btn-next" class="w-11 h-11 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white transition flex items-center justify-center border border-slate-700/60 shadow-md active:scale-95" title="下一句 (Right Arrow)">
-                        <i class="fa-solid fa-forward-step text-base"></i>
-                    </button>
-                </div>
-
-                <!-- Secondary Controls: Speed Selector & Volume -->
-                <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
-                    <!-- Playback Speed Selector Pills -->
-                    <div class="flex items-center space-x-1 bg-slate-950/60 p-1 rounded-xl border border-slate-800">
-                        <span class="text-[11px] text-slate-400 px-2 font-medium">倍速:</span>
-                        <button data-speed="0.5" class="btn-speed px-2 py-0.5 text-xs rounded-lg text-slate-400 hover:text-white transition">0.5x</button>
-                        <button data-speed="0.75" class="btn-speed px-2 py-0.5 text-xs rounded-lg text-slate-400 hover:text-white transition">0.75x</button>
-                        <button data-speed="1.0" class="btn-speed px-2 py-0.5 text-xs rounded-lg bg-brand-600 text-white font-semibold shadow-sm">1.0x</button>
-                        <button data-speed="1.25" class="btn-speed px-2 py-0.5 text-xs rounded-lg text-slate-400 hover:text-white transition">1.25x</button>
-                        <button data-speed="1.5" class="btn-speed px-2 py-0.5 text-xs rounded-lg text-slate-400 hover:text-white transition">1.5x</button>
-                    </div>
-
-                    <!-- Volume Slider -->
-                    <div class="flex items-center space-x-2 bg-slate-950/60 px-3 py-1 rounded-xl border border-slate-800">
-                        <i class="fa-solid fa-volume-high text-xs text-slate-400" id="icon-volume"></i>
-                        <input id="slider-volume" type="range" min="0" max="1" step="0.05" value="0.9" class="w-20 h-1.5 bg-slate-800 rounded-lg cursor-pointer">
-                    </div>
-                </div>
-            </div>
-
-            <!-- Auto Silence Segmentation Settings Card -->
-            <div class="glass-panel rounded-2xl p-4 flex flex-col space-y-3">
-                <div class="flex items-center justify-between">
+            <!-- Auto Silence Collapsible Accordion (Folded on Mobile) -->
+            <details class="glass-panel rounded-xl p-2.5 sm:p-3 shrink-0 group">
+                <summary class="flex items-center justify-between cursor-pointer select-none text-xs font-bold text-slate-200">
                     <div class="flex items-center space-x-2">
                         <i class="fa-solid fa-scissors text-indigo-400"></i>
-                        <h2 class="text-xs font-bold text-slate-200">智能波形静音断句 (中点自动切割)</h2>
+                        <span>智能静音断句设置</span>
                     </div>
-                    <span class="text-[10px] text-slate-400 bg-indigo-950/80 border border-indigo-800/50 text-indigo-300 px-2 py-0.5 rounded-full">静音中点划界算法</span>
-                </div>
+                    <i class="fa-solid fa-chevron-down text-slate-500 text-xs transition-transform group-open:rotate-180"></i>
+                </summary>
 
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-950/50 p-3 rounded-xl border border-slate-800/60">
-                    <!-- Silence Duration Threshold -->
-                    <div class="flex flex-col space-y-1">
-                        <div class="flex justify-between text-xs">
-                            <span class="text-slate-400">静音断句阈值 (秒)</span>
-                            <span id="val-silence-time" class="text-indigo-400 font-mono font-bold">0.5s</span>
+                <div class="mt-3 space-y-3 pt-2 border-t border-slate-800/80">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-950/50 p-2.5 rounded-xl border border-slate-800/60">
+                        <div class="flex flex-col space-y-1">
+                            <div class="flex justify-between text-xs">
+                                <span class="text-slate-400">静音阈值</span>
+                                <span id="val-silence-time" class="text-indigo-400 font-mono font-bold">0.5s</span>
+                            </div>
+                            <input id="slider-silence-time" type="range" min="0.1" max="2.0" step="0.1" value="0.5" class="h-1 bg-slate-800 rounded-lg cursor-pointer">
                         </div>
-                        <input id="slider-silence-time" type="range" min="0.1" max="2.0" step="0.1" value="0.5" class="h-1.5 bg-slate-800 rounded-lg cursor-pointer">
-                        <p class="text-[10px] text-slate-500">连续静音持续多长时间划分独立语句 (默认 0.5s)</p>
-                    </div>
 
-                    <!-- Sensitivity / Amplitude Threshold -->
-                    <div class="flex flex-col space-y-1">
-                        <div class="flex justify-between text-xs">
-                            <span class="text-slate-400">静音判定灵敏度</span>
-                            <span id="val-silence-vol" class="text-indigo-400 font-mono font-bold">中等 (0.015)</span>
+                        <div class="flex flex-col space-y-1">
+                            <div class="flex justify-between text-xs">
+                                <span class="text-slate-400">灵敏度</span>
+                                <span id="val-silence-vol" class="text-indigo-400 font-mono font-bold">中等 (0.015)</span>
+                            </div>
+                            <input id="slider-silence-vol" type="range" min="0.003" max="0.05" step="0.002" value="0.015" class="h-1 bg-slate-800 rounded-lg cursor-pointer">
                         </div>
-                        <input id="slider-silence-vol" type="range" min="0.003" max="0.05" step="0.002" value="0.015" class="h-1.5 bg-slate-800 rounded-lg cursor-pointer">
-                        <p class="text-[10px] text-slate-500">切割点自动落于两语音段之间静音区间的几何中心点</p>
                     </div>
-                </div>
 
-                <div class="flex items-center justify-between pt-1">
-                    <span class="text-[11px] text-slate-400 flex items-center">
-                        <i class="fa-solid fa-circle-info text-indigo-400 mr-1.5"></i>
-                        分割点将精准设在相邻语篇静音区正中间，平滑过渡无吞音
-                    </span>
-                    <button id="btn-auto-segment" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-medium transition flex items-center space-x-2 shadow-md shadow-indigo-600/20 active:scale-95 shrink-0">
+                    <button id="btn-auto-segment" class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition flex items-center justify-center space-x-1.5 shadow-md">
                         <i class="fa-solid fa-bolt text-amber-300"></i>
-                        <span>执行静音中点自动断句</span>
+                        <span>执行静音自动断句</span>
                     </button>
                 </div>
-            </div>
+            </details>
 
         </div>
 
-        <!-- Right Panel: Subtitle Synchronized & Editable List (5 cols on lg, 4 on xl) -->
-        <div class="lg:col-span-5 xl:col-span-4 flex flex-col h-[520px] lg:h-full glass-panel rounded-2xl overflow-hidden">
+        <!-- BOTTOM SECTION (Mobile: Scrollable Subtitle List) -->
+        <div class="lg:col-span-5 xl:col-span-4 flex-1 flex flex-col glass-panel rounded-xl sm:rounded-2xl overflow-hidden min-h-0 border border-slate-800">
             
-            <!-- Subtitle Header & Status -->
-            <div class="p-3.5 border-b border-slate-800 bg-slate-900/90 flex items-center justify-between shrink-0">
-                <div class="flex items-center space-x-2">
-                    <i class="fa-solid fa-list-ol text-brand-500"></i>
-                    <span class="text-xs font-bold text-slate-200">字幕列表 (可编辑)</span>
-                    <span id="badge-sentence-count" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">0 句</span>
+            <!-- Subtitle Header Bar -->
+            <div class="p-2.5 border-b border-slate-800 bg-slate-900/90 flex items-center justify-between shrink-0">
+                <div class="flex items-center space-x-1.5">
+                    <i class="fa-solid fa-list-ol text-brand-500 text-xs"></i>
+                    <span class="text-xs font-bold text-slate-200">字幕列表</span>
+                    <span id="badge-sentence-count" class="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-400 border border-slate-700">0 句</span>
                 </div>
 
-                <div class="flex items-center space-x-2">
-                    <span id="mode-badge" class="text-[10px] px-2 py-0.5 rounded bg-brand-950 text-brand-300 border border-brand-800 font-medium">LRC 模式</span>
-                    <!-- Export LRC Button -->
-                    <button id="btn-export-lrc" class="px-2.5 py-1 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center space-x-1 shadow-sm font-medium">
-                        <i class="fa-solid fa-file-export text-[11px]"></i>
-                        <span>导出 LRC</span>
+                <div class="flex items-center space-x-1.5">
+                    <span id="mode-badge" class="text-[9px] px-1.5 py-0.5 rounded bg-brand-950 text-brand-300 border border-brand-800 font-medium">LRC 模式</span>
+                    <button id="btn-export-lrc" class="px-2 py-0.5 text-xs rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white transition flex items-center space-x-1 shadow-sm font-medium">
+                        <i class="fa-solid fa-file-export text-[10px]"></i>
+                        <span>导出</span>
                     </button>
                 </div>
             </div>
 
-            <!-- Sentence Filter Input -->
-            <div class="px-3 py-2 bg-slate-950/40 border-b border-slate-800/80 shrink-0">
+            <!-- Search Field -->
+            <div class="px-2 py-1.5 bg-slate-950/40 border-b border-slate-800/80 shrink-0">
                 <div class="relative">
-                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-500"></i>
-                    <input id="input-search" type="text" placeholder="搜索或过滤字幕文本..." class="w-full bg-slate-900/90 text-xs text-slate-200 pl-8 pr-3 py-1.5 rounded-lg border border-slate-800 focus:outline-none focus:border-indigo-500 transition placeholder:text-slate-600">
+                    <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-2 text-[10px] text-slate-500"></i>
+                    <input id="input-search" type="text" placeholder="搜索/过滤字幕..." class="w-full bg-slate-900/90 text-xs text-slate-200 pl-7 pr-2 py-1 rounded-lg border border-slate-800 focus:outline-none focus:border-indigo-500 transition placeholder:text-slate-600">
                 </div>
             </div>
 
-            <!-- Scrollable Subtitle List with Inline Editing -->
-            <div id="sentence-list" class="flex-1 overflow-y-auto p-3 space-y-2 relative">
-                <!-- Empty Placeholder -->
-                <div id="empty-list-placeholder" class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500 space-y-3">
-                    <div class="w-12 h-12 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600">
-                        <i class="fa-solid fa-closed-captioning text-2xl"></i>
+            <!-- Scrollable Subtitle Container -->
+            <div id="sentence-list" class="flex-1 overflow-y-auto p-2 space-y-1.5 relative">
+                <div id="empty-list-placeholder" class="h-full flex flex-col items-center justify-center text-center p-4 text-slate-500 space-y-2">
+                    <div class="w-10 h-10 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-600">
+                        <i class="fa-solid fa-closed-captioning text-xl"></i>
                     </div>
                     <div>
                         <p class="text-xs font-medium text-slate-400">暂无句子数据</p>
-                        <p class="text-[11px] text-slate-600 mt-1">载入 LRC 文件或执行自动断句，可在此处直接修改并导出新的 LRC 文件</p>
+                        <p class="text-[10px] text-slate-600 mt-0.5">加载音频和 LRC 文件或运行断句</p>
                     </div>
                 </div>
             </div>
 
             <!-- List Footer Bar -->
-            <div class="p-2.5 bg-slate-900/90 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between shrink-0">
-                <span class="text-slate-500">双击或点击文本框可实时修改字幕</span>
+            <div class="p-2 bg-slate-900/90 border-t border-slate-800 text-[10px] text-slate-400 flex items-center justify-between shrink-0">
+                <span class="text-slate-500">可双击文本实时修改字幕</span>
                 <button id="btn-clear-list" class="hover:text-rose-400 transition">
-                    <i class="fa-solid fa-trash-can mr-1"></i>清空列表
+                    <i class="fa-solid fa-trash-can mr-1"></i>清空
                 </button>
             </div>
         </div>
 
     </main>
 
-    <!-- Keyboard Shortcuts Modal Dialog -->
+    <!-- Modal: History Cache Manager Dialog -->
+    <div id="modal-history" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-4 sm:p-5 shadow-2xl space-y-3 flex flex-col max-h-[80vh]">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-2.5 shrink-0">
+                <div class="flex items-center space-x-2 text-amber-400 font-bold text-sm">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span>浏览器离线历史缓存</span>
+                </div>
+                <button id="btn-close-history" class="text-slate-400 hover:text-white text-base">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Cached Items Scroll Container -->
+            <div id="history-items-container" class="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[150px]">
+                <!-- Dynamic history list items -->
+            </div>
+
+            <div class="pt-2 border-t border-slate-800 flex justify-between items-center shrink-0">
+                <button id="btn-clear-all-history" class="text-xs text-rose-400 hover:text-rose-300">
+                    <i class="fa-solid fa-trash mr-1"></i>清空全部缓存
+                </button>
+                <button id="btn-history-ok" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold">
+                    关闭
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Keyboard Shortcuts Dialog -->
     <div id="modal-shortcuts" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
         <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-4">
             <div class="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -320,49 +344,118 @@
                 </button>
             </div>
 
-            <div class="space-y-2.5 text-xs text-slate-300">
+            <div class="space-y-2 text-xs text-slate-300">
                 <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-800">
                     <span>播放 / 暂停</span>
-                    <kbd class="px-2 py-1 rounded bg-slate-800 text-indigo-300 font-mono text-[11px] border border-slate-700">Space</kbd>
+                    <kbd class="px-2 py-0.5 rounded bg-slate-800 text-indigo-300 font-mono border border-slate-700">Space</kbd>
                 </div>
                 <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-800">
-                    <span>上一句 / 下一句</span>
-                    <kbd class="px-2 py-1 rounded bg-slate-800 text-indigo-300 font-mono text-[11px] border border-slate-700">← / →</kbd>
+                    <span>上一句 / 下一句 (支持随机跳转)</span>
+                    <kbd class="px-2 py-0.5 rounded bg-slate-800 text-indigo-300 font-mono border border-slate-700">← / →</kbd>
                 </div>
                 <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-800">
                     <span>单句重播</span>
-                    <kbd class="px-2 py-1 rounded bg-slate-800 text-indigo-300 font-mono text-[11px] border border-slate-700">R</kbd>
+                    <kbd class="px-2 py-0.5 rounded bg-slate-800 text-indigo-300 font-mono border border-slate-700">R</kbd>
                 </div>
                 <div class="flex items-center justify-between p-2 rounded-lg bg-slate-950/60 border border-slate-800">
-                    <span>开启/关闭 单句循环复读</span>
-                    <kbd class="px-2 py-1 rounded bg-slate-800 text-indigo-300 font-mono text-[11px] border border-slate-700">L</kbd>
+                    <span>开启/关闭 单句循环</span>
+                    <kbd class="px-2 py-0.5 rounded bg-slate-800 text-indigo-300 font-mono border border-slate-700">L</kbd>
                 </div>
             </div>
 
-            <div class="pt-2 text-center">
-                <button id="btn-modal-ok" class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition">
-                    知道了
-                </button>
-            </div>
+            <button id="btn-modal-ok" class="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold">
+                知道了
+            </button>
         </div>
     </div>
 
     <script>
-        // Global Application State
+        // IndexedDB Helper Module for Audio & LRC Cache
+        const DB_NAME = 'EchoMasterDB';
+        const DB_VERSION = 1;
+        const STORE_NAME = 'audio_history';
+
+        function openIndexedDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, DB_VERSION);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(STORE_NAME)) {
+                        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                    }
+                };
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function saveToCache(item) {
+            try {
+                const db = await openIndexedDB();
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                const store = tx.objectStore(STORE_NAME);
+                item.updatedAt = Date.now();
+                store.put(item);
+                updateHistoryCount();
+            } catch (err) {
+                console.warn("IndexedDB Cache Save Failed:", err);
+            }
+        }
+
+        async function getAllHistoryFromCache() {
+            try {
+                const db = await openIndexedDB();
+                return new Promise((resolve) => {
+                    const tx = db.transaction(STORE_NAME, 'readonly');
+                    const store = tx.objectStore(STORE_NAME);
+                    const req = store.getAll();
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => resolve([]);
+                });
+            } catch (err) {
+                return [];
+            }
+        }
+
+        async function deleteHistoryItem(id) {
+            try {
+                const db = await openIndexedDB();
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                tx.objectStore(STORE_NAME).delete(id);
+                updateHistoryCount();
+            } catch (err) {
+                console.warn("Delete history item failed:", err);
+            }
+        }
+
+        async function clearAllHistoryItems() {
+            try {
+                const db = await openIndexedDB();
+                const tx = db.transaction(STORE_NAME, 'readwrite');
+                tx.objectStore(STORE_NAME).clear();
+                updateHistoryCount();
+            } catch (err) {
+                console.warn("Clear history failed:", err);
+            }
+        }
+
+        // Application State
         const state = {
             wavesurfer: null,
             wsRegions: null,
             audioBuffer: null,
-            sentences: [],        // Array of { id, start, end, text }
-            currentIndex: -1,     // Current active sentence index
-            isLoopSentence: false,// Single sentence repeat mode flag
+            sentences: [],        
+            currentIndex: -1,     
+            isLoopSentence: false,
+            isRandomMode: false,  // Requirement 1: Random Segment Flag
             playbackRate: 1.0,
-            silenceMinSec: 0.5,   // Default 0.5s threshold
+            silenceMinSec: 0.5,   
             silenceThreshold: 0.015,
-            currentFilename: "demo_course"
+            currentFilename: "demo_course",
+            currentAudioBlob: null,
+            currentLrcText: ""
         };
 
-        // Built-in Sample LRC for immediate testing
         const DEMO_LRC = `[00:00.50]Welcome to EchoMaster, your smart audio repeater.
 [00:04.20]This web application helps you learn languages effectively.
 [00:08.80]You can load your own MP3 files and LRC subtitles.
@@ -371,7 +464,6 @@
 [00:23.00]Use shortcut keys like Space for play or pause, and arrows for switching lines.
 [00:28.50]Happy learning and continuous improvement!`;
 
-        // Public royalty-free MP3 sample for standard testing
         const DEMO_AUDIO_URL = 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=english-speech-sample-12548.mp3';
 
         const DOM = {
@@ -386,6 +478,8 @@
             btnReplay: document.getElementById('btn-replay'),
             btnToggleLoop: document.getElementById('btn-toggle-loop'),
             loopBadge: document.getElementById('loop-badge'),
+            btnToggleRandom: document.getElementById('btn-toggle-random'),
+            randomBadge: document.getElementById('random-badge'),
             sliderZoom: document.getElementById('slider-zoom'),
             sliderVolume: document.getElementById('slider-volume'),
             sliderSilenceTime: document.getElementById('slider-silence-time'),
@@ -410,7 +504,14 @@
             modalShortcuts: document.getElementById('modal-shortcuts'),
             btnCloseModal: document.getElementById('btn-close-modal'),
             btnModalOk: document.getElementById('btn-modal-ok'),
-            waveformLoader: document.getElementById('waveform-loader')
+            waveformLoader: document.getElementById('waveform-loader'),
+            btnHistory: document.getElementById('btn-history'),
+            badgeHistoryCount: document.getElementById('badge-history-count'),
+            modalHistory: document.getElementById('modal-history'),
+            btnCloseHistory: document.getElementById('btn-close-history'),
+            btnHistoryOk: document.getElementById('btn-history-ok'),
+            historyItemsContainer: document.getElementById('history-items-container'),
+            btnClearAllHistory: document.getElementById('btn-clear-all-history')
         };
 
         function initWaveSurfer() {
@@ -425,7 +526,7 @@
                 barWidth: 2,
                 barGap: 2,
                 barRadius: 2,
-                height: 90,
+                height: 70,
                 plugins: [state.wsRegions]
             });
 
@@ -436,11 +537,11 @@
             });
 
             state.wavesurfer.on('play', () => {
-                DOM.iconPlay.className = 'fa-solid fa-pause text-xl';
+                DOM.iconPlay.className = 'fa-solid fa-pause text-base';
             });
 
             state.wavesurfer.on('pause', () => {
-                DOM.iconPlay.className = 'fa-solid fa-play text-xl ml-0.5';
+                DOM.iconPlay.className = 'fa-solid fa-play text-base ml-0.5';
             });
 
             state.wavesurfer.on('timeupdate', (currentTime) => {
@@ -453,7 +554,7 @@
             try {
                 state.audioBuffer = state.wavesurfer.getDecodedData();
             } catch (err) {
-                console.warn("AudioBuffer standard retrieval failed, attempt manually decoding:", err);
+                console.warn("AudioBuffer retrieval warning:", err);
             }
         }
 
@@ -469,13 +570,13 @@
             if (isNaN(seconds) || seconds < 0) seconds = 0;
             const m = Math.floor(seconds / 60);
             const s = Math.floor(seconds % 60);
-            const ms = Math.floor((seconds % 1) * 100); // 2-digit hundredths of a second
+            const ms = Math.floor((seconds % 1) * 100);
             return `[${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms).padStart(2, '0')}]`;
         }
 
         function parseLRC(lrcText) {
             const lines = lrcText.split('\n');
-            const timeRegex = /\[(\d{2}):(\d{2})(?:\.|\:)(\d{2,3})\]/g;
+            const timeRegex = /\[(\d{2}):(\d{2})(?:\.\vert{}\:)(\d{2,3})\]/g;
             const parsed = [];
 
             lines.forEach((line) => {
@@ -492,8 +593,7 @@
                     let msStr = match[3];
                     if (msStr.length === 2) msStr += '0';
                     const ms = parseInt(msStr, 10);
-                    const totalTime = min * 60 + sec + ms / 1000;
-                    timestamps.push(totalTime);
+                    timestamps.push(min * 60 + sec + ms / 1000);
                     cleanText = cleanText.replace(match[0], '');
                 }
 
@@ -508,7 +608,7 @@
             parsed.sort((a, b) => a.start - b.start);
 
             const duration = state.wavesurfer ? state.wavesurfer.getDuration() : 300;
-            const result = parsed.map((item, index) => {
+            return parsed.map((item, index) => {
                 const nextStart = parsed[index + 1] ? parsed[index + 1].start : duration;
                 return {
                     id: index,
@@ -517,15 +617,19 @@
                     text: item.text
                 };
             });
-
-            return result;
         }
 
-        /**
-         * Auto Silence Segmentation with Silence Midpoint Splitting.
-         * The split point between adjacent speech segments is placed exactly at the MIDPOINT of the silence gap:
-         * boundary = (speechA_end + speechB_start) / 2
-         */
+        function triggerCurrentCacheSave() {
+            if (!state.currentFilename || (!state.currentAudioBlob && !state.sentences.length)) return;
+            saveToCache({
+                id: state.currentFilename,
+                filename: state.currentFilename,
+                audioBlob: state.currentAudioBlob,
+                lrcText: state.currentLrcText,
+                sentences: state.sentences
+            });
+        }
+
         function analyzeSilenceSegmentation() {
             if (!state.audioBuffer && state.wavesurfer) {
                 state.audioBuffer = state.wavesurfer.getDecodedData();
@@ -540,10 +644,8 @@
             const sampleRate = state.audioBuffer.sampleRate;
             const duration = state.audioBuffer.duration;
             
-            // 20ms chunks
             const chunkSize = Math.floor(sampleRate * 0.02);
             const totalChunks = Math.floor(channelData.length / chunkSize);
-
             const minSilenceChunks = Math.floor(state.silenceMinSec / 0.02);
             const threshold = state.silenceThreshold;
 
@@ -574,7 +676,7 @@
                         if (silenceChunkCount >= minSilenceChunks) {
                             inSpeech = false;
                             const speechEnd = currentTime - (silenceChunkCount * 0.02);
-                            if (speechEnd - speechStart >= 0.2) { // Filter out ultra-short noise pops < 0.2s
+                            if (speechEnd - speechStart >= 0.2) {
                                 rawSpeechBlocks.push({ speechStart, speechEnd });
                             }
                         }
@@ -591,32 +693,11 @@
                 return;
             }
 
-            // Calculate boundaries placed at the MIDPOINT of silent gaps
             const sentences = [];
             for (let k = 0; k < rawSpeechBlocks.length; k++) {
                 const currentBlock = rawSpeechBlocks[k];
-                
-                // Determine sentence start
-                let start;
-                if (k === 0) {
-                    // First sentence start
-                    start = Math.max(0, currentBlock.speechStart - 0.1);
-                } else {
-                    // Midpoint between previous speech end and current speech start
-                    const prevBlock = rawSpeechBlocks[k - 1];
-                    start = (prevBlock.speechEnd + currentBlock.speechStart) / 2;
-                }
-
-                // Determine sentence end
-                let end;
-                if (k === rawSpeechBlocks.length - 1) {
-                    // Last sentence end
-                    end = Math.min(duration, currentBlock.speechEnd + 0.1);
-                } else {
-                    // Midpoint between current speech end and next speech start
-                    const nextBlock = rawSpeechBlocks[k + 1];
-                    end = (currentBlock.speechEnd + nextBlock.speechStart) / 2;
-                }
+                let start = (k === 0) ? Math.max(0, currentBlock.speechStart - 0.1) : (rawSpeechBlocks[k - 1].speechEnd + currentBlock.speechStart) / 2;
+                let end = (k === rawSpeechBlocks.length - 1) ? Math.min(duration, currentBlock.speechEnd + 0.1) : (currentBlock.speechEnd + rawSpeechBlocks[k + 1].speechStart) / 2;
 
                 sentences.push({
                     id: k,
@@ -627,13 +708,14 @@
             }
 
             state.sentences = sentences;
-            DOM.modeBadge.textContent = "静音中点断句";
-            DOM.modeBadge.className = "text-[10px] px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 font-medium";
+            DOM.modeBadge.textContent = "自动中点断句";
+            DOM.modeBadge.className = "text-[9px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 font-medium";
 
             renderSentenceList();
             if (state.sentences.length > 0) {
                 setActiveSentence(0, false);
             }
+            triggerCurrentCacheSave();
         }
 
         function renderSentenceList() {
@@ -655,56 +737,47 @@
                 const isActive = sentence.id === state.currentIndex;
                 const itemDiv = document.createElement('div');
                 itemDiv.id = `sentence-item-${sentence.id}`;
-                itemDiv.className = `p-2.5 rounded-xl border transition flex items-center justify-between space-x-3 ${
+                itemDiv.className = `p-2 rounded-xl border transition flex items-center justify-between space-x-2 ${
                     isActive 
                     ? 'bg-brand-600/20 border-brand-500/80 text-white shadow-md shadow-brand-500/10' 
                     : 'bg-slate-900/60 hover:bg-slate-800/80 border-slate-800/80 text-slate-300'
                 }`;
 
-                itemDiv.onclick = () => {
-                    jumpToSentence(sentence.id, true);
-                };
+                itemDiv.onclick = () => jumpToSentence(sentence.id, true);
 
-                // Index badge
                 const leftContainer = document.createElement('div');
-                leftContainer.className = 'flex items-center space-x-2 overflow-hidden flex-1';
+                leftContainer.className = 'flex items-center space-x-1.5 overflow-hidden flex-1';
 
                 const indexBadge = document.createElement('span');
-                indexBadge.className = 'text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-950/80 text-indigo-400 border border-slate-800 shrink-0';
+                indexBadge.className = 'text-[9px] font-mono px-1 py-0.2 rounded bg-slate-950/80 text-indigo-400 border border-slate-800 shrink-0';
                 indexBadge.textContent = `#${sentence.id + 1}`;
 
-                // Editable text input field
                 const textInput = document.createElement('input');
                 textInput.type = 'text';
                 textInput.value = sentence.text || '';
-                textInput.placeholder = '点击此处编辑字幕文本...';
-                textInput.className = 'w-full bg-slate-950/60 text-xs text-slate-100 px-2 py-1 rounded border border-slate-700/60 focus:border-indigo-500 focus:bg-slate-950 focus:outline-none transition';
+                textInput.placeholder = '编辑字幕...';
+                textInput.className = 'w-full bg-slate-950/60 text-xs text-slate-100 px-2 py-0.5 rounded border border-slate-700/60 focus:border-indigo-500 focus:outline-none transition';
 
-                // Real-time editable update to state
                 textInput.addEventListener('input', (e) => {
                     sentence.text = e.target.value;
+                    triggerCurrentCacheSave();
                 });
 
-                // Prevent click on input from immediately playing/seeking
-                textInput.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                });
+                textInput.addEventListener('click', (e) => e.stopPropagation());
 
                 leftContainer.appendChild(indexBadge);
                 leftContainer.appendChild(textInput);
 
-                // Time timestamp & Replay button
                 const rightContainer = document.createElement('div');
-                rightContainer.className = 'flex items-center space-x-2 shrink-0';
+                rightContainer.className = 'flex items-center space-x-1 shrink-0';
 
                 const timeBadge = document.createElement('span');
-                timeBadge.className = 'text-[10px] text-slate-500 font-mono hidden sm:inline';
+                timeBadge.className = 'text-[9px] text-slate-500 font-mono hidden sm:inline';
                 timeBadge.textContent = `${formatTime(sentence.start)}`;
 
                 const playBtn = document.createElement('button');
-                playBtn.className = 'w-7 h-7 rounded-lg bg-slate-800 hover:bg-brand-600 text-slate-400 hover:text-white flex items-center justify-center transition';
-                playBtn.title = '单句重播';
-                playBtn.innerHTML = `<i class="fa-solid ${isActive && state.wavesurfer.isPlaying() ? 'fa-pause' : 'fa-play'} text-xs"></i>`;
+                playBtn.className = 'w-6 h-6 rounded-lg bg-slate-800 hover:bg-brand-600 text-slate-400 hover:text-white flex items-center justify-center transition';
+                playBtn.innerHTML = `<i class="fa-solid ${isActive && state.wavesurfer.isPlaying() ? 'fa-pause' : 'fa-play'} text-[10px]"></i>`;
 
                 rightContainer.appendChild(timeBadge);
                 rightContainer.appendChild(playBtn);
@@ -716,31 +789,22 @@
             });
         }
 
-        /**
-         * Compiles state.sentences into standard LRC file format and triggers browser download.
-         */
         function exportLRC() {
             if (!state.sentences || state.sentences.length === 0) {
                 alert("当前列表没有可以导出的字幕/句子内容！");
                 return;
             }
 
-            let lrcContent = `[ti:${state.currentFilename}]\n`;
-            lrcContent += `[by:EchoMaster Repeater]\n`;
-
+            let lrcContent = `[ti:${state.currentFilename}]\n[by:EchoMaster Repeater]\n`;
             state.sentences.forEach(s => {
-                const timeStr = formatLrcTimestamp(s.start);
-                const textStr = (s.text || '').trim();
-                lrcContent += `${timeStr}${textStr}\n`;
+                lrcContent += `${formatLrcTimestamp(s.start)}${(s.text || '').trim()}\n`;
             });
 
-            // Create Blob and download
             const blob = new Blob([lrcContent], { type: 'text/plain;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const downloadAnchor = document.createElement('a');
             downloadAnchor.href = url;
-            const cleanName = (state.currentFilename || 'repeater_subtitle').replace(/\.[^/.]+$/, "");
-            downloadAnchor.download = `${cleanName}.lrc`;
+            downloadAnchor.download = `${(state.currentFilename || 'repeater_subtitle').replace(/\.[^/.]+$/, "")}.lrc`;
             document.body.appendChild(downloadAnchor);
             downloadAnchor.click();
             document.body.removeChild(downloadAnchor);
@@ -752,7 +816,6 @@
 
             const currentSentence = state.sentences[state.currentIndex];
 
-            // Single sentence looping logic
             if (state.isLoopSentence && currentSentence) {
                 if (currentTime >= currentSentence.end - 0.08 || currentTime < currentSentence.start) {
                     state.wavesurfer.setTime(currentSentence.start);
@@ -760,7 +823,6 @@
                 }
             }
 
-            // Normal dynamic sync
             const foundIndex = state.sentences.findIndex(s => currentTime >= s.start && currentTime < s.end);
             if (foundIndex !== -1 && foundIndex !== state.currentIndex) {
                 setActiveSentence(foundIndex, false);
@@ -796,6 +858,15 @@
             }
         }
 
+        function getRandomSentenceIndex() {
+            if (state.sentences.length <= 1) return 0;
+            let nextIdx;
+            do {
+                nextIdx = Math.floor(Math.random() * state.sentences.length);
+            } while (nextIdx === state.currentIndex);
+            return nextIdx;
+        }
+
         function jumpToSentence(index, playImmediate = true) {
             setActiveSentence(index, true);
             if (playImmediate && state.wavesurfer) {
@@ -806,48 +877,141 @@
         function loadAudioFile(file) {
             DOM.waveformLoader.classList.remove('hidden');
             state.currentFilename = file.name;
+            state.currentAudioBlob = file;
             DOM.currentFilename.textContent = file.name;
 
             const url = URL.createObjectURL(file);
             state.wavesurfer.load(url);
 
-            DOM.fileStatusText.textContent = `已加载音频: ${file.name}`;
-            DOM.fileSubStatus.textContent = "可拖入 LRC 字幕或点击下方静音自动断句";
+            DOM.fileStatusText.textContent = `已加载: ${file.name}`;
+            DOM.fileSubStatus.textContent = "可拖入 LRC 字幕或点击静音断句";
+            triggerCurrentCacheSave();
         }
 
         function loadLrcFile(file) {
             const reader = new FileReader();
             reader.onload = (e) => {
-                const text = e.target.result;
-                state.sentences = parseLRC(text);
+                state.currentLrcText = e.target.result;
+                state.sentences = parseLRC(state.currentLrcText);
                 DOM.modeBadge.textContent = "LRC 模式";
-                DOM.modeBadge.className = "text-[10px] px-2 py-0.5 rounded bg-brand-950 text-brand-300 border border-brand-800 font-medium";
+                DOM.modeBadge.className = "text-[9px] px-1.5 py-0.5 rounded bg-brand-950 text-brand-300 border border-brand-800 font-medium";
                 renderSentenceList();
                 if (state.sentences.length > 0) {
                     setActiveSentence(0, false);
                 }
+                triggerCurrentCacheSave();
             };
             reader.readAsText(file);
         }
 
         function loadDemoLesson() {
             state.currentFilename = "English_Lesson_Sample";
+            state.currentAudioBlob = null;
+            state.currentLrcText = DEMO_LRC;
             DOM.currentFilename.textContent = "示例课程 - English Speech";
             DOM.waveformLoader.classList.remove('hidden');
 
             state.wavesurfer.load(DEMO_AUDIO_URL);
             state.sentences = parseLRC(DEMO_LRC);
 
-            DOM.modeBadge.textContent = "LRC 示例模式";
-            DOM.modeBadge.className = "text-[10px] px-2 py-0.5 rounded bg-brand-950 text-brand-300 border border-brand-800 font-medium";
+            DOM.modeBadge.textContent = "LRC 示例";
+            DOM.modeBadge.className = "text-[9px] px-1.5 py-0.5 rounded bg-brand-950 text-brand-300 border border-brand-800 font-medium";
 
-            DOM.fileStatusText.textContent = "已载入示例英语课程及同步字幕";
-            DOM.fileSubStatus.textContent = "可双击编辑字幕后点击“导出 LRC”";
+            DOM.fileStatusText.textContent = "已载入示例英语课程及字幕";
+            renderSentenceList();
+            if (state.sentences.length > 0) {
+                setActiveSentence(0, false);
+            }
+        }
+
+        async function updateHistoryCount() {
+            const historyList = await getAllHistoryFromCache();
+            DOM.badgeHistoryCount.textContent = historyList.length;
+        }
+
+        async function renderHistoryModal() {
+            const historyList = await getAllHistoryFromCache();
+            DOM.historyItemsContainer.innerHTML = '';
+
+            if (historyList.length === 0) {
+                DOM.historyItemsContainer.innerHTML = `
+                    <div class="text-center py-8 text-slate-500 text-xs">
+                        <i class="fa-solid fa-box-open text-2xl mb-2 block"></i>
+                        暂无本地缓存数据
+                    </div>`;
+                return;
+            }
+
+            historyList.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+
+            historyList.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'p-2.5 rounded-xl bg-slate-950/60 border border-slate-800 flex items-center justify-between space-x-3';
+
+                const leftInfo = document.createElement('div');
+                leftInfo.className = 'min-w-0 flex-1';
+
+                const title = document.createElement('div');
+                title.className = 'text-xs font-semibold text-slate-200 truncate';
+                title.textContent = item.filename;
+
+                const sub = document.createElement('div');
+                sub.className = 'text-[10px] text-slate-500 flex items-center space-x-2 mt-0.5';
+                const countText = item.sentences ? `${item.sentences.length} 句` : '无字幕';
+                const dateText = item.updatedAt ? new Date(item.updatedAt).toLocaleDateString() : '';
+                sub.textContent = `${countText} • ${dateText}`;
+
+                leftInfo.appendChild(title);
+                leftInfo.appendChild(sub);
+
+                const rightBtns = document.createElement('div');
+                rightBtns.className = 'flex items-center space-x-1.5 shrink-0';
+
+                const loadBtn = document.createElement('button');
+                loadBtn.className = 'px-2.5 py-1 text-xs bg-brand-600 hover:bg-brand-500 text-white rounded-lg shadow transition';
+                loadBtn.textContent = '恢复加载';
+                loadBtn.onclick = () => {
+                    loadFromHistoryItem(item);
+                    DOM.modalHistory.classList.add('hidden');
+                };
+
+                const delBtn = document.createElement('button');
+                delBtn.className = 'p-1.5 text-slate-500 hover:text-rose-400 transition';
+                delBtn.innerHTML = `<i class="fa-solid fa-trash-can text-xs"></i>`;
+                delBtn.onclick = async () => {
+                    await deleteHistoryItem(item.id);
+                    renderHistoryModal();
+                };
+
+                rightBtns.appendChild(loadBtn);
+                rightBtns.appendChild(delBtn);
+
+                itemDiv.appendChild(leftInfo);
+                itemDiv.appendChild(rightBtns);
+
+                DOM.historyItemsContainer.appendChild(itemDiv);
+            });
+        }
+
+        function loadFromHistoryItem(item) {
+            state.currentFilename = item.filename;
+            state.sentences = item.sentences || [];
+            state.currentLrcText = item.lrcText || '';
+            state.currentAudioBlob = item.audioBlob || null;
+
+            DOM.currentFilename.textContent = item.filename;
+
+            if (item.audioBlob) {
+                DOM.waveformLoader.classList.remove('hidden');
+                const url = URL.createObjectURL(item.audioBlob);
+                state.wavesurfer.load(url);
+            }
 
             renderSentenceList();
             if (state.sentences.length > 0) {
                 setActiveSentence(0, false);
             }
+            DOM.fileStatusText.textContent = `已载入历史缓存: ${item.filename}`;
         }
 
         function bindEvents() {
@@ -864,7 +1028,6 @@
             DOM.dropZone.addEventListener('drop', (e) => {
                 e.preventDefault();
                 DOM.dropZone.classList.remove('border-brand-500', 'bg-brand-950/20');
-                
                 const files = Array.from(e.dataTransfer.files);
                 files.forEach(file => {
                     if (file.type.startsWith('audio/') || file.name.match(/\.(mp3|wav|m4a|ogg)$/i)) {
@@ -875,7 +1038,6 @@
                 });
             });
 
-            // Inputs
             DOM.inputAudio.addEventListener('change', (e) => {
                 if (e.target.files[0]) loadAudioFile(e.target.files[0]);
             });
@@ -891,14 +1053,21 @@
                 if (state.wavesurfer) state.wavesurfer.playPause();
             });
 
+            // Requirement 1: Prev / Next Button with Random Jump Support
             DOM.btnPrev.addEventListener('click', () => {
-                if (state.currentIndex > 0) {
+                if (state.sentences.length === 0) return;
+                if (state.isRandomMode) {
+                    jumpToSentence(getRandomSentenceIndex(), true);
+                } else if (state.currentIndex > 0) {
                     jumpToSentence(state.currentIndex - 1, true);
                 }
             });
 
             DOM.btnNext.addEventListener('click', () => {
-                if (state.currentIndex < state.sentences.length - 1) {
+                if (state.sentences.length === 0) return;
+                if (state.isRandomMode) {
+                    jumpToSentence(getRandomSentenceIndex(), true);
+                } else if (state.currentIndex < state.sentences.length - 1) {
                     jumpToSentence(state.currentIndex + 1, true);
                 }
             });
@@ -909,48 +1078,51 @@
                 }
             });
 
-            // Toggle Single Sentence Loop
+            // Single Loop Toggle
             DOM.btnToggleLoop.addEventListener('click', () => {
                 state.isLoopSentence = !state.isLoopSentence;
                 if (state.isLoopSentence) {
                     DOM.btnToggleLoop.classList.add('bg-brand-600', 'text-white', 'border-brand-500');
-                    DOM.loopBadge.className = "absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-400 border-2 border-slate-900 animate-pulse";
+                    DOM.loopBadge.className = "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 border-2 border-slate-900 animate-pulse";
                 } else {
                     DOM.btnToggleLoop.classList.remove('bg-brand-600', 'text-white', 'border-brand-500');
-                    DOM.loopBadge.className = "absolute -top-1 -right-1 w-3 h-3 rounded-full bg-slate-600 border-2 border-slate-900";
+                    DOM.loopBadge.className = "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-slate-600 border-2 border-slate-900";
                 }
             });
 
-            // Speed Control Selector
+            // Requirement 1: Toggle Random Playback Mode
+            DOM.btnToggleRandom.addEventListener('click', () => {
+                state.isRandomMode = !state.isRandomMode;
+                if (state.isRandomMode) {
+                    DOM.btnToggleRandom.classList.add('bg-amber-600', 'text-white', 'border-amber-500');
+                    DOM.randomBadge.className = "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-amber-300 border-2 border-slate-900 animate-pulse";
+                } else {
+                    DOM.btnToggleRandom.classList.remove('bg-amber-600', 'text-white', 'border-amber-500');
+                    DOM.randomBadge.className = "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-slate-600 border-2 border-slate-900";
+                }
+            });
+
+            // Speed Selector
             document.querySelectorAll('.btn-speed').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     const speed = parseFloat(e.target.dataset.speed);
                     state.playbackRate = speed;
-                    if (state.wavesurfer) {
-                        state.wavesurfer.setPlaybackRate(speed);
-                    }
+                    if (state.wavesurfer) state.wavesurfer.setPlaybackRate(speed);
                     document.querySelectorAll('.btn-speed').forEach(b => {
-                        b.className = "btn-speed px-2 py-0.5 text-xs rounded-lg text-slate-400 hover:text-white transition";
+                        b.className = "btn-speed px-1.5 py-0.5 rounded text-slate-400 hover:text-white";
                     });
-                    e.target.className = "btn-speed px-2 py-0.5 text-xs rounded-lg bg-brand-600 text-white font-semibold shadow-sm";
+                    e.target.className = "btn-speed px-1.5 py-0.5 rounded bg-brand-600 text-white font-semibold";
                 });
             });
 
-            // Zoom slider
             DOM.sliderZoom.addEventListener('input', (e) => {
-                if (state.wavesurfer) {
-                    state.wavesurfer.zoom(Number(e.target.value));
-                }
+                if (state.wavesurfer) state.wavesurfer.zoom(Number(e.target.value));
             });
 
-            // Volume slider
             DOM.sliderVolume.addEventListener('input', (e) => {
-                if (state.wavesurfer) {
-                    state.wavesurfer.setVolume(Number(e.target.value));
-                }
+                if (state.wavesurfer) state.wavesurfer.setVolume(Number(e.target.value));
             });
 
-            // Region Checkbox
             DOM.chkShowRegion.addEventListener('change', (e) => {
                 if (!e.target.checked && state.wsRegions) {
                     state.wsRegions.clearRegions();
@@ -959,7 +1131,6 @@
                 }
             });
 
-            // Silence controls
             DOM.sliderSilenceTime.addEventListener('input', (e) => {
                 state.silenceMinSec = parseFloat(e.target.value);
                 DOM.valSilenceTime.textContent = `${state.silenceMinSec.toFixed(1)}s`;
@@ -974,11 +1145,7 @@
             });
 
             DOM.btnAutoSegment.addEventListener('click', analyzeSilenceSegmentation);
-
-            // Export LRC Button
             DOM.btnExportLrc.addEventListener('click', exportLRC);
-
-            // Search Filter
             DOM.inputSearch.addEventListener('input', renderSentenceList);
 
             DOM.btnClearList.addEventListener('click', () => {
@@ -988,12 +1155,27 @@
                 renderSentenceList();
             });
 
+            // History Modal
+            DOM.btnHistory.addEventListener('click', () => {
+                renderHistoryModal();
+                DOM.modalHistory.classList.remove('hidden');
+            });
+            DOM.btnCloseHistory.addEventListener('click', () => DOM.modalHistory.classList.add('hidden'));
+            DOM.btnHistoryOk.addEventListener('click', () => DOM.modalHistory.classList.add('hidden'));
+
+            DOM.btnClearAllHistory.addEventListener('click', async () => {
+                if (confirm("确定要清空本地所有缓存的历史课程和音频吗？")) {
+                    await clearAllHistoryItems();
+                    renderHistoryModal();
+                }
+            });
+
             // Keyboard Shortcuts Modal
             DOM.btnShortcuts.addEventListener('click', () => DOM.modalShortcuts.classList.remove('hidden'));
             DOM.btnCloseModal.addEventListener('click', () => DOM.modalShortcuts.classList.add('hidden'));
             DOM.btnModalOk.addEventListener('click', () => DOM.modalShortcuts.classList.add('hidden'));
 
-            // Global Keyboard Shortcuts
+            // Global Keybindings
             window.addEventListener('keydown', (e) => {
                 if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
 
@@ -1020,6 +1202,7 @@
             initWaveSurfer();
             bindEvents();
             loadDemoLesson();
+            updateHistoryCount();
         });
     </script>
 </body>
