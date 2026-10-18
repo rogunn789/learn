@@ -184,7 +184,7 @@
                         <span id="loop-badge" class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-slate-600 border-2 border-slate-900"></span>
                     </button>
 
-                    <!-- NEW: Random Mode Toggle -->
+                    <!-- Random Mode Toggle -->
                     <button id="btn-toggle-random" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700/60 transition flex items-center justify-center relative shadow active:scale-95" title="随机片段播放">
                         <i class="fa-solid fa-shuffle text-sm"></i>
                         <span id="random-badge" class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-slate-600 border-2 border-slate-900"></span>
@@ -447,7 +447,7 @@
             sentences: [],        
             currentIndex: -1,     
             isLoopSentence: false,
-            isRandomMode: false,  // Requirement 1: Random Segment Flag
+            isRandomMode: false,  
             playbackRate: 1.0,
             silenceMinSec: 0.5,   
             silenceThreshold: 0.015,
@@ -534,6 +534,12 @@
                 DOM.waveformLoader.classList.add('hidden');
                 DOM.timeTotal.textContent = formatTime(state.wavesurfer.getDuration());
                 fetchAudioBuffer();
+
+                // 音频就绪后，若已存在 LRC，重新计算区间校准
+                if (state.currentLrcText) {
+                    state.sentences = parseLRC(state.currentLrcText);
+                    renderSentenceList();
+                }
             });
 
             state.wavesurfer.on('play', () => {
@@ -574,9 +580,15 @@
             return `[${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms).padStart(2, '0')}]`;
         }
 
+        /**
+         * 修复且增强版的 LRC 解析器：
+         * 1. 兼容 [01:02.34], [1:02.3], [01:02:34], [01:02] 等多种格式
+         * 2. 安全防范 wavesurfer 尚未就绪时的 NaN 赋值
+         */
         function parseLRC(lrcText) {
-            const lines = lrcText.split('\n');
-            const timeRegex = /\[(\d{2}):(\d{2})(?:\.\vert{}\:)(\d{2,3})\]/g;
+            if (!lrcText) return [];
+            const lines = lrcText.split(/\r?\n/);
+            const timeRegex = /\[(\d{1,3}):(\d{2})(?:[\.\:](\d{1,3}))?\]/g;
             const parsed = [];
 
             lines.forEach((line) => {
@@ -587,12 +599,17 @@
                 const timestamps = [];
                 let cleanText = line;
 
+                timeRegex.lastIndex = 0;
                 while ((match = timeRegex.exec(line)) !== null) {
                     const min = parseInt(match[1], 10);
                     const sec = parseInt(match[2], 10);
-                    let msStr = match[3];
-                    if (msStr.length === 2) msStr += '0';
-                    const ms = parseInt(msStr, 10);
+                    let ms = 0;
+                    if (match[3]) {
+                        let msStr = match[3];
+                        if (msStr.length === 1) msStr += '00';
+                        else if (msStr.length === 2) msStr += '0';
+                        ms = parseInt(msStr.slice(0, 3), 10);
+                    }
                     timestamps.push(min * 60 + sec + ms / 1000);
                     cleanText = cleanText.replace(match[0], '');
                 }
@@ -607,13 +624,21 @@
 
             parsed.sort((a, b) => a.start - b.start);
 
-            const duration = state.wavesurfer ? state.wavesurfer.getDuration() : 300;
+            // 防患波形未准备就绪时返回 NaN 导致 Wavesurfer 划区报 JavaScript 崩溃
+            let duration = 300;
+            if (state.wavesurfer) {
+                const d = state.wavesurfer.getDuration();
+                if (!isNaN(d) && d > 0) {
+                    duration = d;
+                }
+            }
+
             return parsed.map((item, index) => {
-                const nextStart = parsed[index + 1] ? parsed[index + 1].start : duration;
+                const nextStart = parsed[index + 1] ? parsed[index + 1].start : Math.max(item.start + 2, duration);
                 return {
                     id: index,
-                    start: item.start,
-                    end: Math.max(item.start + 0.5, nextStart),
+                    start: Number(item.start.toFixed(3)),
+                    end: Number(Math.max(item.start + 0.3, nextStart).toFixed(3)),
                     text: item.text
                 };
             });
@@ -889,12 +914,15 @@
         }
 
         function loadLrcFile(file) {
+            if (!file) return;
             const reader = new FileReader();
             reader.onload = (e) => {
                 state.currentLrcText = e.target.result;
                 state.sentences = parseLRC(state.currentLrcText);
+                
                 DOM.modeBadge.textContent = "LRC 模式";
                 DOM.modeBadge.className = "text-[9px] px-1.5 py-0.5 rounded bg-brand-950 text-brand-300 border border-brand-800 font-medium";
+                
                 renderSentenceList();
                 if (state.sentences.length > 0) {
                     setActiveSentence(0, false);
@@ -1039,11 +1067,17 @@
             });
 
             DOM.inputAudio.addEventListener('change', (e) => {
-                if (e.target.files[0]) loadAudioFile(e.target.files[0]);
+                if (e.target.files[0]) {
+                    loadAudioFile(e.target.files[0]);
+                    e.target.value = '';
+                }
             });
 
             DOM.inputLrc.addEventListener('change', (e) => {
-                if (e.target.files[0]) loadLrcFile(e.target.files[0]);
+                if (e.target.files[0]) {
+                    loadLrcFile(e.target.files[0]);
+                    e.target.value = ''; // 重置元素值，确保重复选择同名 LRC 时依然能够响应
+                }
             });
 
             DOM.btnLoadDemo.addEventListener('click', loadDemoLesson);
@@ -1053,7 +1087,7 @@
                 if (state.wavesurfer) state.wavesurfer.playPause();
             });
 
-            // Requirement 1: Prev / Next Button with Random Jump Support
+            // Prev / Next Button with Random Jump Support
             DOM.btnPrev.addEventListener('click', () => {
                 if (state.sentences.length === 0) return;
                 if (state.isRandomMode) {
@@ -1090,7 +1124,7 @@
                 }
             });
 
-            // Requirement 1: Toggle Random Playback Mode
+            // Toggle Random Playback Mode
             DOM.btnToggleRandom.addEventListener('click', () => {
                 state.isRandomMode = !state.isRandomMode;
                 if (state.isRandomMode) {
