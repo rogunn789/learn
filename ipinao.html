@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>10排正圆打击垫钢琴 (自适应防撑开版)</title>
+    <title>10排正圆打击垫钢琴 (自适应正圆版)</title>
     <!-- Tonejs-Midi 解析库 -->
     <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
     <style>
@@ -23,7 +23,7 @@
         }
 
         body, html {
-            width: 100%; height: 100%;
+            width: 100vw; height: 100vh;
             background-color: #0b0b10; color: #fff;
             overflow: hidden;
             display: flex; flex-direction: column;
@@ -47,7 +47,7 @@
             padding: 8px 18px; border-radius: 20px; font-size: 0.95rem; margin-top: 15px;
         }
 
-        /* 顶部导航栏 */
+        /* 顶部状态栏 */
         #top-bar {
             height: 38px; background: #14141c; flex-shrink: 0;
             display: flex; justify-content: space-between; align-items: center;
@@ -56,13 +56,13 @@
 
         /* 五线谱 Canvas 视图区 */
         #staff-container {
-            width: 100vw; height: 80px; background: #161622; flex-shrink: 0;
+            width: 100vw; height: 75px; background: #161622; flex-shrink: 0;
             border-bottom: 1px solid #222230; display: flex; justify-content: center; align-items: center;
             position: relative;
         }
         #staff-canvas { width: 100%; height: 100%; display: block; }
 
-        /* MIDI 播放与控制栏 */
+        /* MIDI 控制栏 */
         #midi-bar {
             height: 36px; background: #101016; flex-shrink: 0;
             display: flex; align-items: center; justify-content: space-between;
@@ -84,11 +84,11 @@
             border: 1px solid #2a2a3a; min-width: 90px; text-align: center;
         }
 
-        /* 打击垫外层容器 (自适应填充剩余屏幕高度，绝不产生外层滚动条) */
+        /* 打击垫全景自适应容器 */
         #pad-grid-wrapper {
             flex: 1;
             width: 100vw;
-            padding: 4px 6px;
+            padding: 4px;
             box-sizing: border-box;
             overflow: hidden;
             display: flex;
@@ -101,13 +101,13 @@
             display: grid;
             grid-template-columns: repeat(12, 1fr);
             grid-template-rows: repeat(10, 1fr);
-            gap: 2px 3px;
+            gap: 2px;
             width: 100%;
             height: 100%;
             box-sizing: border-box;
         }
 
-        /* 网格单元格：防止内容撑开 */
+        /* 单元格居中约束 */
         .pad-cell {
             display: flex; justify-content: center; align-items: center;
             width: 100%; height: 100%;
@@ -115,12 +115,8 @@
             overflow: hidden;
         }
 
-        /* 关键：防撑开正圆按键，宽高双向收缩至单元格最大可容纳尺寸 */
+        /* 绝对正圆形按键：尺寸由 JS 在 resize 时精准注入 */
         .pad-btn {
-            aspect-ratio: 1 / 1;
-            height: 100%;
-            max-height: 100%;
-            max-width: 100%;
             border-radius: 50%;
             display: flex; flex-direction: column;
             justify-content: center; align-items: center;
@@ -129,6 +125,7 @@
             transition: transform 0.04s, filter 0.04s, box-shadow 0.04s;
             position: relative;
             box-sizing: border-box;
+            flex-shrink: 0;
         }
 
         /* 白键 (自然音) */
@@ -147,7 +144,7 @@
         .pad-btn.black-key .note-name { color: var(--black-key-text); }
         .pad-btn.black-key .note-oct { color: #999; }
 
-        /* 中央 C (C4) 红色加粗高亮 */
+        /* 中央 C (C4) 红色高亮边框 */
         .pad-btn.middle-c {
             border: 2px solid #ff4757 !important;
             box-shadow: 0 0 8px rgba(255, 71, 87, 0.8);
@@ -171,13 +168,13 @@
             to { transform: scale(0.9); filter: brightness(1.3); }
         }
 
-        /* 缩小文字防止溢出正圆 */
+        /* 文字标示 */
         .note-oct {
-            font-size: clamp(0.42rem, 0.8vmin, 0.52rem);
+            font-size: 9px;
             line-height: 1; margin-bottom: 1px; opacity: 0.75; pointer-events: none;
         }
         .note-name {
-            font-size: clamp(0.5rem, 1.2vmin, 0.72rem);
+            font-size: 11px;
             font-weight: 800; pointer-events: none; line-height: 1;
         }
 
@@ -192,12 +189,12 @@
     <div id="start-overlay" onclick="initApp()">
         <h1>正圆打击垫钢琴</h1>
         <p>👇 点击屏幕解锁真实钢琴音色 👇</p>
-        <div class="badge" id="loader-badge">点击开启声音 (请确保 iPad 取消静音模式)</div>
+        <div class="badge" id="loader-badge">点击开启声音 (请确保 iPad 已取消静音模式)</div>
     </div>
 
-    <!-- 顶部导航栏 -->
+    <!-- 顶部状态栏 -->
     <div id="top-bar">
-        <strong style="color: #00f2fe;">10 排 x 12 键正圆自适应全景视图 (C0 ~ B9)</strong>
+        <strong style="color: #00f2fe;">10 排 x 12 键正圆视图 (从下往上: C0 ~ B9)</strong>
         <span id="status-text" style="font-size: 0.75rem; color: #888;">音色库：未激活</span>
     </div>
 
@@ -224,13 +221,12 @@
         </div>
     </div>
 
-    <!-- 自适应打击垫容器 -->
+    <!-- 打击垫容器 -->
     <div id="pad-grid-wrapper">
         <div id="pad-grid"></div>
     </div>
 
 <script>
-    // 降号与升号半音对应表 (单排 12 个按键，从 C 到 B)
     const FLAT_NOTE_NAMES = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
     const DISPLAY_NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
     
@@ -241,7 +237,6 @@
     const activeMidis = new Set();
     const activeTouches = {};
 
-    // MIDI 播放与跟弹模式变量
     let currentMidiData = null;
     let midiEvents = [];
     let isMidiPlaying = false;
@@ -266,7 +261,6 @@
         return { midi, pitchClass, octave, displayName, fileName, isBlack, isMiddleC: displayName === "C4" };
     }
 
-    // iOS/iPad 唤醒 AudioContext
     function unlockAudioContext() {
         if (!audioCtx) {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -380,7 +374,7 @@
         }
     }
 
-    // 渲染固定 10 排 x 12 键矩阵 (从下往上: C0区 到 C9区)
+    // 渲染 10 排 x 12 列打击垫矩阵
     function renderPadGrid() {
         const grid = document.getElementById('pad-grid');
         grid.innerHTML = '';
@@ -409,9 +403,42 @@
                 grid.appendChild(cell);
             }
         }
+        
+        // 渲染完 DOM 后立即计算一次按键尺寸
+        autoResizePads();
     }
 
-    // 绘制五线谱 (大谱表)
+    // 关键算法：动态计算每个单元格的最大正圆直径，确保绝对不会变形或撑开屏幕
+    function autoResizePads() {
+        const wrapper = document.getElementById('pad-grid-wrapper');
+        if (!wrapper) return;
+
+        const availW = wrapper.clientWidth - 8;
+        const availH = wrapper.clientHeight - 8;
+
+        const cellW = (availW - (11 * 2)) / 12; // 12列，11个2px间距
+        const cellH = (availH - (9 * 2)) / 10;  // 10行，9个2px间距
+
+        // 正圆直径 = 单元格宽高的最小值，确保不拉伸变形
+        const diameter = Math.max(10, Math.floor(Math.min(cellW, cellH)));
+        const octFontSize = Math.max(7, Math.floor(diameter * 0.22));
+        const nameFontSize = Math.max(9, Math.floor(diameter * 0.30));
+
+        document.querySelectorAll('.pad-btn').forEach(btn => {
+            btn.style.width = `${diameter}px`;
+            btn.style.height = `${diameter}px`;
+        });
+
+        document.querySelectorAll('.note-oct').forEach(el => {
+            el.style.fontSize = `${octFontSize}px`;
+        });
+
+        document.querySelectorAll('.note-name').forEach(el => {
+            el.style.fontSize = `${nameFontSize}px`;
+        });
+    }
+
+    // 绘制五线谱
     function drawStaff() {
         const canvas = document.getElementById('staff-canvas');
         if (!canvas) return;
@@ -585,7 +612,7 @@
         activeMidis.forEach(midi => releaseNote(midi));
     }
 
-    // 跟弹练习模式
+    // 跟弹模式
     function togglePracticeMode() {
         if (isMidiPlaying) pauseMidiPlay();
 
@@ -746,7 +773,9 @@
         setupInteractions();
         drawStaff();
 
+        // 绑定窗口改变时自动重绘尺寸
         window.addEventListener('resize', () => {
+            autoResizePads();
             drawStaff();
         });
 
