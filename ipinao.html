@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>88键正圆打击垫钢琴 (真实采样保底版)</title>
+    <title>多八度正圆打击垫钢琴 (单行12键·10排自适应版)</title>
     <!-- Tonejs-Midi 解析库 -->
     <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
     <style>
@@ -46,17 +46,17 @@
             padding: 8px 18px; border-radius: 20px; font-size: 0.95rem; margin-top: 15px;
         }
 
-        /* 顶部导航栏 */
+        /* 顶部控制栏 */
         #top-bar {
-            height: 42px; background: #14141c;
+            height: 44px; background: #14141c;
             display: flex; justify-content: space-between; align-items: center;
             padding: 0 12px; border-bottom: 1px solid #222230; font-size: 0.85rem;
         }
-        .control-group { display: flex; align-items: center; gap: 8px; }
+        .control-group { display: flex; align-items: center; gap: 6px; }
         
         .btn-ui {
             background: #222232; color: #fff; border: 1px solid #444;
-            padding: 5px 10px; border-radius: 6px; cursor: pointer; transition: 0.2s;
+            padding: 5px 9px; border-radius: 6px; cursor: pointer; transition: 0.2s;
             font-size: 0.78rem;
         }
         .btn-ui.active { background: var(--active-glow); color: #000; font-weight: bold; }
@@ -64,7 +64,7 @@
 
         /* 五线谱 Canvas 视图区 */
         #staff-container {
-            width: 100vw; height: 95px; background: #161622;
+            width: 100vw; height: 90px; background: #161622;
             border-bottom: 1px solid #222230; display: flex; justify-content: center; align-items: center;
             position: relative;
         }
@@ -80,17 +80,23 @@
         #chord-display {
             font-size: 0.85rem; font-weight: bold; color: var(--active-glow);
             background: #0a0a10; padding: 3px 10px; border-radius: 10px;
-            border: 1px solid #2a2a3a; min-width: 110px; text-align: center;
+            border: 1px solid #2a2a3a; min-width: 100px; text-align: center;
         }
 
-        /* 打击垫 88 键全景网格 */
-        #pad-grid {
-            width: 100vw; height: calc(100vh - 175px);
+        /* 打击垫网格容器：固定 12 列，排数动态计算 */
+        #pad-grid-wrapper {
+            width: 100vw; height: calc(100vh - 172px);
             padding: 6px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        #pad-grid {
             display: grid;
-            grid-template-columns: repeat(11, 1fr);
-            grid-template-rows: repeat(8, 1fr);
+            grid-template-columns: repeat(12, 1fr);
             gap: 4px;
+            width: 100%;
+            height: 100%;
         }
 
         /* 单元格居中约束 */
@@ -99,7 +105,7 @@
             width: 100%; height: 100%; overflow: hidden;
         }
 
-        /* 严格正圆形按键（强制 1:1 宽高比） */
+        /* 严格正圆形按键（1:1 宽高比） */
         .pad-btn {
             aspect-ratio: 1 / 1;
             width: 100%; max-width: 100%; max-height: 100%;
@@ -112,32 +118,36 @@
             position: relative;
         }
 
+        /* 白键 (自然音) */
         .pad-btn.white-key {
             background: linear-gradient(145deg, #ffffff, var(--white-key-bg));
             border: 1.5px solid #bdc3c7;
         }
         .pad-btn.white-key .note-name { color: var(--white-key-text); }
-        .pad-btn.white-key .note-num { color: #666; }
+        .pad-btn.white-key .note-oct { color: #666; }
 
+        /* 黑键 (变化音) */
         .pad-btn.black-key {
             background: linear-gradient(145deg, #3d3e52, var(--black-key-bg));
             border: 1.5px solid #4f4f66;
         }
         .pad-btn.black-key .note-name { color: var(--black-key-text); }
-        .pad-btn.black-key .note-num { color: #888; }
+        .pad-btn.black-key .note-oct { color: #888; }
 
-        /* 中央 C (第40键) 红色高亮边界 */
+        /* 中央 C (C4) 红色边框凸显 */
         .pad-btn.middle-c {
             border: 2.5px solid #ff4757 !important;
             box-shadow: 0 0 10px rgba(255, 71, 87, 0.7);
         }
         .pad-btn.middle-c .note-name { color: #ff4757 !important; }
 
+        /* 按下发音高亮 */
         .pad-btn.active {
             transform: scale(0.86); filter: brightness(1.3);
             box-shadow: 0 0 16px var(--active-glow), inset 0 2px 4px rgba(0,0,0,0.8);
         }
 
+        /* 跟弹练习目标键提示 */
         .pad-btn.target-hint {
             border: 2.5px solid var(--target-glow) !important;
             box-shadow: 0 0 16px var(--target-glow) !important;
@@ -148,17 +158,17 @@
             to { transform: scale(0.9); filter: brightness(1.3); }
         }
 
-        .note-num {
-            font-size: clamp(0.5rem, 1.1vmin, 0.65rem);
-            line-height: 1; margin-bottom: 2px; opacity: 0.75; pointer-events: none;
+        .note-oct {
+            font-size: clamp(0.48rem, 1vmin, 0.6rem);
+            line-height: 1; margin-bottom: 1px; opacity: 0.75; pointer-events: none;
         }
         .note-name {
-            font-size: clamp(0.6rem, 1.6vmin, 0.85rem);
+            font-size: clamp(0.58rem, 1.5vmin, 0.8rem);
             font-weight: 800; pointer-events: none; line-height: 1;
         }
 
         input[type="range"] {
-            width: 70px; accent-color: var(--active-glow);
+            width: 65px; accent-color: var(--active-glow);
         }
     </style>
 </head>
@@ -166,16 +176,27 @@
 
     <!-- 启动遮罩 -->
     <div id="start-overlay" onclick="initApp()">
-        <h1>88键正圆打击垫钢琴</h1>
+        <h1>多八度正圆打击垫钢琴</h1>
         <p>👇 点击屏幕解锁真实钢琴音色 👇</p>
-        <div class="badge" id="loader-badge">点击开启声音 (确保 iPad 关闭静音模式)</div>
+        <div class="badge" id="loader-badge">点击开启声音 (请确保 iPad 已关闭静音开关)</div>
     </div>
 
     <!-- 顶部导航栏 -->
     <div id="top-bar">
-        <strong style="color: #00f2fe;">钢琴 88 键正圆视图 (1~88)</strong>
+        <div class="control-group">
+            <span style="font-size:0.8rem; color:#aaa;">八度排数:</span>
+            <button class="btn-ui" onclick="changeOctaveCount(-1)">➖ 减少</button>
+            <strong id="oct-count-disp" style="color:#00f2fe;">10 排</strong>
+            <button class="btn-ui" onclick="changeOctaveCount(1)">➕ 增加</button>
+        </div>
+
         <div id="chord-display">和弦：-</div>
-        <span id="status-text" style="font-size: 0.78rem; color: #888;">音色库：未激活</span>
+
+        <div class="control-group">
+            <button class="btn-ui" onclick="shiftBaseOctave(-1)">🔻 降音区</button>
+            <span id="base-oct-disp" style="font-size:0.75rem; color:#ccc;">基准: C0</span>
+            <button class="btn-ui" onclick="shiftBaseOctave(1)">🔺 升音区</button>
+        </div>
     </div>
 
     <!-- 五线谱 Canvas 视图区 -->
@@ -199,21 +220,28 @@
         </div>
     </div>
 
-    <!-- 88 键正圆形打击垫矩阵 -->
-    <div id="pad-grid"></div>
+    <!-- 打击垫矩阵容器 -->
+    <div id="pad-grid-wrapper">
+        <div id="pad-grid"></div>
+    </div>
 
 <script>
-    // 降号命名法 (匹配开源 MIDI.js Soundfonts 的文件规范)
+    // 降号与升号半音对应表 (单排 12 个按键，从 C 到 B)
     const FLAT_NOTE_NAMES = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
     const DISPLAY_NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
     
     let audioCtx = null;
     let masterGain = null;
-    const audioBuffers = {}; // 缓存已解压的 AudioBuffer
-    const activeNoteSources = {}; // 当前响音节点集合，支持多音同时按响
+    const audioBuffers = {}; // 缓存 AudioBuffer
+    const activeNoteSources = {}; // 活跃发声节点，支持多音同时响
     const activeMidis = new Set();
     const activeTouches = {};
 
+    // 默认排数与起始八度设置
+    let numOctaves = 10; // 默认 10 排 (10 个八度)
+    let baseOctave = 0;   // 默认从 0 八度 (C0) 开始
+
+    // MIDI 播放与跟弹模式变量
     let currentMidiData = null;
     let midiEvents = [];
     let isMidiPlaying = false;
@@ -227,23 +255,19 @@
     let midiAnimationLoop = null;
     let nextEventIndex = 0;
 
-    // 官方开源 Soundfont CDN 基础路径
     const SOUNDFONT_BASE_URL = "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/acoustic_grand_piano-mp3/";
 
-    function getNoteData(keyIndex) {
-        // keyIndex: 1 到 88
-        const midi = keyIndex + 20; // 21 (A0) 到 108 (C8)
+    // 根据 MIDI 号计算音符名与文件信息
+    function getNoteDataByMidi(midi) {
         const pitchClass = (midi - 12) % 12;
         const octave = Math.floor((midi - 12) / 12);
-        
         const displayName = DISPLAY_NOTE_NAMES[pitchClass] + octave;
         const fileName = FLAT_NOTE_NAMES[pitchClass] + octave + ".mp3";
         const isBlack = DISPLAY_NOTE_NAMES[pitchClass].includes("#");
-        
-        return { keyIndex, midi, displayName, fileName, isBlack, isMiddleC: displayName === "C4" };
+        return { midi, pitchClass, octave, displayName, fileName, isBlack, isMiddleC: displayName === "C4" };
     }
 
-    // iOS/iPadOS 触发音频解封
+    // iOS 解锁 AudioContext
     function unlockAudioContext() {
         if (!audioCtx) {
             const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -255,7 +279,6 @@
         if (audioCtx.state === 'suspended') {
             audioCtx.resume();
         }
-        // 播放 0.001 秒静音以唤醒 iOS 音频引擎
         const silentBuf = audioCtx.createBuffer(1, 1, 22050);
         const src = audioCtx.createBufferSource();
         src.buffer = silentBuf;
@@ -263,10 +286,10 @@
         src.start(0);
     }
 
-    // 单音符 Sample 异步加载器
+    // 后台 Sample 异步加载器
     async function loadNoteSample(midi) {
         if (audioBuffers[midi]) return audioBuffers[midi];
-        const info = getNoteData(midi - 20);
+        const info = getNoteDataByMidi(midi);
         try {
             const response = await fetch(`${SOUNDFONT_BASE_URL}${info.fileName}`);
             if (!response.ok) throw new Error();
@@ -279,7 +302,7 @@
         }
     }
 
-    // 寻找最近的已缓存音频 Buffer (进行算法变调，保障 100% 随时有声音)
+    // 最佳匹配 Buffer 查找（平滑变调，保障 100% 秒响）
     function getBestBufferForMidi(targetMidi) {
         if (audioBuffers[targetMidi]) {
             return { buffer: audioBuffers[targetMidi], semitoneDiff: 0 };
@@ -300,7 +323,7 @@
         return null;
     }
 
-    // 触发响音（支持多键盘同时按下，无缝全复音）
+    // 发声逻辑（完全复音）
     function playNote(midi) {
         unlockAudioContext();
 
@@ -322,7 +345,6 @@
             const gainNode = audioCtx.createGain();
             source.buffer = best.buffer;
             
-            // 如果使用离得近的音符平移，计算半音差比率
             if (best.semitoneDiff !== 0) {
                 source.playbackRate.value = Math.pow(2, best.semitoneDiff / 12);
             }
@@ -335,7 +357,6 @@
             activeNoteSources[midi].push({ source, gainNode });
         }
 
-        // 异步后台加载该音符的原声，下次点击时即可享受 100% 精确采样
         if (!audioBuffers[midi]) {
             loadNoteSample(midi);
         }
@@ -363,30 +384,59 @@
         }
     }
 
-    // 渲染 88 个正圆形打击垫矩阵
+    // --- 核心改动：渲染单行12键（1个八度）的 N 排打击垫矩阵 ---
     function renderPadGrid() {
         const grid = document.getElementById('pad-grid');
         grid.innerHTML = '';
+        
+        // 动态配置 CSS 网格的行数与自适应比例
+        grid.style.gridTemplateRows = `repeat(${numOctaves}, 1fr)`;
 
-        for (let i = 1; i <= 88; i++) {
-            const { keyIndex, midi, displayName, isBlack, isMiddleC } = getNoteData(i);
+        // 从下往上排列：最底部为 octaveIndex = 0，最顶部为 octaveIndex = numOctaves - 1
+        for (let octRow = numOctaves - 1; octRow >= 0; octRow--) {
+            const currentOctave = baseOctave + octRow;
 
-            const cell = document.createElement('div');
-            cell.className = 'pad-cell';
+            // 单排 12 个按键 (C 到 B)
+            for (let semitone = 0; semitone < 12; semitone++) {
+                const midi = (currentOctave + 1) * 12 + semitone;
+                const { displayName, isBlack, isMiddleC } = getNoteDataByMidi(midi);
 
-            const btn = document.createElement('div');
-            btn.className = `pad-btn ${isBlack ? 'black-key' : 'white-key'} ${isMiddleC ? 'middle-c' : ''}`;
-            btn.dataset.midi = midi;
-            btn.dataset.name = displayName;
-            btn.dataset.keyNum = keyIndex;
+                const cell = document.createElement('div');
+                cell.className = 'pad-cell';
 
-            btn.innerHTML = `
-                <span class="note-num">${keyIndex}</span>
-                <span class="note-name">${displayName}</span>
-            `;
+                const btn = document.createElement('div');
+                btn.className = `pad-btn ${isBlack ? 'black-key' : 'white-key'} ${isMiddleC ? 'middle-c' : ''}`;
+                btn.dataset.midi = midi;
+                btn.dataset.name = displayName;
 
-            cell.appendChild(btn);
-            grid.appendChild(cell);
+                btn.innerHTML = `
+                    <span class="note-oct">排${octRow + 1}</span>
+                    <span class="note-name">${displayName}</span>
+                `;
+
+                cell.appendChild(btn);
+                grid.appendChild(cell);
+            }
+        }
+    }
+
+    // 动态调整排数 (度数)
+    function changeOctaveCount(delta) {
+        const newCount = numOctaves + delta;
+        if (newCount >= 1 && newCount <= 10) {
+            numOctaves = newCount;
+            document.getElementById('oct-count-disp').innerText = `${numOctaves} 排`;
+            renderPadGrid();
+        }
+    }
+
+    // 平移基准八度音区
+    function shiftBaseOctave(delta) {
+        const newBase = baseOctave + delta;
+        if (newBase >= 0 && newBase <= 8) {
+            baseOctave = newBase;
+            document.getElementById('base-oct-disp').innerText = `基准: C${baseOctave}`;
+            renderPadGrid();
         }
     }
 
@@ -410,7 +460,7 @@
 
         const lineSpacing = 6;
         const trebleTop = 15;
-        const bassTop = 58;
+        const bassTop = 56;
 
         for (let i = 0; i < 5; i++) {
             const y = trebleTop + i * lineSpacing;
@@ -425,7 +475,7 @@
         ctx.font = '10px sans-serif';
         ctx.fillStyle = '#888899';
         ctx.fillText('高音谱表', 45, 12);
-        ctx.fillText('低音谱表', 45, 54);
+        ctx.fillText('低音谱表', 45, 52);
 
         let startX = 180;
 
@@ -437,7 +487,7 @@
 
         sortedMidis.forEach((midi, idx) => {
             const x = startX + idx * 30;
-            const { displayName, isBlack } = getNoteData(midi - 20);
+            const { displayName, isBlack } = getNoteDataByMidi(midi);
 
             const diatonicStep = getDiatonicStep(midi);
             const c4Y = trebleTop + 4 * lineSpacing + 9;
@@ -564,7 +614,7 @@
         activeMidis.forEach(midi => releaseNote(midi));
     }
 
-    // 跟弹练习
+    // 跟弹模式
     function togglePracticeMode() {
         if (isMidiPlaying) pauseMidiPlay();
 
@@ -650,9 +700,9 @@
         document.getElementById('speed-val').innerText = val;
     }
 
-    // 交互与多点触控绑定
+    // 多点触控与滑动交互绑定
     function setupInteractions() {
-        const grid = document.getElementById('pad-grid');
+        const grid = document.getElementById('pad-grid-wrapper');
 
         grid.addEventListener('touchstart', handleTouch, {passive: false});
         grid.addEventListener('touchmove', handleTouch, {passive: false});
@@ -716,7 +766,7 @@
         }
     }
 
-    // 初始化入口
+    // 应用初始化
     async function initApp() {
         document.getElementById('start-overlay').style.display = 'none';
 
@@ -727,14 +777,9 @@
 
         window.addEventListener('resize', drawStaff);
 
-        document.getElementById('status-text').innerText = "钢琴音色库：装载核心采样中...";
-        document.getElementById('loader-badge').innerText = "正在激活音频引擎...";
-
-        // 预加载 C1 到 C8 八个核心八度锚点音符（共 ~300KB，实现全键盘即刻发声）
-        const anchorMidis = [21, 24, 36, 48, 60, 72, 84, 96, 108];
+        // 预加载核心八度锚点音符（全键盘发音秒开）
+        const anchorMidis = [24, 36, 48, 60, 72, 84, 96, 108];
         await Promise.all(anchorMidis.map(m => loadNoteSample(m)));
-
-        document.getElementById('status-text').innerText = "钢琴音色库：真实大钢琴已就绪";
     }
 </script>
 </body>
