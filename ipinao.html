@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>88键正圆打击垫钢琴 (真实采样保底版)</title>
+    <!-- Tonejs-Midi 解析库 -->
+    <script src="https://cdn.jsdelivr.net/npm/@tonejs/midi@2.0.28/build/Midi.js"></script>
+    <style>
+        :root {
+            --white-key-bg: #eaeff5;
+            --white-key-text: #1a1a24;
+            --black-key-bg: #272838;
+            --black-key-text: #00f2fe;
+            --active-glow: #00f2fe;
+            --target-glow: #ff9f43;
+        }
+
+        * {
+            margin: 0; padding: 0; box-sizing: border-box;
+            -webkit-touch-callout: none; -webkit-user-select: none;
+            user-select: none; -webkit-tap-highlight-color: transparent;
+        }
+
+        body, html {
+            width: 100%; height: 100%;
+            background-color: #0b0b10; color: #fff;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            touch-action: none;
+        }
+
+        /* 启动遮罩 */
+        #start-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(8, 8, 12, 0.96);
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            z-index: 1000; cursor: pointer; text-align: center; padding: 20px;
+        }
+        #start-overlay h1 { font-size: 2.6rem; margin-bottom: 12px; color: var(--active-glow); }
+        #start-overlay p { font-size: 1.05rem; margin-bottom: 8px; color: #ccc; }
+        .badge {
+            background: rgba(0, 242, 254, 0.15); color: #00f2fe;
+            border: 1px solid rgba(0, 242, 254, 0.4);
+            padding: 8px 18px; border-radius: 20px; font-size: 0.95rem; margin-top: 15px;
+        }
+
+        /* 顶部导航栏 */
+        #top-bar {
+            height: 42px; background: #14141c;
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 12px; border-bottom: 1px solid #222230; font-size: 0.85rem;
+        }
+        .control-group { display: flex; align-items: center; gap: 8px; }
+        
+        .btn-ui {
+            background: #222232; color: #fff; border: 1px solid #444;
+            padding: 5px 10px; border-radius: 6px; cursor: pointer; transition: 0.2s;
+            font-size: 0.78rem;
+        }
+        .btn-ui.active { background: var(--active-glow); color: #000; font-weight: bold; }
+        .btn-ui.practice-active { background: var(--target-glow); color: #000; font-weight: bold; }
+
+        /* 五线谱 Canvas 视图区 */
+        #staff-container {
+            width: 100vw; height: 95px; background: #161622;
+            border-bottom: 1px solid #222230; display: flex; justify-content: center; align-items: center;
+            position: relative;
+        }
+        #staff-canvas { width: 100%; height: 100%; display: block; }
+
+        /* MIDI 播放与控制栏 */
+        #midi-bar {
+            height: 38px; background: #101016;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 12px; border-bottom: 1px solid #20202d; font-size: 0.8rem;
+        }
+
+        #chord-display {
+            font-size: 0.85rem; font-weight: bold; color: var(--active-glow);
+            background: #0a0a10; padding: 3px 10px; border-radius: 10px;
+            border: 1px solid #2a2a3a; min-width: 110px; text-align: center;
+        }
+
+        /* 打击垫 88 键全景网格 */
+        #pad-grid {
+            width: 100vw; height: calc(100vh - 175px);
+            padding: 6px;
+            display: grid;
+            grid-template-columns: repeat(11, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            gap: 4px;
+        }
+
+        /* 单元格居中约束 */
+        .pad-cell {
+            display: flex; justify-content: center; align-items: center;
+            width: 100%; height: 100%; overflow: hidden;
+        }
+
+        /* 严格正圆形按键（强制 1:1 宽高比） */
+        .pad-btn {
+            aspect-ratio: 1 / 1;
+            width: 100%; max-width: 100%; max-height: 100%;
+            border-radius: 50%;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            cursor: pointer;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.6), inset 0 1px 3px rgba(255,255,255,0.3);
+            transition: transform 0.04s, filter 0.04s, box-shadow 0.04s;
+            position: relative;
+        }
+
+        .pad-btn.white-key {
+            background: linear-gradient(145deg, #ffffff, var(--white-key-bg));
+            border: 1.5px solid #bdc3c7;
+        }
+        .pad-btn.white-key .note-name { color: var(--white-key-text); }
+        .pad-btn.white-key .note-num { color: #666; }
+
+        .pad-btn.black-key {
+            background: linear-gradient(145deg, #3d3e52, var(--black-key-bg));
+            border: 1.5px solid #4f4f66;
+        }
+        .pad-btn.black-key .note-name { color: var(--black-key-text); }
+        .pad-btn.black-key .note-num { color: #888; }
+
+        /* 中央 C (第40键) 红色高亮边界 */
+        .pad-btn.middle-c {
+            border: 2.5px solid #ff4757 !important;
+            box-shadow: 0 0 10px rgba(255, 71, 87, 0.7);
+        }
+        .pad-btn.middle-c .note-name { color: #ff4757 !important; }
+
+        .pad-btn.active {
+            transform: scale(0.86); filter: brightness(1.3);
+            box-shadow: 0 0 16px var(--active-glow), inset 0 2px 4px rgba(0,0,0,0.8);
+        }
+
+        .pad-btn.target-hint {
+            border: 2.5px solid var(--target-glow) !important;
+            box-shadow: 0 0 16px var(--target-glow) !important;
+            animation: pulse-target 0.8s infinite alternate;
+        }
+        @keyframes pulse-target {
+            from { transform: scale(1); filter: brightness(1); }
+            to { transform: scale(0.9); filter: brightness(1.3); }
+        }
+
+        .note-num {
+            font-size: clamp(0.5rem, 1.1vmin, 0.65rem);
+            line-height: 1; margin-bottom: 2px; opacity: 0.75; pointer-events: none;
+        }
+        .note-name {
+            font-size: clamp(0.6rem, 1.6vmin, 0.85rem);
+            font-weight: 800; pointer-events: none; line-height: 1;
+        }
+
+        input[type="range"] {
+            width: 70px; accent-color: var(--active-glow);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 启动遮罩 -->
+    <div id="start-overlay" onclick="initApp()">
+        <h1>88键正圆打击垫钢琴</h1>
+        <p>👇 点击屏幕解锁真实钢琴音色 👇</p>
+        <div class="badge" id="loader-badge">点击开启声音 (确保 iPad 关闭静音模式)</div>
+    </div>
+
+    <!-- 顶部导航栏 -->
+    <div id="top-bar">
+        <strong style="color: #00f2fe;">钢琴 88 键正圆视图 (1~88)</strong>
+        <div id="chord-display">和弦：-</div>
+        <span id="status-text" style="font-size: 0.78rem; color: #888;">音色库：未激活</span>
+    </div>
+
+    <!-- 五线谱 Canvas 视图区 -->
+    <div id="staff-container">
+        <canvas id="staff-canvas"></canvas>
+    </div>
+
+    <!-- MIDI 播放与控制栏 -->
+    <div id="midi-bar">
+        <div class="control-group">
+            <button class="btn-ui" onclick="document.getElementById('midi-input').click()">📁 导入 MIDI</button>
+            <input type="file" id="midi-input" accept=".mid,.midi" style="display:none;" onchange="handleMidiUpload(event)">
+            <button class="btn-ui" id="btn-play" onclick="toggleMidiPlay()" disabled>▶ 自动播放</button>
+            <button class="btn-ui" id="btn-practice" onclick="togglePracticeMode()" disabled>🎯 跟弹练习</button>
+            <button class="btn-ui" onclick="stopMidiPlay()">■ 停止</button>
+        </div>
+
+        <div class="control-group">
+            <span style="font-size:0.78rem; color:#aaa;">速度: <span id="speed-val">1.0</span>x</span>
+            <input type="range" id="speed-range" min="0.25" max="2.0" step="0.25" value="1.0" oninput="updateMidiSpeed(this.value)">
+        </div>
+    </div>
+
+    <!-- 88 键正圆形打击垫矩阵 -->
+    <div id="pad-grid"></div>
+
+<script>
+    // 降号命名法 (匹配开源 MIDI.js Soundfonts 的文件规范)
+    const FLAT_NOTE_NAMES = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+    const DISPLAY_NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+    
+    let audioCtx = null;
+    let masterGain = null;
+    const audioBuffers = {}; // 缓存已解压的 AudioBuffer
+    const activeNoteSources = {}; // 当前响音节点集合，支持多音同时按响
+    const activeMidis = new Set();
+    const activeTouches = {};
+
+    let currentMidiData = null;
+    let midiEvents = [];
+    let isMidiPlaying = false;
+    let isPracticeMode = false;
+    let targetPracticeMidis = new Set();
+    let currentStepIndex = 0;
+
+    let midiStartTime = 0;
+    let midiPauseTime = 0;
+    let midiSpeed = 1.0;
+    let midiAnimationLoop = null;
+    let nextEventIndex = 0;
+
+    // 官方开源 Soundfont CDN 基础路径
+    const SOUNDFONT_BASE_URL = "https://gleitz.github.io/midi-js-soundfonts/FluidR3_GM/acoustic_grand_piano-mp3/";
+
+    function getNoteData(keyIndex) {
+        // keyIndex: 1 到 88
+        const midi = keyIndex + 20; // 21 (A0) 到 108 (C8)
+        const pitchClass = (midi - 12) % 12;
+        const octave = Math.floor((midi - 12) / 12);
+        
+        const displayName = DISPLAY_NOTE_NAMES[pitchClass] + octave;
+        const fileName = FLAT_NOTE_NAMES[pitchClass] + octave + ".mp3";
+        const isBlack = DISPLAY_NOTE_NAMES[pitchClass].includes("#");
+        
+        return { keyIndex, midi, displayName, fileName, isBlack, isMiddleC: displayName === "C4" };
+    }
+
+    // iOS/iPadOS 触发音频解封
+    function unlockAudioContext() {
+        if (!audioCtx) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContext();
+            masterGain = audioCtx.createGain();
+            masterGain.gain.value = 0.95;
+            masterGain.connect(audioCtx.destination);
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        // 播放 0.001 秒静音以唤醒 iOS 音频引擎
+        const silentBuf = audioCtx.createBuffer(1, 1, 22050);
+        const src = audioCtx.createBufferSource();
+        src.buffer = silentBuf;
+        src.connect(audioCtx.destination);
+        src.start(0);
+    }
+
+    // 单音符 Sample 异步加载器
+    async function loadNoteSample(midi) {
+        if (audioBuffers[midi]) return audioBuffers[midi];
+        const info = getNoteData(midi - 20);
+        try {
+            const response = await fetch(`${SOUNDFONT_BASE_URL}${info.fileName}`);
+            if (!response.ok) throw new Error();
+            const arrayBuffer = await response.arrayBuffer();
+            const decodedBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            audioBuffers[midi] = decodedBuffer;
+            return decodedBuffer;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    // 寻找最近的已缓存音频 Buffer (进行算法变调，保障 100% 随时有声音)
+    function getBestBufferForMidi(targetMidi) {
+        if (audioBuffers[targetMidi]) {
+            return { buffer: audioBuffers[targetMidi], semitoneDiff: 0 };
+        }
+        let minDiff = Infinity;
+        let bestMidi = null;
+        for (const loadedMidiStr in audioBuffers) {
+            const loadedMidi = parseInt(loadedMidiStr);
+            const diff = targetMidi - loadedMidi;
+            if (Math.abs(diff) < Math.abs(minDiff)) {
+                minDiff = diff;
+                bestMidi = loadedMidi;
+            }
+        }
+        if (bestMidi !== null) {
+            return { buffer: audioBuffers[bestMidi], semitoneDiff: minDiff };
+        }
+        return null;
+    }
+
+    // 触发响音（支持多键盘同时按下，无缝全复音）
+    function playNote(midi) {
+        unlockAudioContext();
+
+        const pad = document.querySelector(`.pad-btn[data-midi="${midi}"]`);
+        if (pad) pad.classList.add('active');
+
+        activeMidis.add(midi);
+        drawStaff();
+
+        if (isPracticeMode && targetPracticeMidis.has(midi)) {
+            checkPracticeStepProgress(midi);
+        }
+
+        const t = audioCtx.currentTime;
+        const best = getBestBufferForMidi(midi);
+
+        if (best) {
+            const source = audioCtx.createBufferSource();
+            const gainNode = audioCtx.createGain();
+            source.buffer = best.buffer;
+            
+            // 如果使用离得近的音符平移，计算半音差比率
+            if (best.semitoneDiff !== 0) {
+                source.playbackRate.value = Math.pow(2, best.semitoneDiff / 12);
+            }
+            
+            source.connect(gainNode);
+            gainNode.connect(masterGain);
+            source.start(t);
+            
+            if (!activeNoteSources[midi]) activeNoteSources[midi] = [];
+            activeNoteSources[midi].push({ source, gainNode });
+        }
+
+        // 异步后台加载该音符的原声，下次点击时即可享受 100% 精确采样
+        if (!audioBuffers[midi]) {
+            loadNoteSample(midi);
+        }
+    }
+
+    function releaseNote(midi) {
+        const pad = document.querySelector(`.pad-btn[data-midi="${midi}"]`);
+        if (pad) pad.classList.remove('active');
+
+        activeMidis.delete(midi);
+        drawStaff();
+
+        const instances = activeNoteSources[midi];
+        if (instances && instances.length > 0) {
+            const t = audioCtx.currentTime;
+            instances.forEach(item => {
+                try {
+                    item.gainNode.gain.cancelScheduledValues(t);
+                    item.gainNode.gain.setValueAtTime(item.gainNode.gain.value, t);
+                    item.gainNode.gain.exponentialRampToValueAtTime(0.0001, t + 0.18);
+                    setTimeout(() => item.source.stop(), 200);
+                } catch(e) {}
+            });
+            delete activeNoteSources[midi];
+        }
+    }
+
+    // 渲染 88 个正圆形打击垫矩阵
+    function renderPadGrid() {
+        const grid = document.getElementById('pad-grid');
+        grid.innerHTML = '';
+
+        for (let i = 1; i <= 88; i++) {
+            const { keyIndex, midi, displayName, isBlack, isMiddleC } = getNoteData(i);
+
+            const cell = document.createElement('div');
+            cell.className = 'pad-cell';
+
+            const btn = document.createElement('div');
+            btn.className = `pad-btn ${isBlack ? 'black-key' : 'white-key'} ${isMiddleC ? 'middle-c' : ''}`;
+            btn.dataset.midi = midi;
+            btn.dataset.name = displayName;
+            btn.dataset.keyNum = keyIndex;
+
+            btn.innerHTML = `
+                <span class="note-num">${keyIndex}</span>
+                <span class="note-name">${displayName}</span>
+            `;
+
+            cell.appendChild(btn);
+            grid.appendChild(cell);
+        }
+    }
+
+    // 绘制五线谱 (大谱表)
+    function drawStaff() {
+        const canvas = document.getElementById('staff-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const dpr = window.devicePixelRatio || 1;
+
+        const width = canvas.parentElement.clientWidth;
+        const height = canvas.parentElement.clientHeight;
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        ctx.scale(dpr, dpr);
+
+        ctx.clearRect(0, 0, width, height);
+        ctx.strokeStyle = '#555566';
+        ctx.fillStyle = '#ffffff';
+        ctx.lineWidth = 1;
+
+        const lineSpacing = 6;
+        const trebleTop = 15;
+        const bassTop = 58;
+
+        for (let i = 0; i < 5; i++) {
+            const y = trebleTop + i * lineSpacing;
+            ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(width - 40, y); ctx.stroke();
+        }
+
+        for (let i = 0; i < 5; i++) {
+            const y = bassTop + i * lineSpacing;
+            ctx.beginPath(); ctx.moveTo(40, y); ctx.lineTo(width - 40, y); ctx.stroke();
+        }
+
+        ctx.font = '10px sans-serif';
+        ctx.fillStyle = '#888899';
+        ctx.fillText('高音谱表', 45, 12);
+        ctx.fillText('低音谱表', 45, 54);
+
+        let startX = 180;
+
+        const notesToDraw = isPracticeMode && targetPracticeMidis.size > 0 
+            ? Array.from(targetPracticeMidis) 
+            : Array.from(activeMidis);
+
+        const sortedMidis = notesToDraw.sort((a, b) => a - b);
+
+        sortedMidis.forEach((midi, idx) => {
+            const x = startX + idx * 30;
+            const { displayName, isBlack } = getNoteData(midi - 20);
+
+            const diatonicStep = getDiatonicStep(midi);
+            const c4Y = trebleTop + 4 * lineSpacing + 9;
+            const y = c4Y - diatonicStep * (lineSpacing / 2);
+
+            ctx.beginPath();
+            ctx.fillStyle = isPracticeMode ? '#ff9f43' : (isBlack ? '#00f2fe' : '#ffffff');
+            ctx.ellipse(x, y, 5, 4, -0.2, 0, Math.PI * 2);
+            ctx.fill();
+
+            if (midi === 60) {
+                ctx.beginPath(); ctx.strokeStyle = '#888';
+                ctx.moveTo(x - 8, y); ctx.lineTo(x + 8, y); ctx.stroke();
+            }
+
+            if (isBlack) {
+                ctx.font = '12px sans-serif';
+                ctx.fillStyle = isPracticeMode ? '#ff9f43' : '#00f2fe';
+                ctx.fillText('♯', x - 12, y + 4);
+            }
+
+            ctx.font = '10px sans-serif';
+            ctx.fillStyle = isPracticeMode ? '#ff9f43' : '#aaa';
+            ctx.fillText(displayName, x - 8, y > 50 ? y + 15 : y - 9);
+        });
+    }
+
+    function getDiatonicStep(midi) {
+        const octave = Math.floor(midi / 12) - 5;
+        const noteIndex = midi % 12;
+        const scaleSteps = [0, 0, 1, 1, 2, 3, 3, 4, 4, 5, 5, 6];
+        return octave * 7 + scaleSteps[noteIndex];
+    }
+
+    // MIDI 导入与播放
+    async function handleMidiUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const midi = new Midi(event.target.result);
+                currentMidiData = midi;
+                midiEvents = [];
+
+                midi.tracks.forEach(track => {
+                    track.notes.forEach(note => {
+                        midiEvents.push({
+                            time: note.time,
+                            duration: note.duration,
+                            midi: note.midi,
+                            type: 'on'
+                        });
+                        midiEvents.push({
+                            time: note.time + note.duration,
+                            midi: note.midi,
+                            type: 'off'
+                        });
+                    });
+                });
+
+                midiEvents.sort((a, b) => a.time - b.time);
+                document.getElementById('btn-play').disabled = false;
+                document.getElementById('btn-practice').disabled = false;
+                alert(`MIDI 曲目《${file.name}》解析完成！`);
+            } catch (err) {
+                alert("MIDI 解析失败。");
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function toggleMidiPlay() {
+        if (isPracticeMode) stopPracticeMode();
+        if (isMidiPlaying) pauseMidiPlay();
+        else startMidiPlay();
+    }
+
+    function startMidiPlay() {
+        isMidiPlaying = true;
+        document.getElementById('btn-play').innerText = "⏸ 暂停";
+        
+        const now = audioCtx.currentTime;
+        midiStartTime = now - (midiPauseTime / midiSpeed);
+
+        function tick() {
+            if (!isMidiPlaying) return;
+
+            const currentTime = (audioCtx.currentTime - midiStartTime) * midiSpeed;
+
+            while (nextEventIndex < midiEvents.length && midiEvents[nextEventIndex].time <= currentTime) {
+                const ev = midiEvents[nextEventIndex];
+                if (ev.type === 'on') playNote(ev.midi);
+                else if (ev.type === 'off') releaseNote(ev.midi);
+                nextEventIndex++;
+            }
+
+            if (nextEventIndex >= midiEvents.length) {
+                stopMidiPlay();
+                return;
+            }
+
+            midiAnimationLoop = requestAnimationFrame(tick);
+        }
+
+        tick();
+    }
+
+    function pauseMidiPlay() {
+        isMidiPlaying = false;
+        document.getElementById('btn-play').innerText = "▶ 自动播放";
+        if (midiAnimationLoop) cancelAnimationFrame(midiAnimationLoop);
+        midiPauseTime = (audioCtx.currentTime - midiStartTime) * midiSpeed;
+    }
+
+    function stopMidiPlay() {
+        isMidiPlaying = false;
+        if (isPracticeMode) stopPracticeMode();
+        if (midiAnimationLoop) cancelAnimationFrame(midiAnimationLoop);
+        document.getElementById('btn-play').innerText = "▶ 自动播放";
+        nextEventIndex = 0;
+        midiPauseTime = 0;
+        activeMidis.forEach(midi => releaseNote(midi));
+    }
+
+    // 跟弹练习
+    function togglePracticeMode() {
+        if (isMidiPlaying) pauseMidiPlay();
+
+        if (isPracticeMode) stopPracticeMode();
+        else startPracticeMode();
+    }
+
+    function startPracticeMode() {
+        isPracticeMode = true;
+        document.getElementById('btn-practice').classList.add('practice-active');
+        document.getElementById('btn-practice').innerText = "⏸ 退出跟弹";
+        currentStepIndex = 0;
+        loadNextPracticeStep();
+    }
+
+    function stopPracticeMode() {
+        isPracticeMode = false;
+        targetPracticeMidis.clear();
+        clearTargetKeyHints();
+        document.getElementById('btn-practice').classList.remove('practice-active');
+        document.getElementById('btn-practice').innerText = "🎯 跟弹练习";
+        drawStaff();
+    }
+
+    function loadNextPracticeStep() {
+        clearTargetKeyHints();
+        targetPracticeMidis.clear();
+
+        while (currentStepIndex < midiEvents.length && midiEvents[currentStepIndex].type !== 'on') {
+            currentStepIndex++;
+        }
+
+        if (currentStepIndex >= midiEvents.length) {
+            alert("🎉 恭喜完成全曲跟弹练习！");
+            stopPracticeMode();
+            return;
+        }
+
+        const targetTime = midiEvents[currentStepIndex].time;
+        let idx = currentStepIndex;
+
+        while (idx < midiEvents.length && Math.abs(midiEvents[idx].time - targetTime) < 0.05) {
+            if (midiEvents[idx].type === 'on') {
+                targetPracticeMidis.add(midiEvents[idx].midi);
+            }
+            idx++;
+        }
+
+        highlightTargetKeys();
+        drawStaff();
+    }
+
+    function checkPracticeStepProgress(midi) {
+        if (targetPracticeMidis.has(midi)) {
+            targetPracticeMidis.delete(midi);
+            const pad = document.querySelector(`.pad-btn[data-midi="${midi}"]`);
+            if (pad) pad.classList.remove('target-hint');
+
+            if (targetPracticeMidis.size === 0) {
+                while (currentStepIndex < midiEvents.length && Math.abs(midiEvents[currentStepIndex].time - midiEvents[currentStepIndex].time) < 0.05) {
+                    currentStepIndex++;
+                }
+                setTimeout(() => {
+                    if (isPracticeMode) loadNextPracticeStep();
+                }, 120);
+            }
+        }
+    }
+
+    function highlightTargetKeys() {
+        targetPracticeMidis.forEach(midi => {
+            const pad = document.querySelector(`.pad-btn[data-midi="${midi}"]`);
+            if (pad) pad.classList.add('target-hint');
+        });
+    }
+
+    function clearTargetKeyHints() {
+        document.querySelectorAll('.pad-btn.target-hint').forEach(el => el.classList.remove('target-hint'));
+    }
+
+    function updateMidiSpeed(val) {
+        midiSpeed = parseFloat(val);
+        document.getElementById('speed-val').innerText = val;
+    }
+
+    // 交互与多点触控绑定
+    function setupInteractions() {
+        const grid = document.getElementById('pad-grid');
+
+        grid.addEventListener('touchstart', handleTouch, {passive: false});
+        grid.addEventListener('touchmove', handleTouch, {passive: false});
+        grid.addEventListener('touchend', handleTouchEnd, {passive: false});
+        grid.addEventListener('touchcancel', handleTouchEnd, {passive: false});
+
+        let isMouseDown = false;
+        grid.addEventListener('mousedown', (e) => { isMouseDown = true; handleMouse(e); });
+        grid.addEventListener('mousemove', (e) => { if (isMouseDown) handleMouse(e); });
+        window.addEventListener('mouseup', () => { isMouseDown = false; handleMouseEnd(); });
+
+        function handleTouch(e) {
+            e.preventDefault();
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                const el = document.elementFromPoint(touch.clientX, touch.clientY);
+                const pad = el ? el.closest('.pad-btn') : null;
+
+                const prevMidi = activeTouches[touch.identifier];
+                const currentMidi = pad ? parseInt(pad.dataset.midi) : null;
+
+                if (currentMidi !== prevMidi) {
+                    if (prevMidi) releaseNote(prevMidi);
+                    if (currentMidi) playNote(currentMidi);
+                    activeTouches[touch.identifier] = currentMidi;
+                }
+            }
+        }
+
+        function handleTouchEnd(e) {
+            e.preventDefault();
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const touch = e.changedTouches[i];
+                const prevMidi = activeTouches[touch.identifier];
+                if (prevMidi) {
+                    releaseNote(prevMidi);
+                    delete activeTouches[touch.identifier];
+                }
+            }
+        }
+
+        function handleMouse(e) {
+            const el = document.elementFromPoint(e.clientX, e.clientY);
+            const pad = el ? el.closest('.pad-btn') : null;
+            const prevMidi = activeTouches['mouse'];
+            const currentMidi = pad ? parseInt(pad.dataset.midi) : null;
+
+            if (currentMidi !== prevMidi) {
+                if (prevMidi) releaseNote(prevMidi);
+                if (currentMidi) playNote(currentMidi);
+                activeTouches['mouse'] = currentMidi;
+            }
+        }
+
+        function handleMouseEnd() {
+            const prevMidi = activeTouches['mouse'];
+            if (prevMidi) {
+                releaseNote(prevMidi);
+                delete activeTouches['mouse'];
+            }
+        }
+    }
+
+    // 初始化入口
+    async function initApp() {
+        document.getElementById('start-overlay').style.display = 'none';
+
+        unlockAudioContext();
+        renderPadGrid();
+        setupInteractions();
+        drawStaff();
+
+        window.addEventListener('resize', drawStaff);
+
+        document.getElementById('status-text').innerText = "钢琴音色库：装载核心采样中...";
+        document.getElementById('loader-badge').innerText = "正在激活音频引擎...";
+
+        // 预加载 C1 到 C8 八个核心八度锚点音符（共 ~300KB，实现全键盘即刻发声）
+        const anchorMidis = [21, 24, 36, 48, 60, 72, 84, 96, 108];
+        await Promise.all(anchorMidis.map(m => loadNoteSample(m)));
+
+        document.getElementById('status-text').innerText = "钢琴音色库：真实大钢琴已就绪";
+    }
+</script>
+</body>
+</html>
