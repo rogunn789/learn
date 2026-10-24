@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
     <script src="https://rogunn789.github.io/learn/looup.js"></script>
     <style id="custom-font-style"></style>
     <style>
@@ -62,54 +62,53 @@
             border-left: 4px solid var(--accent-color);
         }
 
-        /* Ruby & POS Styling matching screenshot */
+        /* ========================================================
+           Ruby & POS Styling (Fixed for Mobile Non-overlapping)
+           ======================================================== */
         ruby.token {
-            display: inline-block;
-            margin: 2px 3px;
-            padding: 2px 6px;
-            border-radius: 6px;
+            display: inline-flex;
+            flex-direction: column-reverse; /* 强制注音永远在上，原文字在下 */
+            align-items: center;
             vertical-align: bottom;
-            line-height: 1.25;
+            margin: 2px 3px;
         }
 
-        ruby.pos-noun {
-            background-color: var(--noun-bg);
-        }
-        
-        .theme-day ruby.pos-noun {
-            color: #2a1f0e;
-        }
-
-        ruby.pos-verb, ruby.pos-adverb, ruby.pos-adjective {
-            background-color: var(--verb-bg);
-        }
-
-        .theme-day ruby.pos-verb, .theme-day ruby.pos-adverb, .theme-day ruby.pos-adjective {
-            color: #0f172a;
-        }
-
-        ruby.pos-other {
-            background-color: transparent;
-            padding: 2px 2px;
-        }
-
-        /* Base text underline */
-        .token-base {
-            border-bottom: 1.5px solid var(--base-border);
-            padding-bottom: 1px;
-        }
-
-        /* Furigana toggle */
-        body.hide-furigana rt {
-            display: none;
-        }
-
-        rt {
+        ruby.token rt {
+            display: block;
             font-size: 0.625em;
             color: var(--text-color);
             opacity: 0.85;
-            text-align: center;
+            line-height: 1.2;
+            margin-bottom: 2px;
             font-weight: normal;
+        }
+        
+        /* 隐藏没有注音的占位 */
+        ruby.token rt:empty {
+            display: none !important;
+        }
+
+        /* 背景色和下划线仅包裹主文本，和截图保持一致 */
+        .token-base {
+            display: block;
+            padding: 2px 5px;
+            border-radius: 6px;
+            border-bottom: 1.5px solid var(--base-border);
+            line-height: 1.25;
+        }
+
+        /* 词性颜色赋予给 .token-base，而不是整个 ruby */
+        .pos-noun .token-base { background-color: var(--noun-bg); }
+        .theme-day .pos-noun .token-base { color: #2a1f0e; }
+
+        .pos-verb .token-base, .pos-adverb .token-base, .pos-adjective .token-base { background-color: var(--verb-bg); }
+        .theme-day .pos-verb .token-base, .theme-day .pos-adverb .token-base, .theme-day .pos-adjective .token-base { color: #0f172a; }
+
+        .pos-other .token-base { background-color: transparent; }
+
+        /* Furigana toggle override */
+        body.hide-furigana ruby.token rt {
+            display: none !important;
         }
 
         /* UI Elements */
@@ -266,7 +265,7 @@
                 <span class="text-[9px] mt-0.5">导入</span>
             </div>
 
-            <!-- 2. Fuzzy Search (New) -->
+            <!-- 2. Fuzzy Search -->
             <div class="btn-icon" onclick="openSearchModal()" title="模糊检索">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 <span class="text-[9px] mt-0.5">检索</span>
@@ -292,8 +291,8 @@
                 <span class="text-[9px] mt-0.5">上一页</span>
             </div>
 
-            <!-- Page Indicator -->
-            <div class="text-[10px] font-mono opacity-80 px-1 min-w-[42px] text-center" id="page-indicator">0 / 0</div>
+            <!-- Page Indicator (Now Clickable for Jumping) -->
+            <div class="text-[10px] font-mono opacity-80 px-2 py-1 min-w-[50px] text-center cursor-pointer hover:bg-gray-500 hover:bg-opacity-20 rounded transition" id="page-indicator" onclick="openJumpModal()" title="点击跳转页码">0 / 0</div>
 
             <!-- 6. Next Page -->
             <div class="btn-icon" onclick="nextPage()" title="下一页">
@@ -327,7 +326,28 @@
     <!-- Hidden Main File Input -->
     <input type="file" id="main-book-upload" accept=".txt" class="hidden" onchange="handleBookUpload(event)">
 
-    <!-- Fuzzy Search Modal (New) -->
+    <!-- Jump Page Modal (New) -->
+    <div id="jump-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay hidden opacity-0 transition-opacity duration-300">
+        <div class="modal-content w-11/12 max-w-sm rounded-2xl shadow-2xl p-6 relative text-center">
+            <h3 class="text-lg font-bold mb-5 flex items-center justify-center">
+                <svg class="w-5 h-5 mr-2 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
+                跳转到指定页
+            </h3>
+            <div class="mb-5 flex items-center justify-center">
+                <input type="number" id="jump-input" class="w-24 text-center px-3 py-2 bg-black bg-opacity-20 border border-gray-600 border-opacity-50 rounded-lg focus:outline-none focus:border-amber-500 text-xl font-mono" min="1" value="1">
+                <span class="ml-3 text-sm opacity-70" id="jump-total-pages">/ 100 页</span>
+            </div>
+            <div class="mb-7 px-2">
+                <input type="range" id="jump-range" class="w-full accent-amber-500 cursor-pointer" min="1" max="100" value="1" oninput="document.getElementById('jump-input').value = this.value">
+            </div>
+            <div class="flex justify-center space-x-4">
+                <button onclick="closeModal('jump-modal')" class="px-5 py-2.5 rounded-lg bg-gray-600 bg-opacity-30 hover:bg-opacity-50 text-sm font-medium transition w-full">取消</button>
+                <button onclick="executeJump()" class="px-5 py-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium transition w-full shadow-lg">确认跳转</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Fuzzy Search Modal -->
     <div id="search-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay hidden opacity-0 transition-opacity duration-300">
         <div class="modal-content w-11/12 max-w-xl max-h-[85vh] rounded-2xl shadow-2xl p-5 relative flex flex-col">
             <button onclick="closeModal('search-modal')" class="absolute top-4 right-4 opacity-60 hover:opacity-100 p-1">
@@ -600,7 +620,7 @@
             }
         }
 
-// Background non-blocking Kuromoji dictionary builder
+        // Background non-blocking Kuromoji dictionary builder
         function initTokenizerInBackground() {
             if (typeof kuromoji === 'undefined') return;
 
@@ -707,7 +727,7 @@
             const reader = new FileReader();
             reader.onload = async (e) => {
                 const text = e.target.result;
-                // Split sentences by Japanese & Chinese punctuation (句号、感叹号、问号、换行)
+                // Split sentences by Japanese & Chinese punctuation
                 let chunks = text.match(/[^。！？\n]+[。！？\n]*|[。！？\n]+/g) || [];
                 chunks = chunks.map(c => c.trim()).filter(c => c.length > 0);
 
@@ -867,6 +887,52 @@
             }
         }
 
+        // --- Jump Page Features ---
+        function openJumpModal() {
+            if (!AppState.currentBook) {
+                showToast("请先导入或选择一本书籍");
+                return;
+            }
+            const total = Math.ceil(AppState.currentBook.chunks.length / AppState.sentencesPerPage);
+            const current = AppState.currentBook.lastPage + 1;
+            
+            const jumpInput = document.getElementById('jump-input');
+            const jumpRange = document.getElementById('jump-range');
+            
+            jumpInput.max = total;
+            jumpInput.value = current;
+            jumpRange.max = total;
+            jumpRange.value = current;
+            document.getElementById('jump-total-pages').innerText = `/ ${total} 页`;
+            
+            // 绑定事件：滑动条与输入框同步
+            jumpInput.oninput = function() {
+                let val = parseInt(this.value);
+                if (val > total) val = total;
+                if (val < 1) val = 1;
+                jumpRange.value = val || 1;
+            };
+
+            openModal('jump-modal');
+        }
+
+        async function executeJump() {
+            if (!AppState.currentBook) return;
+            const total = Math.ceil(AppState.currentBook.chunks.length / AppState.sentencesPerPage);
+            let target = parseInt(document.getElementById('jump-input').value);
+            
+            if (isNaN(target) || target < 1) target = 1;
+            if (target > total) target = total;
+            
+            AppState.currentBook.lastPage = target - 1;
+            await DB.updateBook(AppState.currentBook);
+            
+            closeModal('jump-modal');
+            renderPage();
+            showToast(`已成功跳转至第 ${target} 页`);
+        }
+
+
         // --- Japanese TTS Speech Synthesis ---
         function speakJapaneseSentence(text, globalIndex) {
             if (!('speechSynthesis' in window)) {
@@ -922,7 +988,7 @@
             }
         }
 
-        // --- Fuzzy Search Modal & Engine (New) ---
+        // --- Fuzzy Search Modal & Engine ---
         function openSearchModal() {
             if (!AppState.currentBook) {
                 showToast("请先导入或选择一本书籍");
