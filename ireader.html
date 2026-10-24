@@ -598,11 +598,24 @@
             }
         }
 
-        // Background non-blocking Kuromoji dictionary builder
+// Background non-blocking Kuromoji dictionary builder
         function initTokenizerInBackground() {
             if (typeof kuromoji === 'undefined') return;
+
+            // 1. 修复 kuromoji.js 内部将 https:// 误切为 https:/ 导致 404 的 Bug
+            if (!window._xhrPatched) {
+                const origOpen = XMLHttpRequest.prototype.open;
+                XMLHttpRequest.prototype.open = function(method, url, ...args) {
+                    if (typeof url === 'string' && url.includes('kuromoji')) {
+                        url = url.replace(/^(https?:\/)(?!\/)/, '$1/');
+                    }
+                    return origOpen.call(this, method, url, ...args);
+                };
+                window._xhrPatched = true;
+            }
             
-            kuromoji.builder({ dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict" }).build((err, tokenizer) => {
+            // 2. 补充末尾斜杠 /
+            kuromoji.builder({ dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/" }).build((err, tokenizer) => {
                 const statusEl = document.getElementById('dict-status');
                 if (err) {
                     console.warn("Kuromoji load failed:", err);
