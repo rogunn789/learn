@@ -67,7 +67,7 @@
            ======================================================== */
         ruby.token {
             display: inline-flex;
-            flex-direction: column-reverse;
+            flex-direction: column-reverse; /* 强制注音永远在上，原文字在下 */
             align-items: center;
             vertical-align: bottom;
             margin: 2px 3px;
@@ -83,10 +83,12 @@
             font-weight: normal;
         }
         
+        /* 隐藏没有注音的占位 */
         ruby.token rt:empty {
             display: none !important;
         }
 
+        /* 背景色和下划线仅包裹主文本，和截图保持一致 */
         .token-base {
             display: block;
             padding: 2px 5px;
@@ -95,6 +97,7 @@
             line-height: 1.25;
         }
 
+        /* 词性颜色赋予给 .token-base，而不是整个 ruby */
         .pos-noun .token-base { background-color: var(--noun-bg); }
         .theme-day .pos-noun .token-base { color: #2a1f0e; }
 
@@ -103,6 +106,7 @@
 
         .pos-other .token-base { background-color: transparent; }
 
+        /* Furigana toggle override */
         body.hide-furigana ruby.token rt {
             display: none !important;
         }
@@ -208,6 +212,7 @@
             transform: scale(1.1);
         }
 
+        /* Custom Scrollbar */
         ::-webkit-scrollbar {
             width: 6px;
         }
@@ -219,6 +224,7 @@
             border-radius: 3px;
         }
 
+        /* Toast notification */
         #toast {
             transition: opacity 0.3s, transform 0.3s;
         }
@@ -226,15 +232,18 @@
 </head>
 <body class="theme-night min-h-screen relative pb-24">
 
+    <!-- Top Dict Loading Status Pill -->
     <div id="dict-status" class="fixed top-3 right-3 z-30 px-3 py-1 rounded-full text-xs bg-amber-600/80 text-white shadow-lg backdrop-blur flex items-center space-x-1.5 opacity-90 transition-all duration-300">
         <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
         <span id="dict-status-text">词库加载中...</span>
     </div>
 
+    <!-- Toast Notification Container -->
     <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-all duration-300 transform -translate-y-2 bg-slate-800 text-white px-4 py-2 rounded-lg shadow-xl text-sm border border-slate-700 flex items-center space-x-2">
         <span id="toast-msg">Notification</span>
     </div>
 
+    <!-- Main Content Area -->
     <main id="reader-container" class="max-w-3xl mx-auto pt-6 px-4 pb-8">
         <div id="book-title" class="text-2xl font-bold mb-6 text-center opacity-80"></div>
         <div id="content"></div>
@@ -247,44 +256,66 @@
         </div>
     </main>
 
+    <!-- Bottom Fixed Operating Navigation Bar -->
     <nav class="glass-nav fixed bottom-0 left-0 right-0 z-40 px-1 py-1.5 max-w-3xl mx-auto rounded-t-xl shadow-2xl">
         <div class="flex items-center justify-between text-xs">
+            <!-- 1. Import -->
             <div class="btn-icon" onclick="triggerImport()" title="导入TXT">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                 <span class="text-[9px] mt-0.5">导入</span>
             </div>
+
+            <!-- 2. Fuzzy Search -->
             <div class="btn-icon" onclick="openSearchModal()" title="模糊检索">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 <span class="text-[9px] mt-0.5">检索</span>
             </div>
+
+            <!-- 3. Bookmarks -->
             <div class="btn-icon" onclick="openBookmarksModal()" title="书签">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>
                 <span class="text-[9px] mt-0.5">书签</span>
             </div>
+
+            <!-- 4. Library -->
             <div class="btn-icon" onclick="openModal('library-modal')" title="书库">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
                 <span class="text-[9px] mt-0.5">书库</span>
             </div>
+
             <div class="h-5 w-px bg-gray-500 opacity-20"></div>
+
+            <!-- 5. Prev Page -->
             <div class="btn-icon" onclick="prevPage()" title="上一页">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
                 <span class="text-[9px] mt-0.5">上一页</span>
             </div>
+
+            <!-- Page Indicator (Now Clickable for Jumping) -->
             <div class="text-[10px] font-mono opacity-80 px-2 py-1 min-w-[50px] text-center cursor-pointer hover:bg-gray-500 hover:bg-opacity-20 rounded transition" id="page-indicator" onclick="openJumpModal()" title="点击跳转页码">0 / 0</div>
+
+            <!-- 6. Next Page -->
             <div class="btn-icon" onclick="nextPage()" title="下一页">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                 <span class="text-[9px] mt-0.5">下一页</span>
             </div>
+
             <div class="h-5 w-px bg-gray-500 opacity-20"></div>
+
+            <!-- 7. Toggle Furigana -->
             <div class="btn-icon" onclick="toggleFurigana()" title="注音切换">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path></svg>
                 <span class="text-[9px] mt-0.5" id="furigana-btn-text">注音</span>
             </div>
+
+            <!-- 8. Day/Night Theme Toggle -->
             <div class="btn-icon" onclick="toggleTheme()" title="模式">
                 <svg id="theme-icon-night" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
                 <svg id="theme-icon-day" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                 <span class="text-[9px] mt-0.5" id="theme-btn-text">模式</span>
             </div>
+
+            <!-- 9. Settings -->
             <div class="btn-icon" onclick="openModal('settings-modal')" title="设置">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                 <span class="text-[9px] mt-0.5">设置</span>
@@ -292,8 +323,10 @@
         </div>
     </nav>
 
+    <!-- Hidden Main File Input -->
     <input type="file" id="main-book-upload" accept=".txt" class="hidden" onchange="handleBookUpload(event)">
 
+    <!-- Jump Page Modal (New) -->
     <div id="jump-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay hidden opacity-0 transition-opacity duration-300">
         <div class="modal-content w-11/12 max-w-sm rounded-2xl shadow-2xl p-6 relative text-center">
             <h3 class="text-lg font-bold mb-5 flex items-center justify-center">
@@ -314,6 +347,7 @@
         </div>
     </div>
 
+    <!-- Fuzzy Search Modal -->
     <div id="search-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay hidden opacity-0 transition-opacity duration-300">
         <div class="modal-content w-11/12 max-w-xl max-h-[85vh] rounded-2xl shadow-2xl p-5 relative flex flex-col">
             <button onclick="closeModal('search-modal')" class="absolute top-4 right-4 opacity-60 hover:opacity-100 p-1">
@@ -332,6 +366,7 @@
         </div>
     </div>
 
+    <!-- Bookmarks Modal -->
     <div id="bookmarks-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay hidden opacity-0 transition-opacity duration-300">
         <div class="modal-content w-11/12 max-w-lg max-h-[80vh] rounded-2xl shadow-2xl p-6 relative flex flex-col">
             <button onclick="closeModal('bookmarks-modal')" class="absolute top-4 right-4 opacity-60 hover:opacity-100 p-1">
@@ -342,10 +377,12 @@
                 本书书签 (Bookmarks)
             </h2>
             <div id="bookmarks-list" class="overflow-y-auto flex-1 space-y-3 pr-1">
+                <!-- Bookmarks will be injected here -->
             </div>
         </div>
     </div>
 
+    <!-- Settings Modal -->
     <div id="settings-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay hidden opacity-0 transition-opacity duration-300">
         <div class="modal-content w-11/12 max-w-md rounded-2xl shadow-2xl p-6 relative">
             <button onclick="closeModal('settings-modal')" class="absolute top-4 right-4 opacity-60 hover:opacity-100 p-1">
@@ -354,6 +391,7 @@
             <h2 class="text-xl font-bold mb-6">阅读设置</h2>
             
             <div class="space-y-5">
+                <!-- Font Size -->
                 <div class="flex justify-between items-center">
                     <span class="text-sm font-medium">字体大小 (Font Size)</span>
                     <div class="flex items-center space-x-2">
@@ -363,6 +401,7 @@
                     </div>
                 </div>
 
+                <!-- Line Spacing -->
                 <div class="flex justify-between items-center">
                     <span class="text-sm font-medium">行间距 (Line Spacing)</span>
                     <div class="flex items-center space-x-2">
@@ -372,6 +411,7 @@
                     </div>
                 </div>
 
+                <!-- Custom Font Upload -->
                 <div class="pt-3 border-t border-gray-600 border-opacity-30">
                     <label class="block mb-2 text-sm font-medium">自定义字体 (.ttf, .otf)</label>
                     <input type="file" id="font-upload" accept=".ttf,.otf" class="block w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-600 file:text-white hover:file:bg-amber-500 cursor-pointer" onchange="handleFontUpload(event)">
@@ -381,6 +421,7 @@
         </div>
     </div>
 
+    <!-- Library Modal -->
     <div id="library-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay hidden opacity-0 transition-opacity duration-300">
         <div class="modal-content w-11/12 max-w-md max-h-[80vh] rounded-2xl shadow-2xl p-6 relative flex flex-col">
             <button onclick="closeModal('library-modal')" class="absolute top-4 right-4 opacity-60 hover:opacity-100 p-1">
@@ -388,10 +429,12 @@
             </button>
             <h2 class="text-xl font-bold mb-4">书库 (Library)</h2>
             <div id="library-list" class="overflow-y-auto flex-1 space-y-3 pr-1">
+                <!-- Books injected here -->
             </div>
         </div>
     </div>
 
+    <!-- Delete Confirmation Modal -->
     <div id="confirm-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay hidden opacity-0 transition-opacity duration-300">
         <div class="modal-content w-11/12 max-w-sm rounded-2xl shadow-2xl p-6 relative text-center">
             <h3 class="text-lg font-bold mb-3" id="confirm-title">确认删除</h3>
@@ -548,9 +591,12 @@
             }
         };
 
+        // --- Core Application Initialization ---
         async function initialize() {
             try {
                 await DB.init();
+                
+                // Load Settings
                 const savedSettings = await DB.getSettings();
                 if (savedSettings) {
                     AppState.settings = { ...AppState.settings, ...savedSettings };
@@ -558,12 +604,14 @@
                 
                 applySettings();
 
+                // Load active book INSTANTLY without waiting for NLP dict
                 if (AppState.settings.lastBookId) {
                     await loadBook(AppState.settings.lastBookId);
                 } else {
                     showEmptyState();
                 }
 
+                // Asynchronously load Kuromoji dict in background (non-blocking)
                 initTokenizerInBackground();
 
             } catch (e) {
@@ -572,9 +620,11 @@
             }
         }
 
+        // Background non-blocking Kuromoji dictionary builder
         function initTokenizerInBackground() {
             if (typeof kuromoji === 'undefined') return;
 
+            // 1. 修复 kuromoji.js 内部将 https:// 误切为 https:/ 导致 404 的 Bug
             if (!window._xhrPatched) {
                 const origOpen = XMLHttpRequest.prototype.open;
                 XMLHttpRequest.prototype.open = function(method, url, ...args) {
@@ -586,6 +636,7 @@
                 window._xhrPatched = true;
             }
             
+            // 2. 补充末尾斜杠 /
             kuromoji.builder({ dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/" }).build((err, tokenizer) => {
                 const statusEl = document.getElementById('dict-status');
                 if (err) {
@@ -598,9 +649,11 @@
                 AppState.tokenizer = tokenizer;
                 AppState.tokenizerReady = true;
 
+                // Update UI badge
                 document.getElementById('dict-status-text').innerText = '注音库已就绪';
                 setTimeout(() => statusEl.classList.add('opacity-0', 'pointer-events-none'), 2500);
 
+                // Re-render current page with furigana/POS tags automatically
                 if (AppState.currentBook) {
                     renderPage();
                 }
@@ -615,6 +668,7 @@
         }
 
         function applySettings() {
+            // Theme
             const nightIcon = document.getElementById('theme-icon-night');
             const dayIcon = document.getElementById('theme-icon-day');
             if (AppState.settings.theme === 'day') {
@@ -627,6 +681,7 @@
                 nightIcon.classList.remove('hidden');
             }
 
+            // Furigana
             if (AppState.settings.showFurigana) {
                 document.body.classList.remove('hide-furigana');
                 document.getElementById('furigana-btn-text').innerText = '注音';
@@ -635,12 +690,14 @@
                 document.getElementById('furigana-btn-text').innerText = '隐藏';
             }
 
+            // Typography
             const content = document.getElementById('content');
             content.style.fontSize = `${AppState.settings.fontSize}px`;
             content.style.lineHeight = AppState.settings.lineSpacing;
             document.getElementById('font-size-display').innerText = `${AppState.settings.fontSize}px`;
             document.getElementById('line-spacing-display').innerText = AppState.settings.lineSpacing.toFixed(1);
 
+            // Custom Font
             if (AppState.settings.customFont) {
                 document.getElementById('custom-font-style').innerHTML = `
                     @font-face { font-family: 'CustomUserFont'; src: url(${AppState.settings.customFont}); }
@@ -658,6 +715,7 @@
             applySettings();
         }
 
+        // --- Trigger Imports ---
         function triggerImport() {
             document.getElementById('main-book-upload').click();
         }
@@ -669,6 +727,7 @@
             const reader = new FileReader();
             reader.onload = async (e) => {
                 const text = e.target.result;
+                // Split sentences by Japanese & Chinese punctuation
                 let chunks = text.match(/[^。！？\n]+[。！？\n]*|[。！？\n]+/g) || [];
                 chunks = chunks.map(c => c.trim()).filter(c => c.length > 0);
 
@@ -705,6 +764,7 @@
             event.target.value = '';
         }
 
+        // --- Book Reading & Rendering ---
         async function loadBook(id) {
             const book = await DB.getBook(id);
             if (!book) {
@@ -746,12 +806,14 @@
                 textDiv.className = 'sentence-text inline-block';
                 textDiv.innerHTML = processSentenceNLP(chunk);
 
+                // 1. Translate Button (文)
                 const transBtn = document.createElement('button');
                 transBtn.className = 'action-btn translate-btn';
                 transBtn.innerText = '文';
                 transBtn.title = '翻译句子';
                 transBtn.onclick = () => translateSentence(chunk, globalIndex);
 
+                // 2. TTS Voice Reading Button (🔊)
                 const ttsBtn = document.createElement('button');
                 ttsBtn.id = `tts-btn-${globalIndex}`;
                 ttsBtn.className = `action-btn tts-btn ${AppState.currentSpeakingIndex === globalIndex ? 'speaking' : ''}`;
@@ -759,6 +821,7 @@
                 ttsBtn.title = '日文语音朗读';
                 ttsBtn.onclick = () => speakJapaneseSentence(chunk, globalIndex);
 
+                // 3. Bookmark Button (⭐)
                 const bmBtn = document.createElement('button');
                 bmBtn.className = `action-btn bookmark-btn ${isBookmarked ? 'active' : ''}`;
                 bmBtn.title = isBookmarked ? "移除书签" : "添加书签";
@@ -824,6 +887,7 @@
             }
         }
 
+        // --- Jump Page Features ---
         function openJumpModal() {
             if (!AppState.currentBook) {
                 showToast("请先导入或选择一本书籍");
@@ -841,6 +905,7 @@
             jumpRange.value = current;
             document.getElementById('jump-total-pages').innerText = `/ ${total} 页`;
             
+            // 绑定事件：滑动条与输入框同步
             jumpInput.oninput = function() {
                 let val = parseInt(this.value);
                 if (val > total) val = total;
@@ -867,24 +932,28 @@
             showToast(`已成功跳转至第 ${target} 页`);
         }
 
+
+        // --- Japanese TTS Speech Synthesis ---
         function speakJapaneseSentence(text, globalIndex) {
             if (!('speechSynthesis' in window)) {
                 showToast("当前浏览器不支持 TTS 语音朗读");
                 return;
             }
 
+            // Stop if currently speaking the same sentence
             if (window.speechSynthesis.speaking && AppState.currentSpeakingIndex === globalIndex) {
                 window.speechSynthesis.cancel();
                 setSpeakingState(null);
                 return;
             }
 
-            window.speechSynthesis.cancel();
+            window.speechSynthesis.cancel(); // Stop active voices
 
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'ja-JP';
-            utterance.rate = 0.95;
+            utterance.rate = 0.95; // Slightly natural pace for study
 
+            // Find best Japanese voice
             const voices = window.speechSynthesis.getVoices();
             const jaVoice = voices.find(v => v.lang.startsWith('ja') || v.lang === 'ja_JP');
             if (jaVoice) {
@@ -919,6 +988,7 @@
             }
         }
 
+        // --- Fuzzy Search Modal & Engine ---
         function openSearchModal() {
             if (!AppState.currentBook) {
                 showToast("请先导入或选择一本书籍");
@@ -954,7 +1024,7 @@
                         page: Math.floor(i / AppState.sentencesPerPage) + 1
                     });
                 }
-                if (matches.length >= 20) break;
+                if (matches.length >= 20) break; // Limit top 20
             }
 
             resultsDiv.innerHTML = '';
@@ -969,6 +1039,7 @@
                 item.className = 'p-3 rounded-xl border border-gray-600 border-opacity-30 bg-black bg-opacity-10 hover:bg-opacity-20 cursor-pointer transition';
                 item.onclick = () => jumpToSentence(m.sentenceIndex);
 
+                // Highlight keyword
                 const regex = new RegExp(`(${query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi');
                 const highlightedText = escapeHtml(m.text).replace(regex, '<mark class="bg-amber-500/40 text-amber-200 px-0.5 rounded">$1</mark>');
 
@@ -992,6 +1063,7 @@
             return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
 
+        // --- Bookmark Functionality ---
         async function toggleBookmark(sentenceIndex, excerpt) {
             if (!AppState.currentBook) return;
 
@@ -1063,6 +1135,7 @@
             openModal('bookmarks-modal');
         }
 
+        // --- Japanese Morphological Parsing & Furigana ---
         function katakanaToHiragana(src) {
             return src.replace(/[\u30a1-\u30f6]/g, function(match) {
                 var chr = match.charCodeAt(0) - 0x60;
@@ -1088,9 +1161,9 @@
 
                     let posClass = 'pos-other';
                     if (pos === '名詞') {
-                        posClass = 'pos-noun'; 
+                        posClass = 'pos-noun'; // Brown background
                     } else if (pos === '動詞' || pos === '副詞' || pos === '形容詞') {
-                        posClass = 'pos-verb'; 
+                        posClass = 'pos-verb'; // Dark grey background
                     }
 
                     if (hasKanji(surface) && readingKata && readingKata !== surface) {
@@ -1107,76 +1180,34 @@
             }
         }
 
-        // =========================================================================
-        // --- Translation API Integration (Transformers.js Local AI) ---
-        // =========================================================================
-        let translatorPromise = null;
-
-        async function getTranslator(progressCallback) {
-            if (!translatorPromise) {
-                translatorPromise = (async () => {
-                    // 动态引入 transformers.js 模块，防止与全局脚本作用域冲突
-                    const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers');
-                    
-                    // 强制使用远程 CDN 获取量化模型
-                    env.allowLocalModels = false;
-                    
-                    // 初始化 NLLB 轻量化机器翻译模型
-                    return await pipeline('translation', 'Xenova/nllb-200-distilled-600M', {
-                        progress_callback: progressCallback
-                    });
-                })();
-            }
-            return translatorPromise;
-        }
-
+        // --- Translation API Integration ---
         async function translateSentence(text, idx) {
             const transDiv = document.getElementById(`trans-${idx}`);
-            
-            // 切换折叠逻辑：如果正处于显示状态且不是正在翻译/下载中，则将其隐藏
-            if (!transDiv.classList.contains('hidden') && 
-                !transDiv.innerText.includes('正在翻译') && 
-                !transDiv.innerText.includes('加载') && 
-                !transDiv.innerText.includes('准备')) {
-                transDiv.classList.add('hidden');
-                return;
-            }
-
-            transDiv.classList.remove('hidden');
-            transDiv.innerText = '准备本地机器翻译...';
-            
-            try {
-                // 初始化获取翻译管道，并传入下载进度回调
-                const translator = await getTranslator((x) => {
-                    if (x.status === 'progress' && x.total > 0) {
-                        const percent = Math.round((x.loaded / x.total) * 100);
-                        transDiv.innerText = `首次加载离线翻译模型 (约600MB): ${percent}% (请保持网络畅通)`;
-                    } else if (x.status === 'ready') {
-                        transDiv.innerText = '模型加载完毕，正在推理中...';
+            if (transDiv.classList.contains('hidden') || transDiv.innerText.includes('翻译中')) {
+                transDiv.classList.remove('hidden');
+                transDiv.innerText = '正在调用接口翻译中...';
+                try {
+                    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=zh-CN&dt=t&q=${encodeURIComponent(text)}`;
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    
+                    let translatedText = '';
+                    if (data && data[0]) {
+                        data[0].forEach(item => {
+                            if (item[0]) translatedText += item[0];
+                        });
                     }
-                });
-
-                transDiv.innerText = '本地 WebAssembly AI 正在翻译中...';
-                
-                // 执行日中翻译
-                const result = await translator(text, {
-                    src_lang: 'jpn_Jpan',
-                    tgt_lang: 'zho_Hans'
-                });
-                
-                if (result && result[0]) {
-                    transDiv.innerText = result[0].translation_text;
-                } else {
-                    transDiv.innerText = '翻译失败，模型未返回内容。';
+                    transDiv.innerText = translatedText || '翻译响应异常，请稍后重试。';
+                } catch (e) {
+                    console.error("Translation error", e);
+                    transDiv.innerText = '网络连接失败，无法完成翻译。';
                 }
-            } catch (e) {
-                console.error("Translation error", e);
-                transDiv.innerText = '本地翻译失败，可能因设备不支持 WebAssembly 或下载被中断。请重试。';
-                translatorPromise = null; // 失败后清空实例，允许重新下载
+            } else {
+                transDiv.classList.add('hidden');
             }
         }
-        // =========================================================================
 
+        // --- Settings Controls ---
         function toggleTheme() {
             AppState.settings.theme = AppState.settings.theme === 'night' ? 'day' : 'night';
             saveSettings();
@@ -1197,6 +1228,7 @@
             saveSettings();
         }
 
+        // --- Modal Helpers ---
         function openModal(id) {
             const modal = document.getElementById(id);
             modal.classList.remove('hidden');
@@ -1279,6 +1311,7 @@
             openModal('confirm-modal');
         }
 
+        // Bootstrap App
         window.addEventListener('DOMContentLoaded', initialize);
 
     </script>
