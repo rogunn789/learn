@@ -4,7 +4,7 @@
    *****************************************************************/
   const style = document.createElement('style');
   style.textContent = `
-    /* 浮动控制按钮样式 */
+    /* 浮动控制按钮样式（支持拖拽） */
     .yomitan-toggle-btn {
       position: fixed;
       bottom: 20px;
@@ -15,10 +15,16 @@
       font-weight: bold;
       border: none;
       border-radius: 50px;
-      cursor: pointer;
+      cursor: grab;
       box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      transition: all 0.3s ease;
+      transition: background-color 0.3s ease, box-shadow 0.3s ease;
       color: #fff;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+    }
+    .yomitan-toggle-btn:active {
+      cursor: grabbing;
     }
     .yomitan-toggle-btn.enabled {
       background-color: #22c55e;
@@ -74,7 +80,6 @@
    * 2. 获取 URL 中的密码参数
    *****************************************************************/
   const urlParams = new URLSearchParams(window.location.search);
-  // 从 URL 读取 pwd 或 password 参数
   const DICT_PASSWORD = urlParams.get('pwd') || urlParams.get('password') || urlParams.get('pawd') || '';
   const DICT_URL = "https://rogunn789.github.io/learn/mj155.zip";
 
@@ -286,9 +291,97 @@
   }
 
   /*****************************************************************
-   * 5. UI 弹窗与事件触发（PC & 移动端兼容增强）
+   * 5. UI 弹窗与事件触发（PC & 移动端拖拽兼容增强）
    *****************************************************************/
   let popover = null;
+
+  /**
+   * 给元素绑定 PC 鼠标及移动端触摸拖拽逻辑
+   */
+  function makeElementDraggable(el) {
+    let startX = 0, startY = 0;
+    let initialLeft = 0, initialTop = 0;
+    let isDragging = false;
+    let hasMoved = false;
+
+    const onStart = (e) => {
+      // 仅响应鼠标左键或触摸事件
+      if (e.type === 'mousedown' && e.button !== 0) return;
+
+      const touch = e.touches ? e.touches[0] : e;
+      startX = touch.clientX;
+      startY = touch.clientY;
+
+      const rect = el.getBoundingClientRect();
+      initialLeft = rect.left;
+      initialTop = rect.top;
+
+      isDragging = true;
+      hasMoved = false;
+
+      if (e.type === 'mousedown') {
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onEnd);
+      } else if (e.type === 'touchstart') {
+        window.addEventListener('touchmove', onMove, { passive: false });
+        window.addEventListener('touchend', onEnd);
+      }
+    };
+
+    const onMove = (e) => {
+      if (!isDragging) return;
+
+      const touch = e.touches ? e.touches[0] : e;
+      const deltaX = touch.clientX - startX;
+      const deltaY = touch.clientY - startY;
+
+      // 移动位移大于 5px 时判定为真正拖拽动作
+      if (Math.hypot(deltaX, deltaY) > 5) {
+        hasMoved = true;
+      }
+
+      if (hasMoved) {
+        if (e.cancelable) e.preventDefault();
+
+        let newLeft = initialLeft + deltaX;
+        let newTop = initialTop + deltaY;
+
+        // 视口边界碰撞检测，防止拖出屏幕外
+        const winWidth = window.innerWidth;
+        const winHeight = window.innerHeight;
+        const elWidth = el.offsetWidth;
+        const elHeight = el.offsetHeight;
+
+        newLeft = Math.max(10, Math.min(winWidth - elWidth - 10, newLeft));
+        newTop = Math.max(10, Math.min(winHeight - elHeight - 10, newTop));
+
+        el.style.left = `${newLeft}px`;
+        el.style.top = `${newTop}px`;
+        el.style.bottom = 'auto';
+        el.style.right = 'auto';
+      }
+    };
+
+    const onEnd = () => {
+      isDragging = false;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onEnd);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onEnd);
+    };
+
+    el.addEventListener('mousedown', onStart);
+    el.addEventListener('touchstart', onStart, { passive: false });
+
+    // 捕获阶段拦截点击事件：如果刚才发生了拖拽，阻止触发按钮的 click 事件
+    el.addEventListener('click', (e) => {
+      if (hasMoved) {
+        e.stopPropagation();
+        e.preventDefault();
+        hasMoved = false;
+      }
+    }, true);
+  }
 
   function createUI() {
     popover = document.createElement('div');
@@ -299,6 +392,9 @@
     toggleBtn.className = 'yomitan-toggle-btn enabled';
     toggleBtn.innerText = '划词翻译：开启';
     document.body.appendChild(toggleBtn);
+
+    // 绑定拖拽逻辑
+    makeElementDraggable(toggleBtn);
 
     toggleBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -338,7 +434,6 @@
 
     // 支持 PC 鼠标松开 (mouseup) 与 移动端点击 (click)
     document.addEventListener('mouseup', (e) => {
-      // 避免左键以外的点击触发（比如右键菜单）
       if (e.button !== 0) return;
       handleLookup(e);
     });
@@ -348,7 +443,6 @@
    * 优化后的 PC/移动端光标位置文本提取
    */
   function getTextFromClickPosition(e) {
-    // 1. 优先获取用户手动拉蓝选中的文本（PC划词/双击选词）
     const selection = window.getSelection();
     const selectedText = selection.toString().trim();
     if (selectedText) return selectedText;
@@ -361,7 +455,6 @@
 
     let textNode = null, offset = 0;
 
-    // Standard Chrome / Safari / Edge / Firefox
     if (document.caretRangeFromPoint) {
       const range = document.caretRangeFromPoint(clientX, clientY);
       if (range) {
@@ -376,7 +469,6 @@
       }
     }
 
-    // 如果获取到的是元素节点（如 <p>、<div>），深入查找其内部文本子节点
     if (textNode && textNode.nodeType !== Node.TEXT_NODE) {
       if (textNode.childNodes.length > 0) {
         let child = textNode.childNodes[offset] || textNode.childNodes[0];
@@ -390,7 +482,6 @@
       }
     }
 
-    // 提取点击处的字符，并向左微调 1 个字符以提高 PC 边缘点击容错率
     if (textNode && textNode.nodeType === Node.TEXT_NODE) {
       const fullText = textNode.data;
       const startPos = Math.max(0, offset > 0 ? offset - 1 : 0);
