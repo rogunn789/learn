@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Japanese  Reader</title>
+    <title>Japanese Reader</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/build/kuromoji.js"></script>
     <script src="https://rogunn789.github.io/learn/looup.js"></script>
@@ -47,7 +47,7 @@
         }
 
         .sentence-block {
-            margin-bottom: 1.5rem;
+            margin-bottom: 1.25rem;
             position: relative;
             padding: 0.75rem;
             border-radius: 0.5rem;
@@ -55,8 +55,8 @@
             transition: background-color 0.4s ease, border-color 0.3s;
         }
         
-        .sentence-block.highlight-bookmark {
-            background-color: rgba(217, 119, 6, 0.15);
+        .sentence-block.highlight-target {
+            background-color: rgba(217, 119, 6, 0.18);
             border-left: 4px solid var(--accent-color);
         }
 
@@ -134,35 +134,41 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            padding: 0.35rem 0.4rem;
+            padding: 0.35rem 0.25rem;
             border-radius: 0.5rem;
             transition: all 0.2s;
             cursor: pointer;
             color: var(--text-color);
             user-select: none;
-            min-width: 44px;
+            min-width: 36px;
+            flex: 1;
         }
 
         .btn-icon:hover, .btn-icon:active {
             background-color: var(--ui-border);
         }
 
-        .translate-btn {
+        /* Action Buttons */
+        .action-btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
             width: 26px;
             height: 26px;
             border-radius: 50%;
-            background-color: #b94a48;
-            color: white;
             font-size: 12px;
             font-weight: bold;
             cursor: pointer;
-            margin-left: 8px;
+            margin-left: 6px;
             vertical-align: middle;
-            opacity: 0.85;
             transition: transform 0.2s, opacity 0.2s;
+            user-select: none;
+        }
+
+        .translate-btn {
+            background-color: #b94a48;
+            color: white;
+            opacity: 0.85;
         }
         
         .translate-btn:hover {
@@ -170,18 +176,31 @@
             transform: scale(1.1);
         }
 
+        .tts-btn {
+            background-color: #2563eb;
+            color: white;
+            opacity: 0.85;
+        }
+
+        .tts-btn:hover {
+            opacity: 1;
+            transform: scale(1.1);
+        }
+
+        .tts-btn.speaking {
+            background-color: #10b981;
+            animation: pulse 1.2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+            100% { transform: scale(1); }
+        }
+
         .bookmark-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 26px;
-            height: 26px;
-            border-radius: 50%;
             color: #94a3b8;
-            cursor: pointer;
-            margin-left: 4px;
-            vertical-align: middle;
-            transition: color 0.2s, transform 0.2s;
+            background: transparent;
         }
 
         .bookmark-btn.active {
@@ -203,34 +222,19 @@
             background: var(--ui-border);
             border-radius: 3px;
         }
-        
-        #loading-screen {
-            background-color: var(--bg-color);
-            z-index: 9999;
-        }
-        
-        .spinner {
-            border: 4px solid rgba(255, 255, 255, 0.1);
-            border-left-color: #f59e0b;
-            border-radius: 50%;
-            width: 44px;
-            height: 44px;
-            animation: spin 0.9s linear infinite;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         /* Toast notification */
         #toast {
-            transition: opacity 0.3s transform 0.3s;
+            transition: opacity 0.3s, transform 0.3s;
         }
     </style>
 </head>
 <body class="theme-night min-h-screen relative pb-24">
 
-    <!-- Loading Screen -->
-    <div id="loading-screen" class="fixed inset-0 flex flex-col items-center justify-center transition-opacity duration-500">
-        <div class="spinner mb-4"></div>
-        <div id="loading-text" class="text-base font-medium">Initializing NLP Dictionary Engine...</div>
+    <!-- Top Dict Loading Status Pill -->
+    <div id="dict-status" class="fixed top-3 right-3 z-30 px-3 py-1 rounded-full text-xs bg-amber-600/80 text-white shadow-lg backdrop-blur flex items-center space-x-1.5 opacity-90 transition-all duration-300">
+        <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+        <span id="dict-status-text">词库加载中...</span>
     </div>
 
     <!-- Toast Notification Container -->
@@ -251,71 +255,94 @@
         </div>
     </main>
 
-    <!-- Bottom Fixed Control Bar -->
-    <nav class="glass-nav fixed bottom-0 left-0 right-0 z-40 px-2 py-1.5 max-w-3xl mx-auto rounded-t-xl shadow-2xl">
+    <!-- Bottom Fixed Operating Navigation Bar -->
+    <nav class="glass-nav fixed bottom-0 left-0 right-0 z-40 px-1 py-1.5 max-w-3xl mx-auto rounded-t-xl shadow-2xl">
         <div class="flex items-center justify-between text-xs">
-            <!-- 1. Import TXT -->
-            <div class="btn-icon" onclick="triggerImport()">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                <span class="text-[10px] mt-0.5">导入</span>
+            <!-- 1. Import -->
+            <div class="btn-icon" onclick="triggerImport()" title="导入TXT">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                <span class="text-[9px] mt-0.5">导入</span>
             </div>
 
-            <!-- 2. Bookmarks -->
-            <div class="btn-icon" onclick="openBookmarksModal()">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>
-                <span class="text-[10px] mt-0.5">书签</span>
+            <!-- 2. Fuzzy Search (New) -->
+            <div class="btn-icon" onclick="openSearchModal()" title="模糊检索">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <span class="text-[9px] mt-0.5">检索</span>
             </div>
 
-            <!-- 3. Library -->
-            <div class="btn-icon" onclick="openModal('library-modal')">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
-                <span class="text-[10px] mt-0.5">书库</span>
+            <!-- 3. Bookmarks -->
+            <div class="btn-icon" onclick="openBookmarksModal()" title="书签">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>
+                <span class="text-[9px] mt-0.5">书签</span>
             </div>
 
-            <!-- Divider -->
-            <div class="h-6 w-px bg-gray-500 opacity-30"></div>
+            <!-- 4. Library -->
+            <div class="btn-icon" onclick="openModal('library-modal')" title="书库">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                <span class="text-[9px] mt-0.5">书库</span>
+            </div>
 
-            <!-- 4. Prev Page -->
-            <div class="btn-icon" onclick="prevPage()">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-                <span class="text-[10px] mt-0.5">上一页</span>
+            <div class="h-5 w-px bg-gray-500 opacity-20"></div>
+
+            <!-- 5. Prev Page -->
+            <div class="btn-icon" onclick="prevPage()" title="上一页">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                <span class="text-[9px] mt-0.5">上一页</span>
             </div>
 
             <!-- Page Indicator -->
-            <div class="text-[11px] font-mono opacity-80 px-1 min-w-[50px] text-center" id="page-indicator">0 / 0</div>
+            <div class="text-[10px] font-mono opacity-80 px-1 min-w-[42px] text-center" id="page-indicator">0 / 0</div>
 
-            <!-- 5. Next Page -->
-            <div class="btn-icon" onclick="nextPage()">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
-                <span class="text-[10px] mt-0.5">下一页</span>
+            <!-- 6. Next Page -->
+            <div class="btn-icon" onclick="nextPage()" title="下一页">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                <span class="text-[9px] mt-0.5">下一页</span>
             </div>
 
-            <!-- Divider -->
-            <div class="h-6 w-px bg-gray-500 opacity-30"></div>
+            <div class="h-5 w-px bg-gray-500 opacity-20"></div>
 
-            <!-- 6. Toggle Furigana -->
-            <div class="btn-icon" onclick="toggleFurigana()">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path></svg>
-                <span class="text-[10px] mt-0.5" id="furigana-btn-text">注音</span>
+            <!-- 7. Toggle Furigana -->
+            <div class="btn-icon" onclick="toggleFurigana()" title="注音切换">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path></svg>
+                <span class="text-[9px] mt-0.5" id="furigana-btn-text">注音</span>
             </div>
 
-            <!-- 7. Day/Night Theme Toggle -->
-            <div class="btn-icon" onclick="toggleTheme()">
-                <svg id="theme-icon-night" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
-                <svg id="theme-icon-day" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                <span class="text-[10px] mt-0.5" id="theme-btn-text">模式</span>
+            <!-- 8. Day/Night Theme Toggle -->
+            <div class="btn-icon" onclick="toggleTheme()" title="模式">
+                <svg id="theme-icon-night" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                <svg id="theme-icon-day" class="w-4 h-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                <span class="text-[9px] mt-0.5" id="theme-btn-text">模式</span>
             </div>
 
-            <!-- 8. Settings -->
-            <div class="btn-icon" onclick="openModal('settings-modal')">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                <span class="text-[10px] mt-0.5">设置</span>
+            <!-- 9. Settings -->
+            <div class="btn-icon" onclick="openModal('settings-modal')" title="设置">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                <span class="text-[9px] mt-0.5">设置</span>
             </div>
         </div>
     </nav>
 
     <!-- Hidden Main File Input -->
     <input type="file" id="main-book-upload" accept=".txt" class="hidden" onchange="handleBookUpload(event)">
+
+    <!-- Fuzzy Search Modal (New) -->
+    <div id="search-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay hidden opacity-0 transition-opacity duration-300">
+        <div class="modal-content w-11/12 max-w-xl max-h-[85vh] rounded-2xl shadow-2xl p-5 relative flex flex-col">
+            <button onclick="closeModal('search-modal')" class="absolute top-4 right-4 opacity-60 hover:opacity-100 p-1">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <h2 class="text-xl font-bold mb-3 flex items-center">
+                <svg class="w-5 h-5 text-amber-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                全文模糊检索 (前20条)
+            </h2>
+            <div class="relative mb-4">
+                <input type="text" id="search-input" placeholder="输入关键词（日文或中文）..." class="w-full px-4 py-2.5 bg-black/20 border border-gray-600/50 rounded-xl focus:outline-none focus:border-amber-500 text-sm" oninput="performFuzzySearch()">
+            </div>
+            <div id="search-results-list" class="overflow-y-auto flex-1 space-y-2.5 pr-1">
+                <div class="text-center opacity-50 my-6 text-sm">请输入关键词进行搜索</div>
+            </div>
+        </div>
+    </div>
 
     <!-- Bookmarks Modal -->
     <div id="bookmarks-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay hidden opacity-0 transition-opacity duration-300">
@@ -385,7 +412,7 @@
         </div>
     </div>
 
-    <!-- Custom Delete Confirmation Modal -->
+    <!-- Delete Confirmation Modal -->
     <div id="confirm-modal" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay hidden opacity-0 transition-opacity duration-300">
         <div class="modal-content w-11/12 max-w-sm rounded-2xl shadow-2xl p-6 relative text-center">
             <h3 class="text-lg font-bold mb-3" id="confirm-title">确认删除</h3>
@@ -402,7 +429,9 @@
         const AppState = {
             db: null,
             tokenizer: null,
+            tokenizerReady: false,
             currentBook: null,
+            currentSpeakingIndex: null,
             settings: {
                 theme: 'night',
                 fontSize: 18,
@@ -480,7 +509,7 @@
                         title, 
                         chunks, 
                         lastPage: 0, 
-                        bookmarks: [], // [{ sentenceIndex, timestamp, excerpt }]
+                        bookmarks: [], 
                         addedAt: Date.now() 
                     };
                     const req = store.add(book);
@@ -540,7 +569,7 @@
             }
         };
 
-        // --- Core Application Logic ---
+        // --- Core Application Initialization ---
         async function initialize() {
             try {
                 await DB.init();
@@ -553,41 +582,47 @@
                 
                 applySettings();
 
-                // Load Kuromoji morphological engine
-                document.getElementById('loading-text').innerText = '正在加载日文分词与注音引擎...';
-                kuromoji.builder({ dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict" }).build(async (err, tokenizer) => {
-                    if (err) {
-                        document.getElementById('loading-text').innerText = 'NLP 引擎加载失败，请刷新页面重试。';
-                        console.error(err);
-                        return;
-                    }
-                    AppState.tokenizer = tokenizer;
-                    hideLoading();
+                // Load active book INSTANTLY without waiting for NLP dict
+                if (AppState.settings.lastBookId) {
+                    await loadBook(AppState.settings.lastBookId);
+                } else {
+                    showEmptyState();
+                }
 
-                    // Load last active book
-                    if (AppState.settings.lastBookId) {
-                        await loadBook(AppState.settings.lastBookId);
-                    } else {
-                        showEmptyState();
-                    }
-                });
+                // Asynchronously load Kuromoji dict in background (non-blocking)
+                initTokenizerInBackground();
+
             } catch (e) {
                 console.error("Initialization error:", e);
                 showToast("数据库初始化失败");
             }
         }
 
-        function hideLoading() {
-            const el = document.getElementById('loading-screen');
-            el.style.opacity = '0';
-            setTimeout(() => el.style.display = 'none', 500);
-        }
+        // Background non-blocking Kuromoji dictionary builder
+        function initTokenizerInBackground() {
+            if (typeof kuromoji === 'undefined') return;
+            
+            kuromoji.builder({ dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict" }).build((err, tokenizer) => {
+                const statusEl = document.getElementById('dict-status');
+                if (err) {
+                    console.warn("Kuromoji load failed:", err);
+                    document.getElementById('dict-status-text').innerText = '注音库离线';
+                    setTimeout(() => statusEl.classList.add('opacity-0', 'pointer-events-none'), 3000);
+                    return;
+                }
+                
+                AppState.tokenizer = tokenizer;
+                AppState.tokenizerReady = true;
 
-        function showLoading(text) {
-            const el = document.getElementById('loading-screen');
-            document.getElementById('loading-text').innerText = text;
-            el.style.display = 'flex';
-            setTimeout(() => el.style.opacity = '1', 10);
+                // Update UI badge
+                document.getElementById('dict-status-text').innerText = '注音库已就绪';
+                setTimeout(() => statusEl.classList.add('opacity-0', 'pointer-events-none'), 2500);
+
+                // Re-render current page with furigana/POS tags automatically
+                if (AppState.currentBook) {
+                    renderPage();
+                }
+            });
         }
 
         function showEmptyState() {
@@ -614,10 +649,10 @@
             // Furigana
             if (AppState.settings.showFurigana) {
                 document.body.classList.remove('hide-furigana');
-                document.getElementById('furigana-btn-text').innerText = '显示注音';
+                document.getElementById('furigana-btn-text').innerText = '注音';
             } else {
                 document.body.classList.add('hide-furigana');
-                document.getElementById('furigana-btn-text').innerText = '隐藏注音';
+                document.getElementById('furigana-btn-text').innerText = '隐藏';
             }
 
             // Typography
@@ -654,17 +689,14 @@
             const file = event.target.files[0];
             if (!file) return;
 
-            showLoading("正在导入并按句分割文本...");
-
             const reader = new FileReader();
             reader.onload = async (e) => {
                 const text = e.target.result;
-                // Split sentences by Japanese and Chinese punctuation & line breaks
+                // Split sentences by Japanese & Chinese punctuation (句号、感叹号、问号、换行)
                 let chunks = text.match(/[^。！？\n]+[。！？\n]*|[。！？\n]+/g) || [];
                 chunks = chunks.map(c => c.trim()).filter(c => c.length > 0);
 
                 if (chunks.length === 0) {
-                    hideLoading();
                     showToast("文件内容为空或格式不支持");
                     return;
                 }
@@ -676,11 +708,10 @@
                 await saveSettings();
                 
                 await loadBook(bookId);
-                hideLoading();
                 showToast(`导入成功：《${title}》`);
             };
             reader.readAsText(file, 'UTF-8');
-            event.target.value = ''; // Reset input
+            event.target.value = '';
         }
 
         function handleFontUpload(event) {
@@ -689,10 +720,10 @@
 
             const reader = new FileReader();
             reader.onload = async (e) => {
-                AppState.settings.customFont = e.target.result; // DataURL
+                AppState.settings.customFont = e.target.result;
                 AppState.settings.fontName = file.name;
                 await saveSettings();
-                showToast("自定义字体设置成功");
+                showToast("自定义字体已启用并被系统缓存");
             };
             reader.readAsDataURL(file);
             event.target.value = '';
@@ -734,28 +765,36 @@
                 
                 const block = document.createElement('div');
                 block.id = `sentence-${globalIndex}`;
-                block.className = `sentence-block ${targetSentenceIndex === globalIndex ? 'highlight-bookmark' : ''}`;
+                block.className = `sentence-block ${targetSentenceIndex === globalIndex ? 'highlight-target' : ''}`;
                 
                 const textDiv = document.createElement('div');
                 textDiv.className = 'sentence-text inline-block';
                 textDiv.innerHTML = processSentenceNLP(chunk);
 
-                // Bookmark Button
+                // 1. Translate Button (文)
+                const transBtn = document.createElement('button');
+                transBtn.className = 'action-btn translate-btn';
+                transBtn.innerText = '文';
+                transBtn.title = '翻译句子';
+                transBtn.onclick = () => translateSentence(chunk, globalIndex);
+
+                // 2. TTS Voice Reading Button (🔊)
+                const ttsBtn = document.createElement('button');
+                ttsBtn.id = `tts-btn-${globalIndex}`;
+                ttsBtn.className = `action-btn tts-btn ${AppState.currentSpeakingIndex === globalIndex ? 'speaking' : ''}`;
+                ttsBtn.innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>`;
+                ttsBtn.title = '日文语音朗读';
+                ttsBtn.onclick = () => speakJapaneseSentence(chunk, globalIndex);
+
+                // 3. Bookmark Button (⭐)
                 const bmBtn = document.createElement('button');
-                bmBtn.className = `bookmark-btn ${isBookmarked ? 'active' : ''}`;
+                bmBtn.className = `action-btn bookmark-btn ${isBookmarked ? 'active' : ''}`;
                 bmBtn.title = isBookmarked ? "移除书签" : "添加书签";
-                bmBtn.innerHTML = `<svg class="w-5 h-5" fill="${isBookmarked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>`;
+                bmBtn.innerHTML = `<svg class="w-4 h-4" fill="${isBookmarked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>`;
                 bmBtn.onclick = (e) => {
                     e.stopPropagation();
                     toggleBookmark(globalIndex, chunk);
                 };
-
-                // Translate Button
-                const transBtn = document.createElement('button');
-                transBtn.className = 'translate-btn';
-                transBtn.innerText = '文';
-                transBtn.title = '翻译此句';
-                transBtn.onclick = () => translateSentence(chunk, globalIndex);
 
                 const transDiv = document.createElement('div');
                 transDiv.id = `trans-${globalIndex}`;
@@ -763,6 +802,7 @@
 
                 block.appendChild(textDiv);
                 block.appendChild(transBtn);
+                block.appendChild(ttsBtn);
                 block.appendChild(bmBtn);
                 block.appendChild(transDiv);
                 contentDiv.appendChild(block);
@@ -776,7 +816,7 @@
                     if (targetEl) {
                         targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     }
-                }, 100);
+                }, 120);
             } else {
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
@@ -810,6 +850,136 @@
                 await DB.updateBook(AppState.currentBook);
                 renderPage();
             }
+        }
+
+        // --- Japanese TTS Speech Synthesis ---
+        function speakJapaneseSentence(text, globalIndex) {
+            if (!('speechSynthesis' in window)) {
+                showToast("当前浏览器不支持 TTS 语音朗读");
+                return;
+            }
+
+            // Stop if currently speaking the same sentence
+            if (window.speechSynthesis.speaking && AppState.currentSpeakingIndex === globalIndex) {
+                window.speechSynthesis.cancel();
+                setSpeakingState(null);
+                return;
+            }
+
+            window.speechSynthesis.cancel(); // Stop active voices
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ja-JP';
+            utterance.rate = 0.95; // Slightly natural pace for study
+
+            // Find best Japanese voice
+            const voices = window.speechSynthesis.getVoices();
+            const jaVoice = voices.find(v => v.lang.startsWith('ja') || v.lang === 'ja_JP');
+            if (jaVoice) {
+                utterance.voice = jaVoice;
+            }
+
+            utterance.onstart = () => {
+                setSpeakingState(globalIndex);
+            };
+
+            utterance.onend = () => {
+                setSpeakingState(null);
+            };
+
+            utterance.onerror = (e) => {
+                console.error("TTS Error:", e);
+                setSpeakingState(null);
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function setSpeakingState(index) {
+            if (AppState.currentSpeakingIndex !== null) {
+                const prevBtn = document.getElementById(`tts-btn-${AppState.currentSpeakingIndex}`);
+                if (prevBtn) prevBtn.classList.remove('speaking');
+            }
+            AppState.currentSpeakingIndex = index;
+            if (index !== null) {
+                const curBtn = document.getElementById(`tts-btn-${index}`);
+                if (curBtn) curBtn.classList.add('speaking');
+            }
+        }
+
+        // --- Fuzzy Search Modal & Engine (New) ---
+        function openSearchModal() {
+            if (!AppState.currentBook) {
+                showToast("请先导入或选择一本书籍");
+                return;
+            }
+            openModal('search-modal');
+            setTimeout(() => {
+                const input = document.getElementById('search-input');
+                input.value = '';
+                input.focus();
+                document.getElementById('search-results-list').innerHTML = '<div class="text-center opacity-50 my-6 text-sm">请输入关键词进行检索</div>';
+            }, 150);
+        }
+
+        function performFuzzySearch() {
+            const query = document.getElementById('search-input').value.trim().toLowerCase();
+            const resultsDiv = document.getElementById('search-results-list');
+
+            if (!query || !AppState.currentBook) {
+                resultsDiv.innerHTML = '<div class="text-center opacity-50 my-6 text-sm">请输入关键词进行检索</div>';
+                return;
+            }
+
+            const chunks = AppState.currentBook.chunks;
+            const matches = [];
+
+            for (let i = 0; i < chunks.length; i++) {
+                const text = chunks[i];
+                if (text.toLowerCase().includes(query)) {
+                    matches.push({
+                        sentenceIndex: i,
+                        text: text,
+                        page: Math.floor(i / AppState.sentencesPerPage) + 1
+                    });
+                }
+                if (matches.length >= 20) break; // Limit top 20
+            }
+
+            resultsDiv.innerHTML = '';
+
+            if (matches.length === 0) {
+                resultsDiv.innerHTML = `<div class="text-center opacity-50 my-6 text-sm">未找到与 “${escapeHtml(query)}” 相关的句子</div>`;
+                return;
+            }
+
+            matches.forEach(m => {
+                const item = document.createElement('div');
+                item.className = 'p-3 rounded-xl border border-gray-600 border-opacity-30 bg-black bg-opacity-10 hover:bg-opacity-20 cursor-pointer transition';
+                item.onclick = () => jumpToSentence(m.sentenceIndex);
+
+                // Highlight keyword
+                const regex = new RegExp(`(${query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')})`, 'gi');
+                const highlightedText = escapeHtml(m.text).replace(regex, '<mark class="bg-amber-500/40 text-amber-200 px-0.5 rounded">$1</mark>');
+
+                item.innerHTML = `
+                    <div class="text-xs text-amber-500 font-semibold mb-1">第 ${m.page} 页 · 句子 #${m.sentenceIndex + 1}</div>
+                    <div class="text-sm opacity-90 leading-relaxed">${highlightedText}</div>
+                `;
+                resultsDiv.appendChild(item);
+            });
+        }
+
+        async function jumpToSentence(sentenceIndex) {
+            closeModal('search-modal');
+            const targetPage = Math.floor(sentenceIndex / AppState.sentencesPerPage);
+            AppState.currentBook.lastPage = targetPage;
+            await DB.updateBook(AppState.currentBook);
+            renderPage(sentenceIndex);
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
 
         // --- Bookmark Functionality ---
@@ -852,7 +1022,6 @@
             if (bookmarks.length === 0) {
                 list.innerHTML = '<div class="text-center opacity-50 my-6 text-sm">本书暂无书签</div>';
             } else {
-                // Sort bookmarks by sentence index
                 const sorted = [...bookmarks].sort((a,b) => a.sentenceIndex - b.sentenceIndex);
                 sorted.forEach(bm => {
                     const pageNum = Math.floor(bm.sentenceIndex / AppState.sentencesPerPage) + 1;
@@ -861,7 +1030,7 @@
                     
                     const info = document.createElement('div');
                     info.className = 'flex-1 min-w-0 pr-3';
-                    info.onclick = () => jumpToBookmark(bm.sentenceIndex);
+                    info.onclick = () => jumpToSentence(bm.sentenceIndex);
                     info.innerHTML = `
                         <div class="text-xs text-amber-500 font-semibold mb-1">第 ${pageNum} 页 · 句子 #${bm.sentenceIndex + 1}</div>
                         <div class="text-sm truncate opacity-90">${bm.excerpt}</div>
@@ -873,7 +1042,7 @@
                     delBtn.onclick = (e) => {
                         e.stopPropagation();
                         toggleBookmark(bm.sentenceIndex, bm.excerpt);
-                        openBookmarksModal(); // refresh list
+                        openBookmarksModal();
                     };
 
                     item.appendChild(info);
@@ -885,15 +1054,7 @@
             openModal('bookmarks-modal');
         }
 
-        async function jumpToBookmark(sentenceIndex) {
-            closeModal('bookmarks-modal');
-            const targetPage = Math.floor(sentenceIndex / AppState.sentencesPerPage);
-            AppState.currentBook.lastPage = targetPage;
-            await DB.updateBook(AppState.currentBook);
-            renderPage(sentenceIndex);
-        }
-
-        // --- Japanese NLP Processing ---
+        // --- Japanese Morphological Parsing & Furigana ---
         function katakanaToHiragana(src) {
             return src.replace(/[\u30a1-\u30f6]/g, function(match) {
                 var chr = match.charCodeAt(0) - 0x60;
@@ -906,33 +1067,36 @@
         }
 
         function processSentenceNLP(sentence) {
-            if (!AppState.tokenizer) return sentence;
+            if (!AppState.tokenizerReady || !AppState.tokenizer) return sentence;
             
-            const tokens = AppState.tokenizer.tokenize(sentence);
-            let html = '';
+            try {
+                const tokens = AppState.tokenizer.tokenize(sentence);
+                let html = '';
 
-            tokens.forEach(token => {
-                const surface = token.surface_form;
-                const readingKata = token.reading;
-                const pos = token.pos;
+                tokens.forEach(token => {
+                    const surface = token.surface_form;
+                    const readingKata = token.reading;
+                    const pos = token.pos;
 
-                // POS background style classification
-                let posClass = 'pos-other';
-                if (pos === '名詞') {
-                    posClass = 'pos-noun';
-                } else if (pos === '動詞' || pos === '副詞' || pos === '形容詞') {
-                    posClass = 'pos-verb';
-                }
+                    let posClass = 'pos-other';
+                    if (pos === '名詞') {
+                        posClass = 'pos-noun'; // Brown background
+                    } else if (pos === '動詞' || pos === '副詞' || pos === '形容詞') {
+                        posClass = 'pos-verb'; // Dark grey background
+                    }
 
-                if (hasKanji(surface) && readingKata && readingKata !== surface) {
-                    const readingHira = katakanaToHiragana(readingKata);
-                    html += `<ruby class="token ${posClass}"><span class="token-base">${surface}</span><rt>${readingHira}</rt></ruby>`;
-                } else {
-                    html += `<ruby class="token ${posClass}"><span class="token-base border-none">${surface}</span><rt></rt></ruby>`;
-                }
-            });
+                    if (hasKanji(surface) && readingKata && readingKata !== surface) {
+                        const readingHira = katakanaToHiragana(readingKata);
+                        html += `<ruby class="token ${posClass}"><span class="token-base">${surface}</span><rt>${readingHira}</rt></ruby>`;
+                    } else {
+                        html += `<ruby class="token ${posClass}"><span class="token-base border-none">${surface}</span><rt></rt></ruby>`;
+                    }
+                });
 
-            return html;
+                return html;
+            } catch (e) {
+                return sentence;
+            }
         }
 
         // --- Translation API Integration ---
