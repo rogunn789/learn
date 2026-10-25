@@ -124,6 +124,11 @@
                 </div>
             </div>
 
+            <!-- Video Display Container (仅在加载 MP4/视频时显示) -->
+            <div id="video-container" class="glass-panel rounded-xl p-2 border border-slate-800 hidden shrink-0 flex flex-col items-center justify-center bg-slate-950/90 relative">
+                <video id="video-player" class="w-full max-h-[280px] sm:max-h-[340px] rounded-lg object-contain bg-black cursor-pointer" playsinline></video>
+            </div>
+
             <!-- Waveform Panel -->
             <div class="glass-panel rounded-xl p-2.5 sm:p-3 flex flex-col space-y-2 relative shrink-0">
                 <div class="flex items-center justify-between text-xs text-slate-400">
@@ -619,6 +624,8 @@
 
         const DOM = {
             dropZone: document.getElementById('drop-zone'),
+            videoContainer: document.getElementById('video-container'),
+            videoPlayer: document.getElementById('video-player'),
             inputAudio: document.getElementById('input-audio'),
             inputLrc: document.getElementById('input-lrc'),
             btnLoadDemo: document.getElementById('btn-load-demo'),
@@ -669,8 +676,10 @@
         function initWaveSurfer() {
             state.wsRegions = WaveSurfer.Regions.create();
 
+            // 将 videoPlayer 作为 WaveSurfer 的媒体渲染引擎
             state.wavesurfer = WaveSurfer.create({
                 container: '#waveform',
+                media: DOM.videoPlayer,
                 waveColor: '#334155',
                 progressColor: '#6366f1',
                 cursorColor: '#818cf8',
@@ -710,7 +719,7 @@
                 handleTimeSync(currentTime);
             });
 
-            // 监听全曲播放完毕事件（响应 loopMode === 2 循环整个音频）
+            // 监听全曲播放完毕事件（响应 loopMode === 2 循环整个音频/视频）
             state.wavesurfer.on('finish', () => {
                 if (state.loopMode === 2) {
                     state.wavesurfer.setTime(0);
@@ -863,7 +872,7 @@
             }
 
             if (!state.audioBuffer) {
-                alert("请先加载有效的音频文件！");
+                alert("请先加载有效的音视频文件！");
                 return;
             }
 
@@ -1085,7 +1094,7 @@
         }
 
         /**
-         * 循环模式逻辑分支（支持：0不循环 / 1循环片段 / 2循环整个音频）
+         * 循环模式逻辑分支（支持：0不循环 / 1循环片段 / 2循环整个音频/视频）
          */
         function handleTimeSync(currentTime) {
             if (state.sentences.length === 0) return;
@@ -1123,11 +1132,11 @@
                 DOM.loopBadge.textContent = "1";
                 DOM.btnToggleLoop.title = "循环模式: 循环片段 (L)";
             } else if (state.loopMode === 2) {
-                // 循环整个音频
+                // 循环整个音频/视频
                 DOM.btnToggleLoop.className = "w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-600 text-white border-amber-500 transition flex items-center justify-center relative shadow active:scale-95";
                 DOM.loopBadge.className = "absolute -top-1 -right-1 w-3.5 h-3.5 text-[9px] font-bold flex items-center justify-center rounded-full bg-amber-300 text-slate-950 border-2 border-slate-900 animate-pulse";
                 DOM.loopBadge.textContent = "全";
-                DOM.btnToggleLoop.title = "循环模式: 循环整个音频 (L)";
+                DOM.btnToggleLoop.title = "循环模式: 循环整个音视频 (L)";
             }
         }
 
@@ -1181,6 +1190,14 @@
             state.currentFilename = file.name;
             state.currentAudioBlob = file;
             DOM.currentFilename.textContent = file.name;
+
+            // 判断是否为视频文件（支持 MP4、MKV、WebM、MOV 等格式）
+            const isVideo = file.type.startsWith('video/') || !!file.name.match(/\.(mp4|mkv|webm|mov|avi)$/i);
+            if (isVideo) {
+                DOM.videoContainer.classList.remove('hidden');
+            } else {
+                DOM.videoContainer.classList.add('hidden');
+            }
 
             const url = URL.createObjectURL(file);
             state.wavesurfer.load(url);
@@ -1247,6 +1264,7 @@
             state.currentLrcText = DEMO_LRC;
             DOM.currentFilename.textContent = "示例课程 - English Speech";
             DOM.waveformLoader.classList.remove('hidden');
+            DOM.videoContainer.classList.add('hidden');
 
             state.wavesurfer.load(DEMO_AUDIO_URL);
             state.sentences = parseLRC(DEMO_LRC);
@@ -1338,6 +1356,13 @@
 
             DOM.currentFilename.textContent = item.filename;
 
+            const isVideo = item.audioBlob?.type?.startsWith('video/') || !!item.filename?.match(/\.(mp4|mkv|webm|mov|avi)$/i);
+            if (isVideo) {
+                DOM.videoContainer.classList.remove('hidden');
+            } else {
+                DOM.videoContainer.classList.add('hidden');
+            }
+
             if (item.audioBlob) {
                 DOM.waveformLoader.classList.remove('hidden');
                 const url = URL.createObjectURL(item.audioBlob);
@@ -1373,6 +1398,10 @@
                         loadLrcFile(file);
                     }
                 });
+            });
+
+            DOM.videoPlayer.addEventListener('click', () => {
+                if (state.wavesurfer) state.wavesurfer.playPause();
             });
 
             DOM.inputAudio.addEventListener('change', (e) => {
