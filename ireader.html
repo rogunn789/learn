@@ -14,9 +14,6 @@
         :root {
             --bg-color: #171b19;
             --text-color: #e2e8f0;
-            --noun-bg: #4a3f2b;
-            --verb-bg: #333333;
-            --base-border: rgba(255, 255, 255, 0.45);
             --ui-bg: #222a27;
             --ui-border: #384540;
             --accent-color: #d97706;
@@ -25,9 +22,6 @@
         .theme-day {
             --bg-color: #f8fafc;
             --text-color: #1e293b;
-            --noun-bg: #e4d8c1;
-            --verb-bg: #e2e8f0;
-            --base-border: rgba(0, 0, 0, 0.4);
             --ui-bg: #ffffff;
             --ui-border: #cbd5e1;
             --accent-color: #b45309;
@@ -62,46 +56,21 @@
             border-left: 4px solid var(--accent-color);
         }
 
-        /* Ruby & POS Styling */
-        ruby.token {
-            display: inline-flex;
-            flex-direction: column-reverse;
-            align-items: center;
-            vertical-align: bottom;
-            margin: 2px 3px;
+        /* Natural Ruby Furigana Styling */
+        ruby {
+            ruby-position: over;
         }
 
-        ruby.token rt {
-            display: block;
-            font-size: 0.625em;
+        ruby rt {
+            font-size: 0.62em;
             color: var(--text-color);
             opacity: 0.85;
-            line-height: 1.2;
-            margin-bottom: 2px;
+            line-height: 1;
             font-weight: normal;
-        }
-        
-        ruby.token rt:empty {
-            display: none !important;
+            user-select: none;
         }
 
-        .token-base {
-            display: block;
-            padding: 2px 5px;
-            border-radius: 6px;
-            border-bottom: 1.5px solid var(--base-border);
-            line-height: 1.25;
-        }
-
-        .pos-noun .token-base { background-color: var(--noun-bg); }
-        .theme-day .pos-noun .token-base { color: #2a1f0e; }
-
-        .pos-verb .token-base, .pos-adverb .token-base, .pos-adjective .token-base { background-color: var(--verb-bg); }
-        .theme-day .pos-verb .token-base, .theme-day .pos-adverb .token-base, .theme-day .pos-adjective .token-base { color: #0f172a; }
-
-        .pos-other .token-base { background-color: transparent; }
-
-        body.hide-furigana ruby.token rt {
+        body.hide-furigana ruby rt {
             display: none !important;
         }
 
@@ -226,7 +195,7 @@
     <!-- Top Dict Loading Status Pill -->
     <div id="dict-status" class="fixed top-3 right-3 z-30 px-3 py-1 rounded-full text-xs bg-amber-600/80 text-white shadow-lg backdrop-blur flex items-center space-x-1.5 opacity-90 transition-all duration-300">
         <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-        <span id="dict-status-text">词库加载中...</span>
+        <span id="dict-status-text">注音库加载中...</span>
     </div>
 
     <!-- Toast Notification Container -->
@@ -578,7 +547,7 @@
                 
                 applySettings();
 
-                // Load active book INSTANTLY without waiting for NLP dict
+                // Load active book INSTANTLY without waiting for dict
                 if (AppState.settings.lastBookId) {
                     await loadBook(AppState.settings.lastBookId);
                 } else {
@@ -598,7 +567,6 @@
         function initTokenizerInBackground() {
             if (typeof kuromoji === 'undefined') return;
 
-            // 1. 修复 kuromoji.js 内部将 https:// 误切为 https:/ 导致 404 的 Bug
             if (!window._xhrPatched) {
                 const origOpen = XMLHttpRequest.prototype.open;
                 XMLHttpRequest.prototype.open = function(method, url, ...args) {
@@ -610,11 +578,9 @@
                 window._xhrPatched = true;
             }
             
-            // 2. 補充末尾斜杠 /
             kuromoji.builder({ dicPath: "https://cdn.jsdelivr.net/npm/kuromoji@0.1.2/dict/" }).build((err, tokenizer) => {
                 const statusEl = document.getElementById('dict-status');
                 
-                // メッセージを順調にフェードアウトさせて非表示にする処理
                 const hideStatus = () => {
                     if (!statusEl) return;
                     statusEl.classList.remove('opacity-90');
@@ -638,7 +604,7 @@
                 document.getElementById('dict-status-text').innerText = '注音库已就绪';
                 setTimeout(hideStatus, 2500);
 
-                // Re-render current page with furigana/POS tags automatically
+                // Re-render current page with furigana automatically
                 if (AppState.currentBook) {
                     renderPage();
                 }
@@ -667,12 +633,13 @@
             }
 
             // Furigana
+            const furiganaBtnText = document.getElementById('furigana-btn-text');
             if (AppState.settings.showFurigana) {
                 document.body.classList.remove('hide-furigana');
-                document.getElementById('furigana-btn-text').innerText = '注音';
+                if (furiganaBtnText) furiganaBtnText.innerText = '注音';
             } else {
                 document.body.classList.add('hide-furigana');
-                document.getElementById('furigana-btn-text').innerText = '隐藏';
+                if (furiganaBtnText) furiganaBtnText.innerText = '隐藏';
             }
 
             // Typography
@@ -1111,7 +1078,7 @@
             openModal('bookmarks-modal');
         }
 
-        // --- Japanese Morphological Parsing & Furigana ---
+        // --- Japanese Natural Furigana Processing ---
         function katakanaToHiragana(src) {
             return src.replace(/[\u30a1-\u30f6]/g, function(match) {
                 var chr = match.charCodeAt(0) - 0x60;
@@ -1133,20 +1100,13 @@
                 tokens.forEach(token => {
                     const surface = token.surface_form;
                     const readingKata = token.reading;
-                    const pos = token.pos;
 
-                    let posClass = 'pos-other';
-                    if (pos === '名詞') {
-                        posClass = 'pos-noun';
-                    } else if (pos === '動詞' || pos === '副詞' || pos === '形容詞') {
-                        posClass = 'pos-verb';
-                    }
-
+                    // 仅对包含汉字的单词生成 <ruby> 标签标注，其他假名和标点输出原始文本
                     if (hasKanji(surface) && readingKata && readingKata !== surface) {
                         const readingHira = katakanaToHiragana(readingKata);
-                        html += `<ruby class="token ${posClass}"><span class="token-base">${surface}</span><rt>${readingHira}</rt></ruby>`;
+                        html += `<ruby>${surface}<rt>${readingHira}</rt></ruby>`;
                     } else {
-                        html += `<ruby class="token ${posClass}"><span class="token-base border-none">${surface}</span><rt></rt></ruby>`;
+                        html += surface;
                     }
                 });
 
