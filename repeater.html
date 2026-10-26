@@ -95,8 +95,8 @@
     <!-- Main Content Container: Mobile Vertical Split / Desktop Grid Split -->
     <main class="flex-1 flex flex-col lg:grid lg:grid-cols-12 gap-2 sm:gap-4 p-2 sm:p-4 overflow-hidden min-h-0">
         
-        <!-- TOP SECTION -->
-        <div class="lg:col-span-7 xl:col-span-8 flex flex-col space-y-2 sm:space-y-3 shrink-0 lg:shrink lg:overflow-y-auto">
+        <!-- TOP SECTION (Left Panel on PC) -->
+        <div id="left-panel" class="lg:col-span-7 xl:col-span-8 flex flex-col space-y-2 sm:space-y-3 shrink-0 lg:shrink lg:overflow-y-auto transition-all duration-300">
 
             <!-- File Upload Bar -->
             <div id="drop-zone" class="glass-panel rounded-xl p-2 sm:p-3 border-2 border-dashed border-slate-700 hover:border-brand-500/50 transition duration-200 group relative shrink-0">
@@ -124,9 +124,13 @@
                 </div>
             </div>
 
-            <!-- Video Display Container (仅在加载 MP4/视频时显示) -->
-            <div id="video-container" class="glass-panel rounded-xl p-2 border border-slate-800 hidden shrink-0 flex flex-col items-center justify-center bg-slate-950/90 relative">
-                <video id="video-player" class="w-full max-h-[280px] sm:max-h-[340px] rounded-lg object-contain bg-black cursor-pointer" playsinline></video>
+            <!-- Video Display Container (仅在加载 MP4/视频时显示, 支持纵向缩放) -->
+            <div id="video-container" class="glass-panel rounded-xl p-2 border border-slate-800 hidden shrink-0 flex flex-col items-center justify-center bg-slate-950/90 relative group" style="resize: vertical; overflow: hidden; min-height: 200px; max-height: calc(100dvh - 430px);">
+                <!-- 切换侧边栏按钮 -->
+                <button id="btn-toggle-layout" class="absolute top-3 right-3 z-10 w-8 h-8 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 flex items-center justify-center border border-slate-600 shadow-lg transition opacity-0 group-hover:opacity-100" title="显示/隐藏侧边字幕列表">
+                    <i class="fa-solid fa-table-columns"></i>
+                </button>
+                <video id="video-player" class="w-full h-full rounded-lg object-contain bg-black cursor-pointer" playsinline></video>
             </div>
 
             <!-- Waveform Panel -->
@@ -255,8 +259,8 @@
 
         </div>
 
-        <!-- BOTTOM SECTION -->
-        <div class="lg:col-span-5 xl:col-span-4 flex-1 flex flex-col glass-panel rounded-xl sm:rounded-2xl overflow-hidden min-h-0 border border-slate-800">
+        <!-- BOTTOM SECTION (Right Panel on PC) -->
+        <div id="right-panel" class="lg:col-span-5 xl:col-span-4 flex-1 flex flex-col glass-panel rounded-xl sm:rounded-2xl overflow-hidden min-h-0 border border-slate-800 transition-all duration-300">
             
             <!-- Subtitle Header Bar -->
             <div class="p-2.5 border-b border-slate-800 bg-slate-900/90 flex items-center justify-between shrink-0">
@@ -447,8 +451,9 @@
             }
         }
 
-        // ID3v2 USLT Unsynchronized Lyric Parser & Embedder
+        // ID3v2 USLT Unsynchronized Lyric Parser & Embedder (Omitted for brevity, logic remains identical)
         function extractUSLTLyrics(arrayBuffer) {
+            // [源码不变，为避免篇幅过长已折叠，与您提供的原代码保持一致]
             if (!arrayBuffer || arrayBuffer.byteLength < 10) return null;
             const view = new DataView(arrayBuffer);
             const bytes = new Uint8Array(arrayBuffer);
@@ -602,7 +607,7 @@
             audioBuffer: null,
             sentences: [],        
             currentIndex: -1,     
-            loopMode: 0,          // 0: 不循环, 1: 循环片段, 2: 循环整个音频
+            loopMode: 0,
             isRandomMode: false,  
             playbackRate: 1.0,
             silenceMinSec: 0.5,   
@@ -623,6 +628,9 @@
         const DEMO_AUDIO_URL = 'https://cdn.pixabay.com/download/audio/2022/05/27/audio_1808fbf07a.mp3?filename=english-speech-sample-12548.mp3';
 
         const DOM = {
+            leftPanel: document.getElementById('left-panel'),
+            rightPanel: document.getElementById('right-panel'),
+            btnToggleLayout: document.getElementById('btn-toggle-layout'),
             dropZone: document.getElementById('drop-zone'),
             videoContainer: document.getElementById('video-container'),
             videoPlayer: document.getElementById('video-player'),
@@ -673,10 +681,46 @@
             btnClearAllHistory: document.getElementById('btn-clear-all-history')
         };
 
+        // ========== 新增布局切换逻辑 ========== 
+        let isSubtitleHidden = false;
+
+        function toggleSubtitlePanel(hide) {
+            isSubtitleHidden = hide;
+            if (hide) {
+                // 隐藏右侧侧边栏，将左侧扩展为 12 列 (全宽)
+                DOM.rightPanel.classList.add('hidden', 'lg:hidden');
+                DOM.leftPanel.classList.remove('lg:col-span-7', 'xl:col-span-8');
+                DOM.leftPanel.classList.add('lg:col-span-12', 'xl:col-span-12');
+            } else {
+                // 恢复原布局
+                DOM.rightPanel.classList.remove('hidden', 'lg:hidden');
+                DOM.leftPanel.classList.add('lg:col-span-7', 'xl:col-span-8');
+                DOM.leftPanel.classList.remove('lg:col-span-12', 'xl:col-span-12');
+            }
+            // 触发布局改变后的重绘以免波形图变形
+            if (state.wavesurfer) {
+                setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
+            }
+        }
+
+        function updateVideoLayout(isVideo) {
+            if (isVideo) {
+                DOM.videoContainer.classList.remove('hidden');
+                // PC模式下自动隐藏侧边栏字幕
+                if (window.innerWidth >= 1024) {
+                    toggleSubtitlePanel(true);
+                }
+            } else {
+                DOM.videoContainer.classList.add('hidden');
+                // 音频模式自动恢复侧边栏字幕
+                toggleSubtitlePanel(false);
+            }
+        }
+        // ===================================
+
         function initWaveSurfer() {
             state.wsRegions = WaveSurfer.Regions.create();
 
-            // 将 videoPlayer 作为 WaveSurfer 的媒体渲染引擎
             state.wavesurfer = WaveSurfer.create({
                 container: '#waveform',
                 media: DOM.videoPlayer,
@@ -719,7 +763,6 @@
                 handleTimeSync(currentTime);
             });
 
-            // 监听全曲播放完毕事件（响应 loopMode === 2 循环整个音频/视频）
             state.wavesurfer.on('finish', () => {
                 if (state.loopMode === 2) {
                     state.wavesurfer.setTime(0);
@@ -1093,46 +1136,33 @@
             URL.revokeObjectURL(url);
         }
 
-        /**
-         * 循环模式逻辑分支（支持：0不循环 / 1循环片段 / 2循环整个音频/视频）
-         */
         function handleTimeSync(currentTime) {
             if (state.sentences.length === 0) return;
-
             const currentSentence = state.sentences[state.currentIndex];
-
-            // 模式 1: 循环片段/单句
             if (state.loopMode === 1 && currentSentence) {
                 if (currentTime >= currentSentence.end - 0.08 || currentTime < currentSentence.start) {
                     state.wavesurfer.setTime(currentSentence.start);
                     return;
                 }
             }
-
             const foundIndex = state.sentences.findIndex(s => currentTime >= s.start && currentTime < s.end);
             if (foundIndex !== -1 && foundIndex !== state.currentIndex) {
                 setActiveSentence(foundIndex, false);
             }
         }
 
-        /**
-         * 更新 3 种循环模式下的 UI 样式
-         */
         function updateLoopUI() {
             if (state.loopMode === 0) {
-                // 不循环
                 DOM.btnToggleLoop.className = "w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 border border-slate-700/60 transition flex items-center justify-center relative shadow active:scale-95";
                 DOM.loopBadge.className = "absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-slate-600 border-2 border-slate-900";
                 DOM.loopBadge.textContent = "";
                 DOM.btnToggleLoop.title = "循环模式: 不循环 (L)";
             } else if (state.loopMode === 1) {
-                // 循环片段
                 DOM.btnToggleLoop.className = "w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-brand-600 text-white border-brand-500 transition flex items-center justify-center relative shadow active:scale-95";
                 DOM.loopBadge.className = "absolute -top-1 -right-1 w-3.5 h-3.5 text-[9px] font-bold flex items-center justify-center rounded-full bg-emerald-400 text-slate-950 border-2 border-slate-900 animate-pulse";
                 DOM.loopBadge.textContent = "1";
                 DOM.btnToggleLoop.title = "循环模式: 循环片段 (L)";
             } else if (state.loopMode === 2) {
-                // 循环整个音频/视频
                 DOM.btnToggleLoop.className = "w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-amber-600 text-white border-amber-500 transition flex items-center justify-center relative shadow active:scale-95";
                 DOM.loopBadge.className = "absolute -top-1 -right-1 w-3.5 h-3.5 text-[9px] font-bold flex items-center justify-center rounded-full bg-amber-300 text-slate-950 border-2 border-slate-900 animate-pulse";
                 DOM.loopBadge.textContent = "全";
@@ -1143,13 +1173,10 @@
         function setActiveSentence(index, shouldSeek = true) {
             if (index < 0 || index >= state.sentences.length) return;
             state.currentIndex = index;
-
             const sentence = state.sentences[index];
-
             if (shouldSeek && state.wavesurfer) {
                 state.wavesurfer.setTime(sentence.start);
             }
-
             if (DOM.chkShowRegion.checked && state.wsRegions) {
                 state.wsRegions.clearRegions();
                 state.wsRegions.addRegion({
@@ -1160,9 +1187,7 @@
                     resize: false
                 });
             }
-
             renderSentenceList();
-
             const activeElem = document.getElementById(`sentence-item-${index}`);
             if (activeElem) {
                 activeElem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -1191,13 +1216,9 @@
             state.currentAudioBlob = file;
             DOM.currentFilename.textContent = file.name;
 
-            // 判断是否为视频文件（支持 MP4、MKV、WebM、MOV 等格式）
+            // 变更处：调用更新布局方法
             const isVideo = file.type.startsWith('video/') || !!file.name.match(/\.(mp4|mkv|webm|mov|avi)$/i);
-            if (isVideo) {
-                DOM.videoContainer.classList.remove('hidden');
-            } else {
-                DOM.videoContainer.classList.add('hidden');
-            }
+            updateVideoLayout(isVideo);
 
             const url = URL.createObjectURL(file);
             state.wavesurfer.load(url);
@@ -1264,7 +1285,9 @@
             state.currentLrcText = DEMO_LRC;
             DOM.currentFilename.textContent = "示例课程 - English Speech";
             DOM.waveformLoader.classList.remove('hidden');
-            DOM.videoContainer.classList.add('hidden');
+            
+            // 变更处：加载Demo时恢复原始音频布局布局
+            updateVideoLayout(false);
 
             state.wavesurfer.load(DEMO_AUDIO_URL);
             state.sentences = parseLRC(DEMO_LRC);
@@ -1356,12 +1379,9 @@
 
             DOM.currentFilename.textContent = item.filename;
 
+            // 变更处：调用更新布局方法
             const isVideo = item.audioBlob?.type?.startsWith('video/') || !!item.filename?.match(/\.(mp4|mkv|webm|mov|avi)$/i);
-            if (isVideo) {
-                DOM.videoContainer.classList.remove('hidden');
-            } else {
-                DOM.videoContainer.classList.add('hidden');
-            }
+            updateVideoLayout(isVideo);
 
             if (item.audioBlob) {
                 DOM.waveformLoader.classList.remove('hidden');
@@ -1377,6 +1397,12 @@
         }
 
         function bindEvents() {
+            // 变更处：为按钮添加面板切换监听
+            DOM.btnToggleLayout.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleSubtitlePanel(!isSubtitleHidden);
+            });
+
             DOM.dropZone.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 DOM.dropZone.classList.add('border-brand-500', 'bg-brand-950/20');
@@ -1420,7 +1446,6 @@
 
             DOM.btnLoadDemo.addEventListener('click', loadDemoLesson);
 
-            // Playback controls
             DOM.btnPlayPause.addEventListener('click', () => {
                 if (state.wavesurfer) state.wavesurfer.playPause();
             });
@@ -1449,7 +1474,6 @@
                 }
             });
 
-            // 三模式循环切换逻辑：0(不循环) -> 1(循环片段) -> 2(循环全曲) -> 0
             DOM.btnToggleLoop.addEventListener('click', () => {
                 state.loopMode = (state.loopMode + 1) % 3;
                 updateLoopUI();
