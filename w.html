@@ -62,10 +62,19 @@
         </div>
 
         <div class="w-full max-w-lg h-full flex flex-col py-2">
-            <div class="flex justify-center items-center space-x-16 mb-6 text-2xl md:text-3xl font-bold tracking-widest shrink-0">
-                <span class="text-green-500" title="简单 > 模糊">{{ countClear }}</span>
-                <span class="text-yellow-500" title="模糊 >= 简单">{{ countBlurry }}</span>
-                <span class="text-red-500" title="未学习">{{ countUnread }}</span>
+            
+            <div class="flex flex-col items-center mb-6 shrink-0 gap-2 font-bold tracking-widest" v-if="!loading && !needManualUpload">
+                <!-- 整体进度 -->
+                <div class="text-lg md:text-xl text-gray-300">
+                    <span title="已背诵个数" class="text-blue-400">{{ totalMemorized }}</span> 
+                    <span class="text-gray-500 mx-2">/</span> 
+                    <span title="总个数">{{ totalItems }}</span>
+                </div>
+                <!-- 当前卡片复习次数 -->
+                <div class="flex justify-center items-center space-x-12 text-xl md:text-2xl mt-1">
+                    <span class="text-yellow-500" title="当前内容模糊次数"><i class="fa-solid fa-cloud text-sm mr-1"></i>{{ currentBlurCount }}</span>
+                    <span class="text-green-500" title="当前内容简单次数"><i class="fa-solid fa-leaf text-sm mr-1"></i>{{ currentSimpleCount }}</span>
+                </div>
             </div>
 
             <div class="flex-grow flex flex-col rounded-xl" style="height: 100%;" >
@@ -181,23 +190,28 @@
                 const searchQuery = ref('');
                 const searchInput = ref(null);
 
-                // 更新计数逻辑，脱离之前的 SM-2 n 值
-                const countClear = computed(() => blocks.value.filter(b => {
-                    const r = records.value[b];
-                    return r && (r.simpleCount > 0 || r.blurCount > 0) && r.simpleCount > r.blurCount;
-                }).length);
-
-                const countBlurry = computed(() => blocks.value.filter(b => {
-                    const r = records.value[b];
-                    return r && (r.blurCount > 0 || r.simpleCount > 0) && r.blurCount >= r.simpleCount;
-                }).length);
-
-                const countUnread = computed(() => blocks.value.filter(b => {
-                    const r = records.value[b];
-                    return !r || (r.simpleCount === 0 && r.blurCount === 0);
-                }).length);
-
                 const currentBlock = computed(() => currentBlockObj.value || '');
+
+                // 当前背诵内容的简单次数
+                const currentSimpleCount = computed(() => {
+                    const r = records.value[currentBlock.value];
+                    return r ? r.simpleCount : 0;
+                });
+
+                // 当前背诵内容的模糊次数
+                const currentBlurCount = computed(() => {
+                    const r = records.value[currentBlock.value];
+                    return r ? r.blurCount : 0;
+                });
+
+                // 总共背过的个数（只要背过一次就算）
+                const totalMemorized = computed(() => blocks.value.filter(b => {
+                    const r = records.value[b];
+                    return r && (r.simpleCount > 0 || r.blurCount > 0);
+                }).length);
+
+                // 总个数
+                const totalItems = computed(() => blocks.value.length);
                 
                 // 按行分割供页面循环渲染
                 const currentBlockLines = computed(() => {
@@ -385,7 +399,7 @@
 
                 return {
                     loading, needManualUpload, currentBlock, currentBlockLines,
-                    countClear, countBlurry, countUnread,
+                    currentSimpleCount, currentBlurCount, totalMemorized, totalItems,
                     handleAnswer, handleFileUpload, speakBlock,
                     showSearch, searchQuery, searchResults, searchInput,
                     closeSearch, selectBlock, highlightText
