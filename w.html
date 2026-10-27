@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
-    <title>SuperMemo优化版 - 定制算法</title>
+    <title>SuperMemo优化版 - 分数定制算法</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
@@ -70,10 +70,11 @@
                     <span class="text-gray-500 mx-2">/</span> 
                     <span title="总个数">{{ totalItems }}</span>
                 </div>
-                <!-- 当前卡片复习次数 -->
-                <div class="flex justify-center items-center space-x-12 text-xl md:text-2xl mt-1">
-                    <span class="text-yellow-500" title="当前内容模糊次数"><i class="fa-solid fa-cloud text-sm mr-1"></i>{{ currentBlurCount }}</span>
-                    <span class="text-green-500" title="当前内容简单次数"><i class="fa-solid fa-leaf text-sm mr-1"></i>{{ currentSimpleCount }}</span>
+                <!-- 当前卡片分数 -->
+                <div class="flex justify-center items-center mt-1">
+                    <span class="text-yellow-400 text-xl md:text-2xl" title="当前内容分数">
+                        <i class="fa-solid fa-star text-sm mr-1"></i>分数: {{ currentScore }}
+                    </span>
                 </div>
             </div>
 
@@ -103,11 +104,11 @@
                     <div class="grid grid-cols-2 gap-8 mt-4 shrink-0">
                         <button @click="handleAnswer('Simple')" class="flex flex-col items-center p-4 text-green-500 hover:bg-gray-800 rounded-xl transition-all active:scale-95">
                             <i class="fa-solid fa-leaf text-4xl mb-2"></i>
-                            <span class="text-sm font-bold tracking-widest">简单</span>
+                            <span class="text-sm font-bold tracking-widest mt-2">简单 (+1分)</span>
                         </button>
                         <button @click="handleAnswer('Blur')" class="flex flex-col items-center p-4 text-yellow-500 hover:bg-gray-800 rounded-xl transition-all active:scale-95">
                             <i class="fa-solid fa-cloud text-4xl mb-2"></i>
-                            <span class="text-sm font-bold tracking-widest">模糊</span>
+                            <span class="text-sm font-bold tracking-widest mt-2">模糊 (-1分)</span>
                         </button>
                     </div>
                 </template>
@@ -192,16 +193,10 @@
 
                 const currentBlock = computed(() => currentBlockObj.value || '');
 
-                // 当前背诵内容的简单次数
-                const currentSimpleCount = computed(() => {
+                // 当前背诵内容的分数
+                const currentScore = computed(() => {
                     const r = records.value[currentBlock.value];
-                    return r ? r.simpleCount : 0;
-                });
-
-                // 当前背诵内容的模糊次数
-                const currentBlurCount = computed(() => {
-                    const r = records.value[currentBlock.value];
-                    return r ? r.blurCount : 0;
+                    return r ? (r.score || 0) : 0;
                 });
 
                 // 总共背过的个数（只要背过一次就算）
@@ -252,7 +247,7 @@
                     queue.value = []; 
                 };
 
-                // --- 核心算法：定制化抽取卡片逻辑 ---
+                // --- 核心算法：基于分数的新定制算法 ---
                 const pickNextBlock = () => {
                     if (blocks.value.length === 0) return;
 
@@ -263,48 +258,51 @@
 
                     const now = Date.now();
                     const dataList = blocks.value.map(b => {
-                        let r = records.value[b] || { simpleCount: 0, blurCount: 0, lastTime: 0 };
+                        let r = records.value[b] || { simpleCount: 0, blurCount: 0, lastTime: 0, score: 0 };
+                        // 兼容旧数据，如果没有 score 字段则默认为 0
+                        if (r.score === undefined) r.score = 0;
                         return { text: b, ...r };
                     });
 
                     let selected = [];
                     let usedTexts = new Set();
 
-                    // 条件1: 6张是模糊次数最多前6张，距上次背过时间间隔不能少于30秒
-                    let blurPool = dataList
-                        .filter(d => d.blurCount > 0 && (now - d.lastTime >= 30000))
-                        .sort((a, b) => b.blurCount - a.blurCount); // 模糊次数降序
+                    // 1. 抽取 2 张未背诵过的（随机）
+                    let unreviewedPool = dataList.filter(d => d.simpleCount === 0 && d.blurCount === 0);
+                    unreviewedPool = shuffleArray(unreviewedPool);
+                    let selectedUnreviewed = unreviewedPool.slice(0, 2);
+                    selected.push(...selectedUnreviewed);
+                    selectedUnreviewed.forEach(d => usedTexts.add(d.text));
+
+                    // 2. 抽取 8 张已背诵过的，条件：分数最小且距上次抽取 >= 20秒 (20000ms)
+                    let reviewedPool = dataList
+                        .filter(d => (d.simpleCount > 0 || d.blurCount > 0) && (now - d.lastTime >= 20000) && !usedTexts.has(d.text))
+                        .sort((a, b) => a.score - b.score); // 按分数从小到大(升序)排序
                     
-                    let selectedBlur = blurPool.slice(0, 6);
-                    selected.push(...selectedBlur);
-                    selectedBlur.forEach(d => usedTexts.add(d.text));
+                    let selectedReviewed = reviewedPool.slice(0, 8);
+                    selected.push(...selectedReviewed);
+                    selectedReviewed.forEach(d => usedTexts.add(d.text));
 
-                    // 条件2: 3张是简单里次数最少的，距上次背过时间间隔不能少于2分钟
-                    let simplePool = dataList
-                        .filter(d => d.simpleCount > 0 && (now - d.lastTime >= 120000) && !usedTexts.has(d.text))
-                        .sort((a, b) => a.simpleCount - b.simpleCount); // 简单次数升序
-                        
-                    let selectedSimple = simplePool.slice(0, 3);
-                    selected.push(...selectedSimple);
-                    selectedSimple.forEach(d => usedTexts.add(d.text));
-
-                    // 条件3: 1张是未背诵过的
-                    let unreadPool = dataList.filter(d => d.simpleCount === 0 && d.blurCount === 0 && !usedTexts.has(d.text));
-                    unreadPool = shuffleArray(unreadPool);
-                    
-                    let selectedUnread = unreadPool.slice(0, 1);
-                    selected.push(...selectedUnread);
-                    selectedUnread.forEach(d => usedTexts.add(d.text));
-
-                    // 条件4: 如果不满足条件 (凑不够10张)，那就随机抽取补齐
+                    // 3. 兜底策略 (Fallback): 如果前两步加起来不够 10 张，则优先从剩余的未背过内容中随机补齐
                     if (selected.length < 10) {
-                        let remainingPool = dataList.filter(d => !usedTexts.has(d.text));
-                        remainingPool = shuffleArray(remainingPool);
+                        let remainingUnreviewed = unreviewedPool.filter(d => !usedTexts.has(d.text));
                         let needCount = 10 - selected.length;
-                        selected.push(...remainingPool.slice(0, needCount));
+                        let fillUnreviewed = remainingUnreviewed.slice(0, needCount);
+                        selected.push(...fillUnreviewed);
+                        fillUnreviewed.forEach(d => usedTexts.add(d.text));
+                    }
+                    // 4. 兜底策略 (Fallback): 如果还是不够 10 张，忽略20秒限制，从剩下的已背卡片中取分数最小的补齐
+                    if (selected.length < 10) {
+                        let remainingReviewed = dataList
+                            .filter(d => (d.simpleCount > 0 || d.blurCount > 0) && !usedTexts.has(d.text))
+                            .sort((a, b) => a.score - b.score);
+                        let needCount = 10 - selected.length;
+                        let fillReviewed = remainingReviewed.slice(0, needCount);
+                        selected.push(...fillReviewed);
+                        fillReviewed.forEach(d => usedTexts.add(d.text));
                     }
 
-                    // 避免每次10张总是按 模糊->简单->未读 的顺序出现，打乱当前队列
+                    // 5. 将选出的 10 张（或剩余所有）卡片打乱顺序进入队列
                     selected = shuffleArray(selected);
                     queue.value = selected.map(item => item.text);
 
@@ -321,16 +319,23 @@
                     if (!b) return;
 
                     let rec = records.value[b] || { 
-                        simpleCount: 0, blurCount: 0, lastTime: 0 
+                        simpleCount: 0, blurCount: 0, lastTime: 0, score: 0 
                     };
+                    
+                    // 兼容旧数据
+                    if (rec.score === undefined) rec.score = 0;
 
                     const now = Date.now();
 
+                    // 点击容易加1分，点击模糊减1分
                     if (type === 'Simple') {
                         rec.simpleCount++;
+                        rec.score += 1;
                     } else { 
                         rec.blurCount++;
+                        rec.score -= 1;
                     }
+                    
                     rec.lastTime = now; // 记录最近的背诵时间
                     
                     records.value[b] = rec;
@@ -399,7 +404,7 @@
 
                 return {
                     loading, needManualUpload, currentBlock, currentBlockLines,
-                    currentSimpleCount, currentBlurCount, totalMemorized, totalItems,
+                    currentScore, totalMemorized, totalItems,
                     handleAnswer, handleFileUpload, speakBlock,
                     showSearch, searchQuery, searchResults, searchInput,
                     closeSearch, selectBlock, highlightText
