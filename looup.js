@@ -416,7 +416,6 @@
     });
 
     // 核心处理函数
-// 核心处理函数
     const handleLookup = async (e) => {
       // 检查点击的元素本身或其祖先元素是否是 class 包含 looupwrap 的 div
       // 如果不是，则直接返回，不触发划词搜索
@@ -546,18 +545,37 @@
     popover.innerHTML = html;
     popover.style.display = 'block';
 
-    const popRect = popover.getBoundingClientRect();
     const winWidth = window.innerWidth;
     const winHeight = window.innerHeight;
 
-    let left = pageX + 10;
-    let top = pageY + 15;
+    // 判断是否为手机模式（宽度 <= 768px）
+    if (winWidth <= 768) {
+      // 手机端：顶部，100% 宽度，高度最多 1/3
+      popover.style.position = 'fixed';
+      popover.style.top = '0px';
+      popover.style.left = '0px';
+      popover.style.width = '100vw';
+      popover.style.maxHeight = '33vh';
+      popover.style.boxSizing = 'border-box';
+      popover.style.borderRadius = '0 0 8px 8px'; // 仅保留底部圆角
+      popover.style.margin = '0';
+    } else {
+      // PC端：恢复默认相对位置逻辑
+      popover.style.position = 'absolute';
+      popover.style.width = '320px';
+      popover.style.maxHeight = '320px';
+      popover.style.borderRadius = '8px';
+      
+      const popRect = popover.getBoundingClientRect();
+      let left = pageX + 10;
+      let top = pageY + 15;
 
-    if (left + popRect.width > winWidth - 10) left = winWidth - popRect.width - 10;
-    if (top - window.scrollY + popRect.height > winHeight - 10) top = pageY - popRect.height - 15;
+      if (left + popRect.width > winWidth - 10) left = winWidth - popRect.width - 10;
+      if (top - window.scrollY + popRect.height > winHeight - 10) top = pageY - popRect.height - 15;
 
-    popover.style.left = `${Math.max(10, left)}px`;
-    popover.style.top = `${Math.max(10, top)}px`;
+      popover.style.left = `${Math.max(10, left)}px`;
+      popover.style.top = `${Math.max(10, top)}px`;
+    }
   }
 
   /*****************************************************************
