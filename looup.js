@@ -416,7 +416,12 @@
     });
 
     // 核心处理函数
+// 核心处理函数
     const handleLookup = async (e) => {
+      // 检查点击的元素本身或其祖先元素是否是 class 包含 looupwrap 的 div
+      // 如果不是，则直接返回，不触发划词搜索
+      if (!e.target.closest('div[class*="looupwrap"]')) return;
+
       if (!isEnabled || e.target === toggleBtn || popover.contains(e.target)) return;
 
       const targetText = getTextFromClickPosition(e);
