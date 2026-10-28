@@ -90,8 +90,9 @@
                     </div>
                 </template>
                 <template v-else>
-                    <div class="flex-1 flex flex-col items-center justify-center py-2 overflow-y-auto w-full min-h-0">
-                        <div class="w-full flex flex-col min-h-full justify-center">
+                    <!-- 优化布局：修改为 justify-start 并增加 padding，防止顶部内容被裁切 -->
+                    <div class="flex-1 flex flex-col items-center justify-start py-4 overflow-y-auto w-full min-h-0">
+                        <div class="w-full flex flex-col min-h-full justify-start gap-4 px-2 py-2">
                             <div v-for="(line, index) in currentBlockLines" :key="index"
                                  class="w-full break-words whitespace-pre-wrap leading-relaxed text-white text-3xl md:text-3xl text-left looupwrap"
                                  v-html="formatLine(line)">
@@ -116,11 +117,6 @@
 <script>
     const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
 
-
-
-
-
-
     // --- 自适应版 XXTEA 解密算法 (完美兼容 Python 各种 Padding) ---
     const CustomXXTEA = (() => {
         const DELTA = 0x9E3779B9;
@@ -141,7 +137,6 @@
             return result;
         };
         
-        // 【核心修复】智能适配追加长度与零填充 (Zero-Padding) 模式
         const toUint8Array = (v, includeLength) => {
             const length = v.length;
             let n = length << 2;
@@ -149,7 +144,6 @@
             
             if (includeLength) {
                 const m = v[length - 1];
-                // 校验 m 是否在合理的原始长度范围内
                 if (m >= (n - 7) && m <= (n - 4)) {
                     n = m;
                     isLengthAppended = true;
@@ -161,7 +155,6 @@
                 result[i] = (v[i >> 2] >> ((i & 3) << 3)) & 0xff;
             }
             
-            // 如果 Python 没有追加长度，而是直接用 \0 补位，手动安全剔除尾部的 \0
             if (!isLengthAppended) {
                 let actualLength = n;
                 while (actualLength > 0 && result[actualLength - 1] === 0) {
@@ -201,11 +194,9 @@
         };
     })();
 
-    // 核心解密调度函数
     const decryptXXTEA = (encryptedBase64, keyStr) => {
         if (!keyStr || !encryptedBase64) return null;
         try {
-            // 剔除可能干扰解析的隐藏换行符与 BOM 字符
             const cleanBase64 = encryptedBase64.replace(/[^A-Za-z0-9+/=]/g, '');
             if (!cleanBase64) return null;
             
@@ -222,7 +213,6 @@
                 dataBytes[i] = binaryString.charCodeAt(i);
             }
 
-            // 保持与 Python 端严格一致的 16 字节截断逻辑
             const encoder = new TextEncoder();
             const keyBytes = encoder.encode(keyStr.trim());
             const finalKey = new Uint8Array(16); 
@@ -235,14 +225,12 @@
                 return null;
             }
 
-            // 转化为普通文本
             return new TextDecoder().decode(decryptedBytes);
         } catch (e) {
             alert("⚠️ 未知解密异常: " + e.message);
             return null;
         }
     };
-    // -------------------------------------------------------------
 
     const DB_NAME = 'VocabAppDB';
     const STORE_NAME = 'records';
@@ -300,6 +288,9 @@
         }
         return array;
     };
+
+    // 保存 SpeechSynthesisUtterance 全局引用，防止 iOS Safari GC 回收
+    let activeUtterance = null;
 
     createApp({
         setup() {
@@ -512,30 +503,25 @@
                 reader.readAsText(file);
             };
 
-                // 在 Vue 的 setup 内部或全局维护一个引用，防止被垃圾回收
-                let currentUtterance = null;
-
+            // 针对 iOS Safari 优化后的发音逻辑
             const speakBlock = () => {
-                    if (!currentBlockLines.value || currentBlockLines.value.length === 0) return;
+                if (!currentBlockLines.value || currentBlockLines.value.length === 0) return;
+                if (!('speechSynthesis' in window)) return;
 
-                    // 1. 确保在同步执行流中先取消之前的朗读
-                    if ('speechSynthesis' in window) {
-                        window.speechSynthesis.cancel();
+                // 同步取消上一次的朗读
+                window.speechSynthesis.cancel();
 
-                        // 2. 清洗文本：去掉斜杠等可能影响朗读的符号
-                        const textToSpeak = currentBlockLines.value[0].replace(/\//g, '');
-                        
-                        // 3. 创建实例并赋值给全局变量，防止 iOS Safari 垃圾回收导致无声音
-                        currentUtterance = new SpeechSynthesisUtterance(textToSpeak);
-                        currentUtterance.lang = 'ja-JP';
-                        currentUtterance.rate = 1.0; // 可选：语速调节 (0.1 - 10)
+                // 提炼并格式化要朗读的文本
+                const rawText = currentBlockLines.value[0].replace(/\//g, '');
+                
+                // 将 Utterance 绑定给外部全局变量防止被 GC 回收
+                activeUtterance = new SpeechSynthesisUtterance(rawText);
+                activeUtterance.lang = 'ja-JP';
+                activeUtterance.rate = 1.0;
 
-                        // 4. 立即同步触发发音
-                        window.speechSynthesis.speak(currentUtterance);
-                    } else {
-                        console.warn("当前浏览器不支持 Web Speech API");
-                    }
-                };
+                // 同步触发朗读
+                window.speechSynthesis.speak(activeUtterance);
+            };
 
             onMounted(() => initData());
 
