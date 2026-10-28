@@ -89,12 +89,11 @@
                 </template>
                 <template v-else>
                     <div class="flex-1 flex flex-col items-center justify-center py-2 overflow-y-auto w-full min-h-0">
-                        <!-- 修改渲染方式：一行一个div，第一行32px居中 -->
+                        <!-- 所有行保持统一的大小和样式，并通过 formatLine 渲染 /内容/ 的高亮 -->
                         <div class="w-full flex flex-col min-h-full justify-center">
                             <div v-for="(line, index) in currentBlockLines" :key="index"
-                                 :class="index === 0 ? 'text-[32px] text-center font-bold mb-4' : 'text-xl md:text-2xl text-left'"
-                                 class="w-full break-words whitespace-pre-wrap leading-relaxed text-white looupwrap">
-                                {{ line }}
+                                 class="w-full break-words whitespace-pre-wrap leading-relaxed text-white text-xl md:text-2xl text-left looupwrap"
+                                 v-html="formatLine(line)">
                             </div>
                         </div>
                     </div>
@@ -196,7 +195,7 @@
                     return r ? (r.score || 0) : 0;
                 });
 
-                // 总共背过的个数（只要背过一次就算）
+                // 总共背过的个数（只要背过一次算）
                 const totalMemorized = computed(() => blocks.value.filter(b => {
                     const r = records.value[b];
                     return r && (r.simpleCount > 0 || r.blurCount > 0);
@@ -210,6 +209,16 @@
                     if (!currentBlock.value) return [];
                     return currentBlock.value.split('\n').map(line => line.trim()).filter(line => line.length > 0);
                 });
+
+                // 处理文本中 /.../ 包裹的高亮，同时对普通文本做 HTML 转义防注入
+                const formatLine = (line) => {
+                    if (!line) return '';
+                    const escapeHtml = (str) => str.replace(/[&<>"']/g, m => ({
+                        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+                    })[m]);
+                    let escaped = escapeHtml(line);
+                    return escaped.replace(/\/([^\/]+)\//g, '<span class="bg-yellow-500 text-black font-bold px-1 rounded shadow-sm">$1</span>');
+                };
 
                 watch(showSearch, (newVal) => {
                     if (newVal) {
@@ -404,8 +413,8 @@
                 const speakBlock = () => {
                     if (!currentBlockLines.value || currentBlockLines.value.length === 0) return;
                     window.speechSynthesis.cancel();
-                    // 仅读取第一行内容
-                    const textToSpeak = currentBlockLines.value[0];
+                    // 朗读时过滤掉斜杠，提升语音连贯度
+                    const textToSpeak = currentBlockLines.value[0].replace(/\//g, '');
                     const u = new SpeechSynthesisUtterance(textToSpeak);
                     u.lang = 'ja-JP';
                     window.speechSynthesis.speak(u);
@@ -418,7 +427,7 @@
                     currentScore, totalMemorized, totalItems,
                     handleAnswer, handleFileUpload, speakBlock,
                     showSearch, searchQuery, searchResults, searchInput,
-                    closeSearch, selectBlock, highlightText
+                    closeSearch, selectBlock, highlightText, formatLine
                 };
             }
         }).mount('#app');
