@@ -116,6 +116,11 @@
 <script>
     const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
 
+
+
+
+
+
     // --- 自适应版 XXTEA 解密算法 (完美兼容 Python 各种 Padding) ---
     const CustomXXTEA = (() => {
         const DELTA = 0x9E3779B9;
@@ -507,13 +512,30 @@
                 reader.readAsText(file);
             };
 
+                // 在 Vue 的 setup 内部或全局维护一个引用，防止被垃圾回收
+                let currentUtterance = null;
+
             const speakBlock = () => {
-                if (!currentBlockLines.value || currentBlockLines.value.length === 0) return;
-                window.speechSynthesis.cancel();
-                const u = new SpeechSynthesisUtterance(currentBlockLines.value[0].replace(/\//g, ''));
-                u.lang = 'ja-JP';
-                window.speechSynthesis.speak(u);
-            };
+                    if (!currentBlockLines.value || currentBlockLines.value.length === 0) return;
+
+                    // 1. 确保在同步执行流中先取消之前的朗读
+                    if ('speechSynthesis' in window) {
+                        window.speechSynthesis.cancel();
+
+                        // 2. 清洗文本：去掉斜杠等可能影响朗读的符号
+                        const textToSpeak = currentBlockLines.value[0].replace(/\//g, '');
+                        
+                        // 3. 创建实例并赋值给全局变量，防止 iOS Safari 垃圾回收导致无声音
+                        currentUtterance = new SpeechSynthesisUtterance(textToSpeak);
+                        currentUtterance.lang = 'ja-JP';
+                        currentUtterance.rate = 1.0; // 可选：语速调节 (0.1 - 10)
+
+                        // 4. 立即同步触发发音
+                        window.speechSynthesis.speak(currentUtterance);
+                    } else {
+                        console.warn("当前浏览器不支持 Web Speech API");
+                    }
+                };
 
             onMounted(() => initData());
 
