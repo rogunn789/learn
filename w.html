@@ -7,8 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
-    <!-- 引入标准浏览器端 XXTEA 解密库 -->
-    <script src="https://cdn.jsdelivr.net/npm/xxtea-javascript@1.3.0/src/xxtea.min.js"></script>
     <script src="https://rogunn789.github.io/learn/looup.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.1.0/style.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -115,363 +113,390 @@
         </div>
     </div>
 
-    <script>
-        const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
+  <script>
+    const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
 
-        const DB_NAME = 'VocabAppDB';
-        const STORE_NAME = 'records';
-        const initDB = () => {
-            return new Promise((resolve) => {
-                const request = indexedDB.open(DB_NAME, 1);
-                request.onupgradeneeded = (e) => {
-                    const db = e.target.result;
-                    if (!db.objectStoreNames.contains(STORE_NAME)) {
-                        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
-                    }
-                };
-                request.onsuccess = (e) => resolve(e.target.result);
-            });
-        };
-
-        const getRecordsFromDB = async (db) => {
-            return new Promise((resolve) => {
-                const tx = db.transaction(STORE_NAME, 'readonly');
-                const store = tx.objectStore(STORE_NAME);
-                const req = store.getAll();
-                req.onsuccess = () => {
-                    const data = {};
-                    req.result.forEach(item => { data[item.id] = item; });
-                    resolve(data);
-                };
-            });
-        };
-
-        const saveRecordToDB = async (db, id, record) => {
-            const tx = db.transaction(STORE_NAME, 'readwrite');
-            const store = tx.objectStore(STORE_NAME);
-            store.put({ id, ...record });
-        };
-
-        const cleanupDB = async (db, validBlocks) => {
-            const tx = db.transaction(STORE_NAME, 'readwrite');
-            const store = tx.objectStore(STORE_NAME);
-            const req = store.getAllKeys();
-            req.onsuccess = () => {
-                const keys = req.result;
-                const validSet = new Set(validBlocks);
-                keys.forEach(key => {
-                    if (!validSet.has(key)) {
-                        store.delete(key);
-                    }
-                });
-            };
-        };
-
-        const shuffleArray = (array) => {
-            let currentIndex = array.length, randomIndex;
-            while (currentIndex > 0) {
-                randomIndex = Math.floor(Math.random() * currentIndex);
-                currentIndex--;
-                [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
-            }
-            return array;
-        };
-
-        // 统一 Key 字符串处理：保持与 Python 端相同的 16 字节截断/填充 '\0' 逻辑
-        const formatKeyString = (keyStr) => {
-            if (!keyStr) return '';
-            if (keyStr.length > 16) {
-                return keyStr.substring(0, 16);
+    // --- 纯净版 XXTEA 解密算法 (严格对齐 Python 底层 C 扩展) ---
+    const CustomXXTEA = (() => {
+        const DELTA = 0x9E3779B9;
+        const toUint32Array = (bs, includeLength) => {
+            const length = bs.length;
+            let n = length >> 2;
+            if ((length & 3) !== 0) ++n;
+            let result;
+            if (includeLength) {
+                result = new Uint32Array(n + 1);
+                result[n] = length;
             } else {
-                return keyStr.padEnd(16, '\0');
+                result = new Uint32Array(n);
+            }
+            for (let i = 0; i < length; ++i) {
+                result[i >> 2] |= bs[i] << ((i & 3) << 3);
+            }
+            return result;
+        };
+        const toUint8Array = (v, includeLength) => {
+            const length = v.length;
+            let n = length << 2;
+            if (includeLength) {
+                const m = v[length - 1];
+                n -= 4;
+                if ((m < n - 3) || (m > n)) return null;
+                n = m;
+            }
+            const result = new Uint8Array(n);
+            for (let i = 0; i < n; ++i) {
+                result[i] = (v[i >> 2] >> ((i & 3) << 3)) & 0xff;
+            }
+            return result;
+        };
+        return {
+            decrypt: (dataBytes, keyBytes) => {
+                if (dataBytes.length === 0) return new Uint8Array(0);
+                const v = toUint32Array(dataBytes, false);
+                let k = toUint32Array(keyBytes, false);
+                if (k.length < 4) {
+                    const newK = new Uint32Array(4);
+                    newK.set(k);
+                    k = newK;
+                }
+                const n = v.length - 1;
+                if (n < 1) return dataBytes;
+                let z = v[n], y = v[0], q = Math.floor(6 + 52 / (n + 1));
+                let sum = (q * DELTA) >>> 0;
+                while (sum !== 0) {
+                    const e = sum >>> 2 & 3;
+                    for (let p = n; p > 0; p--) {
+                        z = v[p - 1];
+                        y = v[p] = (v[p] - (((z >>> 5 ^ y << 2) + (y >>> 3 ^ z << 4)) ^ ((sum ^ y) + (k[(p & 3) ^ e] ^ z)))) >>> 0;
+                    }
+                    z = v[n];
+                    y = v[0] = (v[0] - (((z >>> 5 ^ y << 2) + (y >>> 3 ^ z << 4)) ^ ((sum ^ y) + (k[(0 & 3) ^ e] ^ z)))) >>> 0;
+                    sum = (sum - DELTA) >>> 0;
+                }
+                return toUint8Array(v, true);
             }
         };
+    })();
 
-        // 解密函数：使用 xxtea-javascript 提供的 decryptFromBase64
-        const decryptXXTEA = (encryptedBase64, keyStr) => {
-            if (!keyStr || !encryptedBase64) return null;
-            try {
-                const formattedKey = formatKeyString(keyStr);
-                const decryptedText = xxtea.decryptFromBase64(encryptedBase64, formattedKey);
-                return decryptedText || null;
-            } catch (e) {
-                console.error("XXTEA 解密失败:", e);
-                return null;
+    // 核心解密调度函数
+    const decryptXXTEA = (encryptedBase64, keyStr) => {
+        if (!keyStr || !encryptedBase64) return null;
+        try {
+            // 1. Base64 转换为 Uint8Array (去除非法字符)
+            const cleanBase64 = encryptedBase64.replace(/\s+/g, '');
+            const binaryString = window.atob(cleanBase64);
+            const dataBytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                dataBytes[i] = binaryString.charCodeAt(i);
             }
+
+            // 2. 格式化 Key 为严格的 16 字节，与 Python 的 `.ljust(16, b'\0')` 对齐
+            const encoder = new TextEncoder();
+            const keyBytes = encoder.encode(keyStr);
+            const finalKey = new Uint8Array(16); // 默认填充 0
+            finalKey.set(keyBytes.length > 16 ? keyBytes.subarray(0, 16) : keyBytes);
+
+            // 3. 执行纯净版解密
+            const decryptedBytes = CustomXXTEA.decrypt(dataBytes, finalKey);
+            if (!decryptedBytes) return null;
+
+            // 4. 将字节数组转回 UTF-8 字符串
+            return new TextDecoder().decode(decryptedBytes);
+        } catch (e) {
+            console.error("原生 XXTEA 解密失败:", e);
+            return null;
+        }
+    };
+    // -------------------------------------------------------------
+
+    const DB_NAME = 'VocabAppDB';
+    const STORE_NAME = 'records';
+    const initDB = () => {
+        return new Promise((resolve) => {
+            const request = indexedDB.open(DB_NAME, 1);
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(STORE_NAME)) {
+                    db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+                }
+            };
+            request.onsuccess = (e) => resolve(e.target.result);
+        });
+    };
+
+    const getRecordsFromDB = async (db) => {
+        return new Promise((resolve) => {
+            const tx = db.transaction(STORE_NAME, 'readonly');
+            const store = tx.objectStore(STORE_NAME);
+            const req = store.getAll();
+            req.onsuccess = () => {
+                const data = {};
+                req.result.forEach(item => { data[item.id] = item; });
+                resolve(data);
+            };
+        });
+    };
+
+    const saveRecordToDB = async (db, id, record) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.put({ id, ...record });
+    };
+
+    const cleanupDB = async (db, validBlocks) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.getAllKeys();
+        req.onsuccess = () => {
+            const keys = req.result;
+            const validSet = new Set(validBlocks);
+            keys.forEach(key => {
+                if (!validSet.has(key)) store.delete(key);
+            });
         };
+    };
 
-        createApp({
-            setup() {
-                const db = ref(null);
-                const blocks = ref([]);     
-                const records = ref({}); 
-                const queue = ref([]); 
-                const currentBlockObj = ref(null);
-                const loading = ref(true);
-                const needManualUpload = ref(false);
-                const errorMessage = ref('');
-                const showSearch = ref(false);
-                const searchQuery = ref('');
-                const searchInput = ref(null);
+    const shuffleArray = (array) => {
+        let currentIndex = array.length, randomIndex;
+        while (currentIndex > 0) {
+            randomIndex = Math.floor(Math.random() * currentIndex);
+            currentIndex--;
+            [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+        }
+        return array;
+    };
 
-                const currentBlock = computed(() => currentBlockObj.value || '');
+    createApp({
+        setup() {
+            const db = ref(null);
+            const blocks = ref([]);     
+            const records = ref({}); 
+            const queue = ref([]); 
+            const currentBlockObj = ref(null);
+            const loading = ref(true);
+            const needManualUpload = ref(false);
+            const errorMessage = ref('');
+            const showSearch = ref(false);
+            const searchQuery = ref('');
+            const searchInput = ref(null);
 
-                const currentScore = computed(() => {
-                    const r = records.value[currentBlock.value];
-                    return r ? (r.score || 0) : 0;
+            const currentBlock = computed(() => currentBlockObj.value || '');
+
+            const currentScore = computed(() => {
+                const r = records.value[currentBlock.value];
+                return r ? (r.score || 0) : 0;
+            });
+
+            const totalMemorized = computed(() => blocks.value.filter(b => {
+                const r = records.value[b];
+                return r && (r.simpleCount > 0 || r.blurCount > 0);
+            }).length);
+
+            const totalItems = computed(() => blocks.value.length);
+            
+            const currentBlockLines = computed(() => {
+                if (!currentBlock.value) return [];
+                return currentBlock.value.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+            });
+
+            const formatLine = (line) => {
+                if (!line) return '';
+                const escapeHtml = (str) => str.replace(/[&<>"']/g, m => ({
+                    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+                })[m]);
+                let escaped = escapeHtml(line);
+                return escaped.replace(/\/([^\/]+)\//g, '<span class="bg-yellow-500 text-black font-bold px-1 rounded shadow-sm">$1</span>');
+            };
+
+            watch(showSearch, (newVal) => {
+                if (newVal) {
+                    nextTick(() => { if (searchInput.value) searchInput.value.focus(); });
+                }
+            });
+
+            const searchResults = computed(() => {
+                const q = searchQuery.value.trim().toLowerCase();
+                if (!q) return [];
+                return blocks.value.filter(b => b.toLowerCase().includes(q)).slice(0, 100);
+            });
+
+            const highlightText = (text, query) => {
+                if (!text) return '';
+                let cleanQuery = query.trim();
+                if (!cleanQuery) return text;
+                const escapeHtml = (str) => str.replace(/[&<>"']/g, m => ({
+                    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+                })[m]);
+                let escapedText = escapeHtml(text);
+                let escapedQuery = escapeHtml(cleanQuery);
+                const safeRegexQuery = escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                const regex = new RegExp(`(${safeRegexQuery})`, 'gi');
+                return escapedText.replace(regex, '<span class="bg-yellow-500 text-black font-bold px-1 rounded shadow-sm">$1</span>');
+            };
+
+            const closeSearch = () => { showSearch.value = false; searchQuery.value = ''; };
+            const selectBlock = (block) => { 
+                currentBlockObj.value = block; 
+                closeSearch(); 
+                queue.value = []; 
+            };
+
+            const pickNextBlock = () => {
+                if (blocks.value.length === 0) return;
+                if (queue.value.length > 0) {
+                    currentBlockObj.value = queue.value.shift();
+                    return;
+                }
+                const now = Date.now();
+                const dataList = blocks.value.map(b => {
+                    let r = records.value[b] || { simpleCount: 0, blurCount: 0, lastTime: 0, score: 0 };
+                    if (r.score === undefined) r.score = 0;
+                    return { text: b, ...r };
                 });
 
-                const totalMemorized = computed(() => blocks.value.filter(b => {
-                    const r = records.value[b];
-                    return r && (r.simpleCount > 0 || r.blurCount > 0);
-                }).length);
-
-                const totalItems = computed(() => blocks.value.length);
+                let selected = [];
+                let usedTexts = new Set();
+                let unreviewedPool = dataList.filter(d => d.simpleCount === 0 && d.blurCount === 0);
                 
-                const currentBlockLines = computed(() => {
-                    if (!currentBlock.value) return [];
-                    return currentBlock.value.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-                });
+                if (unreviewedPool.length > 0) {
+                    unreviewedPool = shuffleArray(unreviewedPool);
+                    selected.push(unreviewedPool[0]);
+                    usedTexts.add(unreviewedPool[0].text);
+                } else {
+                    let allShuffled = shuffleArray([...dataList]);
+                    selected.push(allShuffled[0]);
+                    usedTexts.add(allShuffled[0].text);
+                }
 
-                const formatLine = (line) => {
-                    if (!line) return '';
-                    const escapeHtml = (str) => str.replace(/[&<>"']/g, m => ({
-                        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-                    })[m]);
-                    let escaped = escapeHtml(line);
-                    return escaped.replace(/\/([^\/]+)\//g, '<span class="bg-yellow-500 text-black font-bold px-1 rounded shadow-sm">$1</span>');
-                };
+                let reviewedPool = dataList
+                    .filter(d => (d.simpleCount > 0 || d.blurCount > 0) && (now - d.lastTime >= 30000) && !usedTexts.has(d.text))
+                    .sort((a, b) => a.score - b.score); 
+                
+                let lowest20 = shuffleArray(reviewedPool.slice(0, 20)); 
+                let selectedReviewed = lowest20.slice(0, 9); 
+                selected.push(...selectedReviewed);
+                selectedReviewed.forEach(d => usedTexts.add(d.text));
 
-                watch(showSearch, (newVal) => {
-                    if (newVal) {
-                        nextTick(() => { if (searchInput.value) searchInput.value.focus(); });
-                    }
-                });
+                if (selected.length < 10) {
+                    let fillUnreviewed = unreviewedPool.filter(d => !usedTexts.has(d.text)).slice(0, 10 - selected.length);
+                    selected.push(...fillUnreviewed);
+                    fillUnreviewed.forEach(d => usedTexts.add(d.text));
+                }
+                if (selected.length < 10) {
+                    let fillReviewed = dataList
+                        .filter(d => (d.simpleCount > 0 || d.blurCount > 0) && !usedTexts.has(d.text))
+                        .sort((a, b) => a.score - b.score)
+                        .slice(0, 10 - selected.length);
+                    selected.push(...fillReviewed);
+                    fillReviewed.forEach(d => usedTexts.add(d.text));
+                }
 
-                const searchResults = computed(() => {
-                    const q = searchQuery.value.trim().toLowerCase();
-                    if (!q) return [];
-                    return blocks.value.filter(b => b.toLowerCase().includes(q)).slice(0, 100);
-                });
+                queue.value = shuffleArray(selected).map(item => item.text);
+                currentBlockObj.value = queue.value.length > 0 ? queue.value.shift() : blocks.value[0];
+            };
 
-                const highlightText = (text, query) => {
-                    if (!text) return '';
-                    let cleanQuery = query.trim();
-                    if (!cleanQuery) return text;
-                    const escapeHtml = (str) => str.replace(/[&<>"']/g, m => ({
-                        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-                    })[m]);
-                    let escapedText = escapeHtml(text);
-                    let escapedQuery = escapeHtml(cleanQuery);
-                    const safeRegexQuery = escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    const regex = new RegExp(`(${safeRegexQuery})`, 'gi');
-                    return escapedText.replace(regex, '<span class="bg-yellow-500 text-black font-bold px-1 rounded shadow-sm">$1</span>');
-                };
+            const handleAnswer = async (type) => {
+                const b = currentBlock.value;
+                if (!b) return;
+                let rec = records.value[b] || { simpleCount: 0, blurCount: 0, lastTime: 0, score: 0 };
+                if (rec.score === undefined) rec.score = 0;
+                
+                if (type === 'Simple') {
+                    rec.simpleCount++; rec.score += 1;
+                } else { 
+                    rec.blurCount++; rec.score -= 1;
+                }
+                
+                rec.lastTime = Date.now();
+                records.value[b] = rec;
+                if (db.value) await saveRecordToDB(db.value, b, rec);
+                pickNextBlock();
+            };
 
-                const closeSearch = () => { showSearch.value = false; searchQuery.value = ''; };
-                const selectBlock = (block) => { 
-                    currentBlockObj.value = block; 
-                    closeSearch(); 
-                    queue.value = []; 
-                };
+            const parseText = (text) => {
+                const normalizedText = text.replace(/\r\n/g, '\n');
+                const finalBlocks = normalizedText.split(/\n\s*\n/).map(b => b.trim()).filter(b => b.length > 0);
+                blocks.value = finalBlocks;
 
-                const pickNextBlock = () => {
-                    if (blocks.value.length === 0) return;
+                const currentSet = new Set(finalBlocks);
+                for (const key in records.value) {
+                    if (!currentSet.has(key)) delete records.value[key];
+                }
+                if (db.value) cleanupDB(db.value, finalBlocks);
+                
+                queue.value = []; 
+                if (blocks.value.length > 0) pickNextBlock();
+                loading.value = false;
+                needManualUpload.value = false;
+            };
 
-                    if (queue.value.length > 0) {
-                        currentBlockObj.value = queue.value.shift();
-                        return;
-                    }
+            const initData = async () => {
+                db.value = await initDB();
+                records.value = await getRecordsFromDB(db.value);
+                const urlParams = new URLSearchParams(window.location.search);
+                const pawd = urlParams.get('pawd');
 
-                    const now = Date.now();
-                    const dataList = blocks.value.map(b => {
-                        let r = records.value[b] || { simpleCount: 0, blurCount: 0, lastTime: 0, score: 0 };
-                        if (r.score === undefined) r.score = 0;
-                        return { text: b, ...r };
-                    });
-
-                    let selected = [];
-                    let usedTexts = new Set();
-
-                    let unreviewedPool = dataList.filter(d => d.simpleCount === 0 && d.blurCount === 0);
-                    if (unreviewedPool.length > 0) {
-                        unreviewedPool = shuffleArray(unreviewedPool);
-                        let randomOne = unreviewedPool[0];
-                        selected.push(randomOne);
-                        usedTexts.add(randomOne.text);
-                    } else {
-                        let allShuffled = shuffleArray([...dataList]);
-                        let randomOne = allShuffled[0];
-                        selected.push(randomOne);
-                        usedTexts.add(randomOne.text);
-                    }
-
-                    let reviewedPool = dataList
-                        .filter(d => (d.simpleCount > 0 || d.blurCount > 0) && (now - d.lastTime >= 30000) && !usedTexts.has(d.text))
-                        .sort((a, b) => a.score - b.score); 
+                try {
+                    const res = await fetch('w.txt?_=' + Date.now(), { cache: 'no-store' });
+                    if (!res.ok) throw new Error("无法加载 w.txt 文件");
                     
-                    let lowest20 = reviewedPool.slice(0, 20);
-                    lowest20 = shuffleArray(lowest20); 
-                    let selectedReviewed = lowest20.slice(0, 9); 
-                    
-                    selected.push(...selectedReviewed);
-                    selectedReviewed.forEach(d => usedTexts.add(d.text));
-
-                    if (selected.length < 10) {
-                        let needCount = 10 - selected.length;
-                        let remainingUnreviewed = unreviewedPool.filter(d => !usedTexts.has(d.text));
-                        let fillUnreviewed = remainingUnreviewed.slice(0, needCount);
-                        selected.push(...fillUnreviewed);
-                        fillUnreviewed.forEach(d => usedTexts.add(d.text));
-                    }
-                    if (selected.length < 10) {
-                        let needCount = 10 - selected.length;
-                        let remainingReviewed = dataList
-                            .filter(d => (d.simpleCount > 0 || d.blurCount > 0) && !usedTexts.has(d.text))
-                            .sort((a, b) => a.score - b.score);
-                        let fillReviewed = remainingReviewed.slice(0, needCount);
-                        selected.push(...fillReviewed);
-                        fillReviewed.forEach(d => usedTexts.add(d.text));
+                    const encryptedBase64 = (await res.text()).trim();
+                    if (!pawd) {
+                        errorMessage.value = 'URL 缺少密钥参数 pawd (例如: ?pawd=密钥)';
+                        throw new Error('未提供解密密钥');
                     }
 
-                    selected = shuffleArray(selected);
-                    queue.value = selected.map(item => item.text);
-
-                    if (queue.value.length > 0) {
-                        currentBlockObj.value = queue.value.shift();
-                    } else {
-                        currentBlockObj.value = blocks.value[0];
+                    const plainText = decryptXXTEA(encryptedBase64, pawd);
+                    if (!plainText) {
+                        errorMessage.value = '解密失败：请检查 URL 参数 pawd 是否正确';
+                        throw new Error('解密失败');
                     }
-                };
-
-                const handleAnswer = async (type) => {
-                    const b = currentBlock.value;
-                    if (!b) return;
-
-                    let rec = records.value[b] || { 
-                        simpleCount: 0, blurCount: 0, lastTime: 0, score: 0 
-                    };
-                    
-                    if (rec.score === undefined) rec.score = 0;
-
-                    const now = Date.now();
-
-                    if (type === 'Simple') {
-                        rec.simpleCount++;
-                        rec.score += 1;
-                    } else { 
-                        rec.blurCount++;
-                        rec.score -= 1;
-                    }
-                    
-                    rec.lastTime = now;
-                    records.value[b] = rec;
-
-                    if (db.value) await saveRecordToDB(db.value, b, rec);
-                    
-                    pickNextBlock();
-                };
-
-                const parseText = (text) => {
-                    const normalizedText = text.replace(/\r\n/g, '\n');
-                    const finalBlocks = normalizedText.split(/\n\s*\n/).map(b => b.trim()).filter(b => b.length > 0);
-
-                    blocks.value = finalBlocks;
-
-                    const currentSet = new Set(finalBlocks);
-                    for (const key in records.value) {
-                        if (!currentSet.has(key)) {
-                            delete records.value[key];
-                        }
-                    }
-
-                    if (db.value) {
-                        cleanupDB(db.value, finalBlocks);
-                    }
-                    
-                    queue.value = []; 
-                    if (blocks.value.length > 0) pickNextBlock();
+                    parseText(plainText);
+                } catch (e) {
+                    console.warn("自动处理异常:", e.message);
+                    needManualUpload.value = true;
                     loading.value = false;
-                    needManualUpload.value = false;
-                };
+                }
+            };
 
-                const initData = async () => {
-                    db.value = await initDB();
-                    records.value = await getRecordsFromDB(db.value);
-                    
-                    // 1. 获取 URL 中的 pawd 参数
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const pawd = urlParams.get('pawd');
-
-                    try {
-                        // 2. 获取加密的 w.txt
-                        const res = await fetch('w.txt?_=' + Date.now(), { cache: 'no-store' });
-                        if (!res.ok) throw new Error("无法加载 w.txt 文件");
-                        
-                        const encryptedBase64 = (await res.text()).trim();
-
-                        if (!pawd) {
-                            errorMessage.value = 'URL 缺少密钥参数 pawd (例如: ?pawd=密钥)';
-                            throw new Error('未提供解密密钥');
-                        }
-
-                        // 3. 执行 XXTEA 解密
-                        const plainText = decryptXXTEA(encryptedBase64, pawd);
-                        if (!plainText) {
-                            errorMessage.value = '解密失败：请检查 URL 参数 pawd 是否正确';
-                            throw new Error('解密失败');
-                        }
-
-                        // 4. 解析解密后的内容
-                        parseText(plainText);
-
-                    } catch (e) {
-                        console.warn("自动处理异常:", e.message);
-                        needManualUpload.value = true;
-                        loading.value = false;
+            const handleFileUpload = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                loading.value = true;
+                const pawd = new URLSearchParams(window.location.search).get('pawd');
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const rawContent = e.target.result.trim();
+                    let textToParse = rawContent;
+                    if (pawd) {
+                        const decrypted = decryptXXTEA(rawContent, pawd);
+                        if (decrypted) textToParse = decrypted;
                     }
+                    parseText(textToParse);
                 };
+                reader.readAsText(file);
+            };
 
-                const handleFileUpload = (event) => {
-                    const file = event.target.files[0];
-                    if (!file) return;
-                    loading.value = true;
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const pawd = urlParams.get('pawd');
+            const speakBlock = () => {
+                if (!currentBlockLines.value || currentBlockLines.value.length === 0) return;
+                window.speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(currentBlockLines.value[0].replace(/\//g, ''));
+                u.lang = 'ja-JP';
+                window.speechSynthesis.speak(u);
+            };
 
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        const rawContent = e.target.result.trim();
-                        let textToParse = rawContent;
-                        if (pawd) {
-                            const decrypted = decryptXXTEA(rawContent, pawd);
-                            if (decrypted) textToParse = decrypted;
-                        }
-                        parseText(textToParse);
-                    };
-                    reader.readAsText(file);
-                };
+            onMounted(() => initData());
 
-                const speakBlock = () => {
-                    if (!currentBlockLines.value || currentBlockLines.value.length === 0) return;
-                    window.speechSynthesis.cancel();
-                    const textToSpeak = currentBlockLines.value[0].replace(/\//g, '');
-                    const u = new SpeechSynthesisUtterance(textToSpeak);
-                    u.lang = 'ja-JP';
-                    window.speechSynthesis.speak(u);
-                };
-
-                onMounted(() => initData());
-
-                return {
-                    loading, needManualUpload, errorMessage, currentBlock, currentBlockLines,
-                    currentScore, totalMemorized, totalItems,
-                    handleAnswer, handleFileUpload, speakBlock,
-                    showSearch, searchQuery, searchResults, searchInput,
-                    closeSearch, selectBlock, highlightText, formatLine
-                };
-            }
-        }).mount('#app');
-    </script>
+            return {
+                loading, needManualUpload, errorMessage, currentBlock, currentBlockLines,
+                currentScore, totalMemorized, totalItems,
+                handleAnswer, handleFileUpload, speakBlock,
+                showSearch, searchQuery, searchResults, searchInput,
+                closeSearch, selectBlock, highlightText, formatLine
+            };
+        }
+    }).mount('#app');
+</script>
 </body>
 </html>
