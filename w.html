@@ -94,7 +94,7 @@
                         <!-- 所有行保持统一的大小和样式，并通过 formatLine 渲染 /内容/ 的高亮 -->
                         <div class="w-full flex flex-col min-h-full justify-center">
                             <div v-for="(line, index) in currentBlockLines" :key="index"
-                                 class="w-full break-words whitespace-pre-wrap leading-relaxed text-white text-xl md:text-2xl text-left looupwrap"
+                                 class="w-full break-words whitespace-pre-wrap leading-relaxed text-white text-3xl md:text-3xl text-left looupwrap"
                                  v-html="formatLine(line)">
                             </div>
                         </div>
