@@ -179,35 +179,46 @@
         };
     })();
 
-    // 核心解密调度函数
-    const decryptXXTEA = (encryptedBase64, keyStr) => {
-        if (!keyStr || !encryptedBase64) return null;
+  // 核心解密调度函数（终极防御版）
+const decryptXXTEA = (encryptedBase64, keyStr) => {
+    if (!keyStr || !encryptedBase64) return null;
+    try {
+        // 1. 更暴力的 Base64 清理：剔除所有非 Base64 字符（彻底封杀 BOM 和特殊换行符导致的崩溃）
+        const cleanBase64 = encryptedBase64.replace(/[^A-Za-z0-9+/=]/g, '');
+        let binaryString;
         try {
-            // 1. Base64 转换为 Uint8Array (去除非法字符)
-            const cleanBase64 = encryptedBase64.replace(/\s+/g, '');
-            const binaryString = window.atob(cleanBase64);
-            const dataBytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-                dataBytes[i] = binaryString.charCodeAt(i);
-            }
-
-            // 2. 格式化 Key 为严格的 16 字节，与 Python 的 `.ljust(16, b'\0')` 对齐
-            const encoder = new TextEncoder();
-            const keyBytes = encoder.encode(keyStr);
-            const finalKey = new Uint8Array(16); // 默认填充 0
-            finalKey.set(keyBytes.length > 16 ? keyBytes.subarray(0, 16) : keyBytes);
-
-            // 3. 执行纯净版解密
-            const decryptedBytes = CustomXXTEA.decrypt(dataBytes, finalKey);
-            if (!decryptedBytes) return null;
-
-            // 4. 将字节数组转回 UTF-8 字符串
-            return new TextDecoder().decode(decryptedBytes);
+            binaryString = window.atob(cleanBase64);
         } catch (e) {
-            console.error("原生 XXTEA 解密失败:", e);
+            alert("⚠️ Base64 解析失败！文本可能已损坏：" + e.message);
             return null;
         }
-    };
+        
+        const dataBytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+            dataBytes[i] = binaryString.charCodeAt(i);
+        }
+
+        // 2. 格式化 Key 为严格的 16 字节（加入 .trim() 防止 URL 参数尾部带空格）
+        const encoder = new TextEncoder();
+        const keyBytes = encoder.encode(keyStr.trim());
+        const finalKey = new Uint8Array(16); // 默认填充 0
+        finalKey.set(keyBytes.length > 16 ? keyBytes.subarray(0, 16) : keyBytes);
+
+        // 3. 执行纯净版解密
+        const decryptedBytes = CustomXXTEA.decrypt(dataBytes, finalKey);
+        
+        if (!decryptedBytes) {
+            alert("⚠️ XXTEA 解密被拒绝！\n原因：密钥不匹配，导致解密出的数据长度校验失败。请核对 URL 中的 pawd 参数。");
+            return null;
+        }
+
+        // 4. 将字节数组转回 UTF-8 字符串
+        return new TextDecoder().decode(decryptedBytes);
+    } catch (e) {
+        alert("⚠️ 未知解密错误: " + e.message);
+        return null;
+    }
+};
     // -------------------------------------------------------------
 
     const DB_NAME = 'VocabAppDB';
