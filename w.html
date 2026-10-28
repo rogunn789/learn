@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
-    <title>SuperMemo优化版</title>
+    <title>日语背诵</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
@@ -435,13 +435,30 @@ w
 
 发音逻辑优化：调整了左上角语音按钮的播放行为，现在点击发声时会调用系统内置引擎（默认日语 ja-JP），并且提取卡片的第一行内容进行发音，不再通读整段文字。
 
+再修改一下算法，每次取10个 其中9个的获取方法是，从得分最低里20个里取，但这20个具上次背诵时间不能少于30秒，1个随机取。
+
+算法已经为您修改完成并更新了 w.html。
+
+您的 HTML 优化版文件已准备好：
+
+HTML icon
+w
+ HTML 
+本次更新的抽取逻辑如下（每次仍生成 10 个入队）：
+
+1个随机抽取：优先从完全未背诵过的新卡片中随机取1个。如果所有卡片都已背过，则从所有卡片中随机抽取1个。
+
+9个定向复习：从已背过的卡片中，筛选出距离上次复习大于等于30秒的卡片。接着按分数从低到高排序，截取分数最低的前20个，然后从这20个中随机抽取9个。
+
+兜底补齐机制：如果在刚开始学习时，符合“超过30秒”条件的卡片不够9个，系统会先用未背诵的新卡片补齐；如果还是不够，则无视30秒的限制，直接按分数从低到高的顺序把剩余空缺补齐。最后将这10张卡片打乱顺序呈现。
+
 
 
 
 
 Gemini is AI and can make mistakes.
 
-Determining the next content block
+正在分析
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -702,7 +719,6 @@ Determining the next content block
                     const now = Date.now();
                     const dataList = blocks.value.map(b => {
                         let r = records.value[b] || { simpleCount: 0, blurCount: 0, lastTime: 0, score: 0 };
-                        // 兼容旧数据，如果没有 score 字段则默认为 0
                         if (r.score === undefined) r.score = 0;
                         return { text: b, ...r };
                     });
@@ -710,42 +726,55 @@ Determining the next content block
                     let selected = [];
                     let usedTexts = new Set();
 
-                    // 1. 抽取 2 张未背诵过的（随机）
+                    // 1. 抽取 1 张随机（优先从未背诵中取）
                     let unreviewedPool = dataList.filter(d => d.simpleCount === 0 && d.blurCount === 0);
-                    unreviewedPool = shuffleArray(unreviewedPool);
-                    let selectedUnreviewed = unreviewedPool.slice(0, 2);
-                    selected.push(...selectedUnreviewed);
-                    selectedUnreviewed.forEach(d => usedTexts.add(d.text));
+                    if (unreviewedPool.length > 0) {
+                        unreviewedPool = shuffleArray(unreviewedPool);
+                        let randomOne = unreviewedPool[0];
+                        selected.push(randomOne);
+                        usedTexts.add(randomOne.text);
+                    } else {
+                        // 如果没有未背诵的了，从所有卡片中随机取1张
+                        let allShuffled = shuffleArray([...dataList]);
+                        let randomOne = allShuffled[0];
+                        selected.push(randomOne);
+                        usedTexts.add(randomOne.text);
+                    }
 
-                    // 2. 抽取 8 张已背诵过的，条件：分数最小且距上次抽取 >= 20秒 (20000ms)
+                    // 2. 抽取 9 张，条件：上次背诵 >= 30秒(30000ms)，按分数升序取前20个，从中随机取9个
                     let reviewedPool = dataList
-                        .filter(d => (d.simpleCount > 0 || d.blurCount > 0) && (now - d.lastTime >= 20000) && !usedTexts.has(d.text))
-                        .sort((a, b) => a.score - b.score); // 按分数从小到大(升序)排序
+                        .filter(d => (d.simpleCount > 0 || d.blurCount > 0) && (now - d.lastTime >= 30000) && !usedTexts.has(d.text))
+                        .sort((a, b) => a.score - b.score); 
                     
-                    let selectedReviewed = reviewedPool.slice(0, 8);
+                    // 取分数最低的前20个
+                    let lowest20 = reviewedPool.slice(0, 20);
+                    lowest20 = shuffleArray(lowest20); // 打乱这20个
+                    let selectedReviewed = lowest20.slice(0, 9); // 取出9个
+                    
                     selected.push(...selectedReviewed);
                     selectedReviewed.forEach(d => usedTexts.add(d.text));
 
-                    // 3. 兜底策略 (Fallback): 如果前两步加起来不够 10 张，则优先从剩余的未背过内容中随机补齐
+                    // 3. 兜底策略: 如果不够10张（比如刚开始背，符合30秒条件的少于9个）
                     if (selected.length < 10) {
-                        let remainingUnreviewed = unreviewedPool.filter(d => !usedTexts.has(d.text));
                         let needCount = 10 - selected.length;
+                        // 先从未背诵的补齐
+                        let remainingUnreviewed = unreviewedPool.filter(d => !usedTexts.has(d.text));
                         let fillUnreviewed = remainingUnreviewed.slice(0, needCount);
                         selected.push(...fillUnreviewed);
                         fillUnreviewed.forEach(d => usedTexts.add(d.text));
                     }
-                    // 4. 兜底策略 (Fallback): 如果还是不够 10 张，忽略20秒限制，从剩下的已背卡片中取分数最小的补齐
                     if (selected.length < 10) {
+                        let needCount = 10 - selected.length;
+                        // 依然不够，无视30秒限制，从剩下的已背卡片中按分数从低到高补齐
                         let remainingReviewed = dataList
                             .filter(d => (d.simpleCount > 0 || d.blurCount > 0) && !usedTexts.has(d.text))
                             .sort((a, b) => a.score - b.score);
-                        let needCount = 10 - selected.length;
                         let fillReviewed = remainingReviewed.slice(0, needCount);
                         selected.push(...fillReviewed);
                         fillReviewed.forEach(d => usedTexts.add(d.text));
                     }
 
-                    // 5. 将选出的 10 张（或剩余所有）卡片打乱顺序进入队列
+                    // 4. 将选出的 10 张打乱顺序进入队列
                     selected = shuffleArray(selected);
                     queue.value = selected.map(item => item.text);
 
