@@ -113,10 +113,10 @@
         </div>
     </div>
 
-  <script>
+<script>
     const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
 
-    // --- 纯净版 XXTEA 解密算法 (严格对齐 Python 底层 C 扩展) ---
+    // --- 自适应版 XXTEA 解密算法 (完美兼容 Python 各种 Padding) ---
     const CustomXXTEA = (() => {
         const DELTA = 0x9E3779B9;
         const toUint32Array = (bs, includeLength) => {
@@ -135,21 +135,38 @@
             }
             return result;
         };
+        
+        // 【核心修复】智能适配追加长度与零填充 (Zero-Padding) 模式
         const toUint8Array = (v, includeLength) => {
             const length = v.length;
             let n = length << 2;
+            let isLengthAppended = false;
+            
             if (includeLength) {
                 const m = v[length - 1];
-                n -= 4;
-                if ((m < n - 3) || (m > n)) return null;
-                n = m;
+                // 校验 m 是否在合理的原始长度范围内
+                if (m >= (n - 7) && m <= (n - 4)) {
+                    n = m;
+                    isLengthAppended = true;
+                }
             }
+            
             const result = new Uint8Array(n);
             for (let i = 0; i < n; ++i) {
                 result[i] = (v[i >> 2] >> ((i & 3) << 3)) & 0xff;
             }
+            
+            // 如果 Python 没有追加长度，而是直接用 \0 补位，手动安全剔除尾部的 \0
+            if (!isLengthAppended) {
+                let actualLength = n;
+                while (actualLength > 0 && result[actualLength - 1] === 0) {
+                    actualLength--;
+                }
+                return result.subarray(0, actualLength);
+            }
             return result;
         };
+        
         return {
             decrypt: (dataBytes, keyBytes) => {
                 if (dataBytes.length === 0) return new Uint8Array(0);
@@ -179,46 +196,47 @@
         };
     })();
 
-  // 核心解密调度函数（终极防御版）
-const decryptXXTEA = (encryptedBase64, keyStr) => {
-    if (!keyStr || !encryptedBase64) return null;
-    try {
-        // 1. 更暴力的 Base64 清理：剔除所有非 Base64 字符（彻底封杀 BOM 和特殊换行符导致的崩溃）
-        const cleanBase64 = encryptedBase64.replace(/[^A-Za-z0-9+/=]/g, '');
-        let binaryString;
+    // 核心解密调度函数
+    const decryptXXTEA = (encryptedBase64, keyStr) => {
+        if (!keyStr || !encryptedBase64) return null;
         try {
-            binaryString = window.atob(cleanBase64);
+            // 剔除可能干扰解析的隐藏换行符与 BOM 字符
+            const cleanBase64 = encryptedBase64.replace(/[^A-Za-z0-9+/=]/g, '');
+            if (!cleanBase64) return null;
+            
+            let binaryString;
+            try {
+                binaryString = window.atob(cleanBase64);
+            } catch (e) {
+                alert("⚠️ Base64 解析失败，数据格式不合法！");
+                return null;
+            }
+            
+            const dataBytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                dataBytes[i] = binaryString.charCodeAt(i);
+            }
+
+            // 保持与 Python 端严格一致的 16 字节截断逻辑
+            const encoder = new TextEncoder();
+            const keyBytes = encoder.encode(keyStr.trim());
+            const finalKey = new Uint8Array(16); 
+            finalKey.set(keyBytes.length > 16 ? keyBytes.subarray(0, 16) : keyBytes);
+
+            const decryptedBytes = CustomXXTEA.decrypt(dataBytes, finalKey);
+            
+            if (!decryptedBytes || decryptedBytes.length === 0) {
+                alert("⚠️ 解密失败：密钥错误或密文损坏！");
+                return null;
+            }
+
+            // 转化为普通文本
+            return new TextDecoder().decode(decryptedBytes);
         } catch (e) {
-            alert("⚠️ Base64 解析失败！文本可能已损坏：" + e.message);
+            alert("⚠️ 未知解密异常: " + e.message);
             return null;
         }
-        
-        const dataBytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-            dataBytes[i] = binaryString.charCodeAt(i);
-        }
-
-        // 2. 格式化 Key 为严格的 16 字节（加入 .trim() 防止 URL 参数尾部带空格）
-        const encoder = new TextEncoder();
-        const keyBytes = encoder.encode(keyStr.trim());
-        const finalKey = new Uint8Array(16); // 默认填充 0
-        finalKey.set(keyBytes.length > 16 ? keyBytes.subarray(0, 16) : keyBytes);
-
-        // 3. 执行纯净版解密
-        const decryptedBytes = CustomXXTEA.decrypt(dataBytes, finalKey);
-        
-        if (!decryptedBytes) {
-            alert("⚠️ XXTEA 解密被拒绝！\n原因：密钥不匹配，导致解密出的数据长度校验失败。请核对 URL 中的 pawd 参数。");
-            return null;
-        }
-
-        // 4. 将字节数组转回 UTF-8 字符串
-        return new TextDecoder().decode(decryptedBytes);
-    } catch (e) {
-        alert("⚠️ 未知解密错误: " + e.message);
-        return null;
-    }
-};
+    };
     // -------------------------------------------------------------
 
     const DB_NAME = 'VocabAppDB';
