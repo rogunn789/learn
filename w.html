@@ -7,18 +7,20 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.js"></script>
+    <!-- 引入 XXTEA 解密库 -->
+    <script src="https://cdn.jsdelivr.net/npm/xxtea-node@1.5.0/xxtea.min.js"></script>
     <script src="https://rogunn789.github.io/learn/looup.js"></script>
-     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.1.0/style.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.1.0/style.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         html, body { margin: 0; padding: 0; width: 100%; height: 100dvh; overflow: hidden; background-color: #000000; color: #ffffff; }
         body { 
-             font-family: "LXGW WenKai", cursive;
+            font-family: "LXGW WenKai", cursive;
             font-weight: 400;
             font-style: normal;
             font-size: 24px;
             line-height: 32px;
-}
+        }
         [v-cloak] { display: none; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -64,7 +66,6 @@
         <div class="w-full max-w-lg flex-1 flex flex-col py-2 min-h-0">
             
             <div class="flex flex-row items-center justify-center mb-6 shrink-0 font-bold tracking-widest" v-if="!loading && !needManualUpload">
-                <!-- 整体进度与分数并排 -->
                 <div class="text-lg md:text-xl text-gray-300 flex items-center flex-wrap justify-center gap-4">
                     <div>
                         <span title="已背诵个数" class="text-blue-400">{{ totalMemorized }}</span> 
@@ -79,19 +80,19 @@
 
             <div class="flex-1 flex flex-col rounded-xl min-h-0">
                 <template v-if="loading">
-                    <div class="flex-grow flex items-center justify-center text-gray-400"><span>古卷加载中...</span></div>
+                    <div class="flex-grow flex items-center justify-center text-gray-400"><span>古卷解密加载中...</span></div>
                 </template>
                 <template v-else-if="needManualUpload">
                     <div class="flex-grow flex flex-col items-center justify-center text-center">
+                        <p class="text-red-400 text-base mb-4" v-if="errorMessage">{{ errorMessage }}</p>
                         <label class="cursor-pointer bg-gray-800 hover:bg-gray-700 border border-gray-600 py-3 px-8 rounded-md transition text-white shadow-lg">
-                            开启 w.txt 文件
+                            手动上传已加密/未加密的 w.txt
                             <input type="file" class="hidden" accept=".txt" @change="handleFileUpload">
                         </label>
                     </div>
                 </template>
                 <template v-else>
                     <div class="flex-1 flex flex-col items-center justify-center py-2 overflow-y-auto w-full min-h-0">
-                        <!-- 所有行保持统一的大小和样式，并通过 formatLine 渲染 /内容/ 的高亮 -->
                         <div class="w-full flex flex-col min-h-full justify-center">
                             <div v-for="(line, index) in currentBlockLines" :key="index"
                                  class="w-full break-words whitespace-pre-wrap leading-relaxed text-white text-3xl md:text-3xl text-left looupwrap"
@@ -176,6 +177,33 @@
             return array;
         };
 
+        // 统一 Key 字节处理：对齐 Python 的 format_key 逻辑 (16 字节截断/填充 \0)
+        const formatKeyToBytes = (keyStr) => {
+            const encoder = new TextEncoder();
+            const keyBytes = encoder.encode(keyStr);
+            const result = new Uint8Array(16);
+            if (keyBytes.length >= 16) {
+                result.set(keyBytes.subarray(0, 16));
+            } else {
+                result.set(keyBytes);
+            }
+            return result;
+        };
+
+        // 解密函数：先解 Base64，再使用 XXTEA 解密为 UTF-8 文本
+        const decryptXXTEA = (encryptedBase64, keyStr) => {
+            if (!keyStr) return null;
+            try {
+                const keyBytes = formatKeyToBytes(keyStr);
+                // xxtea.decryptToString 接收 (base64String/bytes, keyBytes)
+                const decryptedText = xxtea.decryptToString(encryptedBase64, keyBytes);
+                return decryptedText || null;
+            } catch (e) {
+                console.error("解密失败:", e);
+                return null;
+            }
+        };
+
         createApp({
             setup() {
                 const db = ref(null);
@@ -185,34 +213,30 @@
                 const currentBlockObj = ref(null);
                 const loading = ref(true);
                 const needManualUpload = ref(false);
+                const errorMessage = ref('');
                 const showSearch = ref(false);
                 const searchQuery = ref('');
                 const searchInput = ref(null);
 
                 const currentBlock = computed(() => currentBlockObj.value || '');
 
-                // 当前背诵内容的分数
                 const currentScore = computed(() => {
                     const r = records.value[currentBlock.value];
                     return r ? (r.score || 0) : 0;
                 });
 
-                // 总共背过的个数（只要背过一次算）
                 const totalMemorized = computed(() => blocks.value.filter(b => {
                     const r = records.value[b];
                     return r && (r.simpleCount > 0 || r.blurCount > 0);
                 }).length);
 
-                // 总个数
                 const totalItems = computed(() => blocks.value.length);
                 
-                // 按行分割供页面循环渲染
                 const currentBlockLines = computed(() => {
                     if (!currentBlock.value) return [];
                     return currentBlock.value.split('\n').map(line => line.trim()).filter(line => line.length > 0);
                 });
 
-                // 处理文本中 /.../ 包裹的高亮，同时对普通文本做 HTML 转义防注入
                 const formatLine = (line) => {
                     if (!line) return '';
                     const escapeHtml = (str) => str.replace(/[&<>"']/g, m => ({
@@ -255,7 +279,6 @@
                     queue.value = []; 
                 };
 
-                // --- 核心算法：基于分数的新定制算法 ---
                 const pickNextBlock = () => {
                     if (blocks.value.length === 0) return;
 
@@ -274,7 +297,6 @@
                     let selected = [];
                     let usedTexts = new Set();
 
-                    // 1. 抽取 1 张随机（优先从未背诵中取）
                     let unreviewedPool = dataList.filter(d => d.simpleCount === 0 && d.blurCount === 0);
                     if (unreviewedPool.length > 0) {
                         unreviewedPool = shuffleArray(unreviewedPool);
@@ -282,30 +304,25 @@
                         selected.push(randomOne);
                         usedTexts.add(randomOne.text);
                     } else {
-                        // 如果没有未背诵的了，从所有卡片中随机取1张
                         let allShuffled = shuffleArray([...dataList]);
                         let randomOne = allShuffled[0];
                         selected.push(randomOne);
                         usedTexts.add(randomOne.text);
                     }
 
-                    // 2. 抽取 9 张，条件：上次背诵 >= 30秒(30000ms)，按分数升序取前20个，从中随机取9个
                     let reviewedPool = dataList
                         .filter(d => (d.simpleCount > 0 || d.blurCount > 0) && (now - d.lastTime >= 30000) && !usedTexts.has(d.text))
                         .sort((a, b) => a.score - b.score); 
                     
-                    // 取分数最低的前20个
                     let lowest20 = reviewedPool.slice(0, 20);
-                    lowest20 = shuffleArray(lowest20); // 打乱这20个
-                    let selectedReviewed = lowest20.slice(0, 9); // 取出9个
+                    lowest20 = shuffleArray(lowest20); 
+                    let selectedReviewed = lowest20.slice(0, 9); 
                     
                     selected.push(...selectedReviewed);
                     selectedReviewed.forEach(d => usedTexts.add(d.text));
 
-                    // 3. 兜底策略: 如果不够10张（比如刚开始背，符合30秒条件的少于9个）
                     if (selected.length < 10) {
                         let needCount = 10 - selected.length;
-                        // 先从未背诵的补齐
                         let remainingUnreviewed = unreviewedPool.filter(d => !usedTexts.has(d.text));
                         let fillUnreviewed = remainingUnreviewed.slice(0, needCount);
                         selected.push(...fillUnreviewed);
@@ -313,7 +330,6 @@
                     }
                     if (selected.length < 10) {
                         let needCount = 10 - selected.length;
-                        // 依然不够，无视30秒限制，从剩下的已背卡片中按分数从低到高补齐
                         let remainingReviewed = dataList
                             .filter(d => (d.simpleCount > 0 || d.blurCount > 0) && !usedTexts.has(d.text))
                             .sort((a, b) => a.score - b.score);
@@ -322,7 +338,6 @@
                         fillReviewed.forEach(d => usedTexts.add(d.text));
                     }
 
-                    // 4. 将选出的 10 张打乱顺序进入队列
                     selected = shuffleArray(selected);
                     queue.value = selected.map(item => item.text);
 
@@ -333,7 +348,6 @@
                     }
                 };
 
-                // --- 核心操作：更新统计与时间 ---
                 const handleAnswer = async (type) => {
                     const b = currentBlock.value;
                     if (!b) return;
@@ -342,12 +356,10 @@
                         simpleCount: 0, blurCount: 0, lastTime: 0, score: 0 
                     };
                     
-                    // 兼容旧数据
                     if (rec.score === undefined) rec.score = 0;
 
                     const now = Date.now();
 
-                    // 点击容易加1分，点击模糊减1分
                     if (type === 'Simple') {
                         rec.simpleCount++;
                         rec.score += 1;
@@ -356,8 +368,7 @@
                         rec.score -= 1;
                     }
                     
-                    rec.lastTime = now; // 记录最近的背诵时间
-                    
+                    rec.lastTime = now;
                     records.value[b] = rec;
 
                     if (db.value) await saveRecordToDB(db.value, b, rec);
@@ -367,7 +378,6 @@
 
                 const parseText = (text) => {
                     const normalizedText = text.replace(/\r\n/g, '\n');
-                    // 直接按照空行分割背诵内容
                     const finalBlocks = normalizedText.split(/\n\s*\n/).map(b => b.trim()).filter(b => b.length > 0);
 
                     blocks.value = finalBlocks;
@@ -392,12 +402,35 @@
                 const initData = async () => {
                     db.value = await initDB();
                     records.value = await getRecordsFromDB(db.value);
+                    
+                    // 1. 获取 URL 中的 pawd 参数
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const pawd = urlParams.get('pawd');
+
                     try {
+                        // 2. 获取加密的 w.txt
                         const res = await fetch('w.txt?_=' + Date.now(), { cache: 'no-store' });
-                        if (!res.ok) throw new Error();
-                        const text = await res.text();
-                        parseText(text);
+                        if (!res.ok) throw new Error("无法加载 w.txt 文件");
+                        
+                        const encryptedBase64 = (await res.text()).trim();
+
+                        if (!pawd) {
+                            errorMessage.value = 'URL 缺少密钥参数 pawd (例如: ?pawd=密钥)';
+                            throw new Error('未提供解密密钥');
+                        }
+
+                        // 3. 执行 XXTEA 解密
+                        const plainText = decryptXXTEA(encryptedBase64, pawd);
+                        if (!plainText) {
+                            errorMessage.value = '解密失败：请检查 URL 参数 pawd 是否正确';
+                            throw new Error('解密失败');
+                        }
+
+                        // 4. 解析解密后的内容
+                        parseText(plainText);
+
                     } catch (e) {
+                        console.warn("自动处理异常:", e.message);
                         needManualUpload.value = true;
                         loading.value = false;
                     }
@@ -407,15 +440,26 @@
                     const file = event.target.files[0];
                     if (!file) return;
                     loading.value = true;
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const pawd = urlParams.get('pawd');
+
                     const reader = new FileReader();
-                    reader.onload = (e) => parseText(e.target.result);
+                    reader.onload = (e) => {
+                        const rawContent = e.target.result.trim();
+                        // 尝试解密，若解密失败（或未加密文件）则按明文解析
+                        let textToParse = rawContent;
+                        if (pawd) {
+                            const decrypted = decryptXXTEA(rawContent, pawd);
+                            if (decrypted) textToParse = decrypted;
+                        }
+                        parseText(textToParse);
+                    };
                     reader.readAsText(file);
                 };
 
                 const speakBlock = () => {
                     if (!currentBlockLines.value || currentBlockLines.value.length === 0) return;
                     window.speechSynthesis.cancel();
-                    // 朗读时过滤掉斜杠，提升语音连贯度
                     const textToSpeak = currentBlockLines.value[0].replace(/\//g, '');
                     const u = new SpeechSynthesisUtterance(textToSpeak);
                     u.lang = 'ja-JP';
@@ -425,7 +469,7 @@
                 onMounted(() => initData());
 
                 return {
-                    loading, needManualUpload, currentBlock, currentBlockLines,
+                    loading, needManualUpload, errorMessage, currentBlock, currentBlockLines,
                     currentScore, totalMemorized, totalItems,
                     handleAnswer, handleFileUpload, speakBlock,
                     showSearch, searchQuery, searchResults, searchInput,
