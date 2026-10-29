@@ -358,6 +358,13 @@
                 </div>
 
                 <div class="pt-3 border-t border-gray-600 border-opacity-30">
+                    <label class="block mb-2 text-sm font-medium">TTS 语音发音 (Japanese Voice)</label>
+                    <select id="voice-select" class="w-full px-3 py-2 bg-black bg-opacity-20 border border-gray-600 border-opacity-50 rounded-lg text-xs focus:outline-none focus:border-amber-500" onchange="handleVoiceChange(event)">
+                        <option value="">系统默认发音 (Default)</option>
+                    </select>
+                </div>
+
+                <div class="pt-3 border-t border-gray-600 border-opacity-30">
                     <label class="block mb-2 text-sm font-medium">自定义字体 (.ttf, .otf)</label>
                     <input type="file" id="font-upload" accept=".ttf,.otf" class="block w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-600 file:text-white hover:file:bg-amber-500 cursor-pointer" onchange="handleFontUpload(event)">
                     <p id="font-status-text" class="text-xs opacity-60 mt-1">未设置自定义字体</p>
@@ -397,6 +404,7 @@
             tokenizerReady: false,
             currentBook: null,
             currentSpeakingIndex: null,
+            availableVoices: [],
             settings: {
                 theme: 'night',
                 fontSize: 18,
@@ -404,7 +412,8 @@
                 showFurigana: true,
                 customFont: null,
                 fontName: null,
-                lastBookId: null
+                lastBookId: null,
+                selectedVoiceURI: null
             },
             sentencesPerPage: 50
         };
@@ -546,6 +555,7 @@
                 }
                 
                 applySettings();
+                initVoiceList();
 
                 // Load active book INSTANTLY without waiting for dict
                 if (AppState.settings.lastBookId) {
@@ -561,6 +571,45 @@
                 console.error("Initialization error:", e);
                 showToast("数据库初始化失败");
             }
+        }
+
+        // --- TTS Voice Setup & Management ---
+        function initVoiceList() {
+            if (!('speechSynthesis' in window)) return;
+
+            const updateVoices = () => {
+                const voices = window.speechSynthesis.getVoices();
+                // 筛选包含 ja 的日语音效（支持 ja, ja-JP, ja_JP）
+                const jaVoices = voices.filter(v => v.lang.toLowerCase().includes('ja'));
+                AppState.availableVoices = jaVoices;
+
+                const selectEl = document.getElementById('voice-select');
+                if (!selectEl) return;
+
+                selectEl.innerHTML = '<option value="">系统默认发音 (Default)</option>';
+                jaVoices.forEach(v => {
+                    const opt = document.createElement('option');
+                    opt.value = v.voiceURI;
+                    // 显示声音名称及是否为本地离线语音
+                    opt.innerText = `${v.name} (${v.lang})${v.localService ? ' [离线]' : ''}`;
+                    if (v.voiceURI === AppState.settings.selectedVoiceURI) {
+                        opt.selected = true;
+                    }
+                    selectEl.appendChild(opt);
+                });
+            };
+
+            updateVoices();
+            // 兼容 iOS / Chrome 异步加载 Voices 的生命周期
+            if (speechSynthesis.onvoiceschanged !== undefined) {
+                speechSynthesis.onvoiceschanged = updateVoices;
+            }
+        }
+
+        async function handleVoiceChange(e) {
+            AppState.settings.selectedVoiceURI = e.target.value || null;
+            await saveSettings();
+            showToast("TTS 发音设置已更新");
         }
 
         // Background non-blocking Kuromoji dictionary builder
@@ -899,9 +948,20 @@
             utterance.rate = 0.95;
 
             const voices = window.speechSynthesis.getVoices();
-            const jaVoice = voices.find(v => v.lang.startsWith('ja') || v.lang === 'ja_JP');
-            if (jaVoice) {
-                utterance.voice = jaVoice;
+            let selectedVoice = null;
+
+            // 优先匹配用户在设置中选中的 voiceURI
+            if (AppState.settings.selectedVoiceURI) {
+                selectedVoice = voices.find(v => v.voiceURI === AppState.settings.selectedVoiceURI);
+            }
+
+            // 兜底降级逻辑：匹配系统首个日语发音
+            if (!selectedVoice) {
+                selectedVoice = voices.find(v => v.lang.toLowerCase().includes('ja'));
+            }
+
+            if (selectedVoice) {
+                utterance.voice = selectedVoice;
             }
 
             utterance.onstart = () => {
@@ -1171,6 +1231,8 @@
             
             if (id === 'library-modal') {
                 populateLibrary();
+            } else if (id === 'settings-modal') {
+                initVoiceList();
             }
             
             void modal.offsetWidth;
