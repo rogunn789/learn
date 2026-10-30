@@ -728,7 +728,7 @@
             const reader = new FileReader();
             reader.onload = async (e) => {
                 const text = e.target.result;
-                let chunks = text.match(/[^。！？\n]+[。！？\n]*|[。！？\n]+/g) || [];
+                let chunks = text.match(/[^。]+。?|。+/g) || [];
                 chunks = chunks.map(c => c.trim()).filter(c => c.length > 0);
 
                 if (chunks.length === 0) {
