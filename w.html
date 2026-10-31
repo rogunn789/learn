@@ -10,6 +10,7 @@
     <script src="https://rogunn789.github.io/learn/looup.js"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lxgw-wenkai-webfont@1.1.0/style.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style id="custom-font-style"></style>
     <style>
         html, body { margin: 0; padding: 0; width: 100%; height: 100dvh; overflow: hidden; background-color: #000000; color: #ffffff; }
         body { 
@@ -17,30 +18,52 @@
             font-weight: 400;
             font-style: normal;
             font-size: 24px;
-            line-height: 32px;
+            line-height: 1.6;
         }
         [v-cloak] { display: none; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
-        button, input { touch-action: manipulation; }
+        button, input, select { touch-action: manipulation; }
+        
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(4px);
+        }
+        .modal-content {
+            background-color: #111827;
+            border: 1px solid #374151;
+            color: #f3f4f6;
+        }
     </style>
 </head>
 <body>
 
     <div id="app" v-cloak class="h-full w-full flex flex-col items-center justify-center p-4 box-border relative overflow-hidden">
          
+        <!-- 顶部左侧：朗读全部内容按钮 -->
         <button @click="speakBlock" 
                 v-if="currentBlock && !loading && !needManualUpload"
-                class="absolute top-4 left-4 md:top-8 md:left-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-100 transition-colors shadow-sm z-10">
+                title="朗读全部背诵内容"
+                class="absolute top-4 left-4 md:top-8 md:left-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-100 transition-colors shadow-sm z-10 active:scale-95">
             <i class="fa-solid fa-volume-high text-xl"></i>
         </button>
 
-        <button @click="showSearch = true" 
-                class="absolute top-4 right-4 md:top-8 md:right-8 w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-100 transition-colors shadow-sm z-10">
-            <i class="fa-solid fa-magnifying-glass text-xl"></i>
-        </button>
+        <!-- 顶部右侧：搜索 & 设置按钮组 -->
+        <div class="absolute top-4 right-4 md:top-8 md:right-8 flex items-center gap-3 z-10">
+            <button @click="showSearch = true" 
+                    title="搜索"
+                    class="w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-100 transition-colors shadow-sm active:scale-95">
+                <i class="fa-solid fa-magnifying-glass text-xl"></i>
+            </button>
+            <button @click="showSettings = true" 
+                    title="阅读设置"
+                    class="w-12 h-12 flex items-center justify-center rounded-full bg-gray-800 hover:bg-gray-700 text-gray-100 transition-colors shadow-sm active:scale-95">
+                <i class="fa-solid fa-gear text-xl"></i>
+            </button>
+        </div>
 
+        <!-- 搜索弹窗 -->
         <div v-if="showSearch" class="fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-start z-50 pt-16 md:pt-24" @click.self="closeSearch">
             <div class="bg-gray-900 w-11/12 max-w-2xl rounded-xl shadow-2xl flex flex-col max-h-[75vh] overflow-hidden border border-gray-700 transform transition-all">
                 <div class="p-4 border-b border-gray-700 flex items-center gap-3 bg-gray-800">
@@ -61,6 +84,61 @@
             </div>
         </div>
 
+        <!-- 参照 ireader 的设置弹窗 -->
+        <div v-if="showSettings" class="fixed inset-0 z-50 flex items-center justify-center modal-overlay" @click.self="showSettings = false">
+            <div class="modal-content w-11/12 max-w-md rounded-2xl shadow-2xl p-6 relative border border-gray-700">
+                <button @click="showSettings = false" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+                <h2 class="text-xl font-bold mb-6 text-white flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-amber-500"></i> 阅读与发音设置
+                </h2>
+                
+                <div class="space-y-5 text-sm">
+                    <!-- 字体大小 -->
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium text-gray-300">字体大小 (Font Size)</span>
+                        <div class="flex items-center space-x-2">
+                            <button @click="changeFontSize(-2)" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center font-bold text-lg border border-gray-700">-</button>
+                            <span class="w-12 text-center font-mono text-amber-400">{{ settings.fontSize }}px</span>
+                            <button @click="changeFontSize(2)" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center font-bold text-lg border border-gray-700">+</button>
+                        </div>
+                    </div>
+
+                    <!-- 行间距 -->
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium text-gray-300">行间距 (Line Spacing)</span>
+                        <div class="flex items-center space-x-2">
+                            <button @click="changeLineSpacing(-0.2)" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center font-bold text-lg border border-gray-700">-</button>
+                            <span class="w-12 text-center font-mono text-amber-400">{{ settings.lineSpacing.toFixed(1) }}</span>
+                            <button @click="changeLineSpacing(0.2)" class="w-8 h-8 rounded-lg bg-gray-800 hover:bg-gray-700 flex items-center justify-center font-bold text-lg border border-gray-700">+</button>
+                        </div>
+                    </div>
+
+                    <!-- TTS 语音发音 -->
+                    <div class="pt-3 border-t border-gray-800">
+                        <label class="block mb-2 font-medium text-gray-300">TTS 语音发音 (Japanese Voice)</label>
+                        <select v-model="settings.selectedVoiceURI" @change="saveSettings" class="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-xs text-gray-200 focus:outline-none focus:border-amber-500">
+                            <option value="">系统默认发音 (Default)</option>
+                            <option v-for="voice in availableVoices" :key="voice.voiceURI" :value="voice.voiceURI">
+                                {{ voice.name }} ({{ voice.lang }}) {{ voice.localService ? '[离线]' : '' }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <!-- 自定义字体 -->
+                    <div class="pt-3 border-t border-gray-800">
+                        <label class="block mb-2 font-medium text-gray-300">自定义字体 (.ttf, .otf)</label>
+                        <input type="file" accept=".ttf,.otf" class="block w-full text-xs text-gray-400 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-600 file:text-white hover:file:bg-amber-500 cursor-pointer" @change="handleFontUpload">
+                        <p class="text-xs text-gray-400 mt-1">
+                            {{ settings.fontName ? '已启用: ' + settings.fontName : '未设置自定义字体 (默认: 霞鹜文楷)' }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主内容区域 -->
         <div class="w-full max-w-lg flex-1 flex flex-col py-2 min-h-0">
             
             <div class="flex flex-row items-center justify-center mb-6 shrink-0 font-bold tracking-widest" v-if="!loading && !needManualUpload">
@@ -90,11 +168,10 @@
                     </div>
                 </template>
                 <template v-else>
-                    <!-- 优化布局：修改为 justify-start 并增加 padding，防止顶部内容被裁切 -->
                     <div class="flex-1 flex flex-col items-center justify-start py-4 overflow-y-auto w-full min-h-0">
-                        <div class="w-full flex flex-col min-h-full justify-start gap-4 px-2 py-2">
+                        <div class="w-full flex flex-col min-h-full justify-start gap-4 px-2 py-2" :style="{ fontSize: settings.fontSize + 'px', lineHeight: settings.lineSpacing }">
                             <div v-for="(line, index) in currentBlockLines" :key="index"
-                                 class="w-full break-words whitespace-pre-wrap leading-relaxed text-white text-2xl md:text-2xl text-left looupwrap"
+                                 class="w-full break-words whitespace-pre-wrap leading-relaxed text-white text-left looupwrap"
                                  v-html="formatLine(line)">
                             </div>
                         </div>
@@ -115,9 +192,9 @@
     </div>
 
 <script>
-    const { createApp, ref, computed, onMounted, watch, nextTick } = Vue;
+    const { createApp, ref, computed, onMounted, watch, nextTick, reactive } = Vue;
 
-    // --- 自适应版 XXTEA 解密算法 (完美兼容 Python 各种 Padding) ---
+    // --- 自适应版 XXTEA 解密算法 ---
     const CustomXXTEA = (() => {
         const DELTA = 0x9E3779B9;
         const toUint32Array = (bs, includeLength) => {
@@ -199,7 +276,6 @@
         try {
             const cleanBase64 = encryptedBase64.replace(/[^A-Za-z0-9+/=]/g, '');
             if (!cleanBase64) return null;
-            
             let binaryString;
             try {
                 binaryString = window.atob(cleanBase64);
@@ -289,7 +365,7 @@
         return array;
     };
 
-    // 保存 SpeechSynthesisUtterance 全局引用，防止 iOS Safari GC 回收
+    // 防止 iOS Safari GC 回收
     let activeUtterance = null;
 
     createApp({
@@ -302,9 +378,23 @@
             const loading = ref(true);
             const needManualUpload = ref(false);
             const errorMessage = ref('');
+            
+            // 搜索与设置状态
             const showSearch = ref(false);
             const searchQuery = ref('');
             const searchInput = ref(null);
+            const showSettings = ref(false);
+
+            // 设置属性
+            const settings = reactive({
+                fontSize: 24,
+                lineSpacing: 1.6,
+                selectedVoiceURI: '',
+                customFont: null,
+                fontName: null
+            });
+
+            const availableVoices = ref([]);
 
             const currentBlock = computed(() => currentBlockObj.value || '');
 
@@ -332,6 +422,71 @@
                 })[m]);
                 let escaped = escapeHtml(line);
                 return escaped.replace(/\/([^\/]+)\//g, '<span class="bg-yellow-500 text-black font-bold px-1 rounded shadow-sm">$1</span>');
+            };
+
+            // 设置与配置持久化
+            const loadSettings = () => {
+                const saved = localStorage.getItem('w_html_settings');
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved);
+                        Object.assign(settings, parsed);
+                        applyCustomFont();
+                    } catch(e) {}
+                }
+            };
+
+            const saveSettings = () => {
+                localStorage.setItem('w_html_settings', JSON.stringify(settings));
+                applyCustomFont();
+            };
+
+            const changeFontSize = (delta) => {
+                settings.fontSize = Math.max(12, Math.min(36, settings.fontSize + delta));
+                saveSettings();
+            };
+
+            const changeLineSpacing = (delta) => {
+                settings.lineSpacing = Math.max(1.2, Math.min(3.8, parseFloat((settings.lineSpacing + delta).toFixed(1))));
+                saveSettings();
+            };
+
+            const handleFontUpload = (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    settings.customFont = e.target.result;
+                    settings.fontName = file.name;
+                    saveSettings();
+                };
+                reader.readAsDataURL(file);
+            };
+
+            const applyCustomFont = () => {
+                const fontStyle = document.getElementById('custom-font-style');
+                if (!fontStyle) return;
+                if (settings.customFont) {
+                    fontStyle.innerHTML = `
+                        @font-face { font-family: 'CustomUserFont'; src: url(${settings.customFont}); }
+                        body { font-family: 'CustomUserFont', "LXGW WenKai", cursive !important; }
+                    `;
+                } else {
+                    fontStyle.innerHTML = '';
+                }
+            };
+
+            const initVoiceList = () => {
+                if (!('speechSynthesis' in window)) return;
+                const updateVoices = () => {
+                    const voices = window.speechSynthesis.getVoices();
+                    const jaVoices = voices.filter(v => v.lang.toLowerCase().includes('ja'));
+                    availableVoices.value = jaVoices;
+                };
+                updateVoices();
+                if (speechSynthesis.onvoiceschanged !== undefined) {
+                    speechSynthesis.onvoiceschanged = updateVoices;
+                }
             };
 
             watch(showSearch, (newVal) => {
@@ -457,6 +612,8 @@
             };
 
             const initData = async () => {
+                loadSettings();
+                initVoiceList();
                 db.value = await initDB();
                 records.value = await getRecordsFromDB(db.value);
                 const urlParams = new URLSearchParams(window.location.search);
@@ -503,23 +660,28 @@
                 reader.readAsText(file);
             };
 
-            // 针对 iOS Safari 优化后的发音逻辑
+            // 改良后的全量朗读逻辑：合并当前块全部背诵内容进行朗读
             const speakBlock = () => {
                 if (!currentBlockLines.value || currentBlockLines.value.length === 0) return;
                 if (!('speechSynthesis' in window)) return;
 
-                // 同步取消上一次的朗读
                 window.speechSynthesis.cancel();
 
-                // 提炼并格式化要朗读的文本
-                const rawText = currentBlockLines.value[0].replace(/\//g, '');
+                // 将背诵块内的所有行文本拼接（用句号/换行分隔，并清洗高亮斜杠符号）
+                const rawText = currentBlockLines.value
+                    .map(line => line.replace(/\//g, ''))
+                    .join('。 ');
                 
-                // 将 Utterance 绑定给外部全局变量防止被 GC 回收
                 activeUtterance = new SpeechSynthesisUtterance(rawText);
                 activeUtterance.lang = 'ja-JP';
-                activeUtterance.rate = 1.0;
+                activeUtterance.rate = 0.95;
 
-                // 同步触发朗读
+                // 设置选择的发音人
+                if (settings.selectedVoiceURI && availableVoices.value.length > 0) {
+                    const targetVoice = availableVoices.value.find(v => v.voiceURI === settings.selectedVoiceURI);
+                    if (targetVoice) activeUtterance.voice = targetVoice;
+                }
+
                 window.speechSynthesis.speak(activeUtterance);
             };
 
@@ -530,7 +692,9 @@
                 currentScore, totalMemorized, totalItems,
                 handleAnswer, handleFileUpload, speakBlock,
                 showSearch, searchQuery, searchResults, searchInput,
-                closeSearch, selectBlock, highlightText, formatLine
+                closeSearch, selectBlock, highlightText, formatLine,
+                showSettings, settings, availableVoices,
+                changeFontSize, changeLineSpacing, handleFontUpload, saveSettings
             };
         }
     }).mount('#app');
