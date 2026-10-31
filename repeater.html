@@ -704,57 +704,28 @@
 
         // ================= 波形及 Regions 逻辑核心更新 =================
 
-   // 渲染波形 Region 并添加线顶部的绿点
-function renderRegions() {
-    if (!state.wsRegions) return;
-    state.wsRegions.clearRegions();
-    const show = DOM.chkShowRegion.checked;
-
-    state.sentences.forEach((s, idx) => {
-        const region = state.wsRegions.addRegion({
-            id: 'region-' + idx,
-            start: s.start,
-            end: s.end,
-            color: idx === state.currentIndex 
-                ? 'rgba(99, 102, 241, 0.4)' 
-                : (idx % 2 === 0 ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.1)'),
-            drag: false,   // 不允许拖动整个块
-            resize: true   // 允许拖动左右边缘改变时间
-        });
-
-        // 获取当前 Region 的 DOM 元素，注入绿点按钮
-        if (region.element) {
-            if (!show) {
-                region.element.style.display = 'none';
-            }
-
-            // 创建起点绿点
-            const startDot = document.createElement('div');
-            startDot.className = 'handle-play-dot start-dot';
-            startDot.title = `跳转并播放第 ${idx + 1} 句开头 (${formatTime(s.start)})`;
-            startDot.addEventListener('click', (e) => {
-                e.stopPropagation(); // 阻止触发 Region 的默认拖拽事件
-                jumpToSentence(idx, true);
-            });
-
-            // 创建终点绿点
-            const endDot = document.createElement('div');
-            endDot.className = 'handle-play-dot end-dot';
-            endDot.title = `跳转并播放第 ${idx + 1} 句结尾 (${formatTime(s.end)})`;
-            endDot.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (state.wavesurfer) {
-                    state.wavesurfer.setTime(s.end);
-                    state.wavesurfer.play();
+        // 统一渲染全部断句区间 (Regions)，允许用户直接拖拽左右边界调整断点
+        function renderRegions() {
+            if (!state.wsRegions) return;
+            state.wsRegions.clearRegions();
+            const show = DOM.chkShowRegion.checked;
+            state.sentences.forEach((s, idx) => {
+                const region = state.wsRegions.addRegion({
+                    id: 'region-' + idx,
+                    start: s.start,
+                    end: s.end,
+                    color: idx === state.currentIndex 
+                        ? 'rgba(99, 102, 241, 0.4)' 
+                        : (idx % 2 === 0 ? 'rgba(255, 255, 255, 0.05)' : 'rgba(255, 255, 255, 0.1)'),
+                    drag: false,   // 不允许拖动整个块
+                    resize: true   // 允许拖动左右边缘改变时间
+                });
+                if (!show && region.element) {
+                    region.element.style.display = 'none';
                 }
             });
-
-            // 挂载到 Region 节点上
-            region.element.appendChild(startDot);
-            region.element.appendChild(endDot);
         }
-    });
-}
+
         function initWaveSurfer() {
             state.wsRegions = WaveSurfer.Regions.create();
             state.wavesurfer = WaveSurfer.create({
