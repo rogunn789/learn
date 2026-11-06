@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Eufloria - Multithreaded AI (4 Players)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #0b0f19; font-family: 'Inter', sans-serif; user-select: none; -webkit-user-select: none; touch-action: none; }
+        canvas { display: block; width: 100%; height: 100%; cursor: default; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
+        .glow-text { text-shadow: 0 0 10px rgba(147, 197, 253, 0.5); }
+        .glass-panel { background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.1); }
+    </style>
+</head>
+<body class="relative text-slate-200">
+
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Top Navigation HUD -->
+    <div class="absolute top-4 left-4 right-4 flex flex-wrap items-center justify-between gap-4 pointer-events-none z-10">
+        <div class="glass-panel px-5 py-2.5 rounded-full flex flex-wrap items-center gap-4 sm:gap-6 pointer-events-auto shadow-lg">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-seedling text-emerald-400"></i>
+                <span data-i18n="spores" class="text-xs uppercase tracking-wider text-slate-400 font-semibold hidden sm:inline">孢子:</span>
+                <span id="playerSeedCount" class="font-bold text-lg text-emerald-300">0</span>
+            </div>
+            <div class="h-4 w-px bg-slate-700"></div>
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-circle-nodes text-cyan-400"></i>
+                <span data-i18n="nodes" class="text-xs uppercase tracking-wider text-slate-400 font-semibold hidden sm:inline">节点:</span>
+                <span id="nodeControlCount" class="font-bold text-lg text-cyan-300">0 / 0</span>
+            </div>
+            <div class="h-4 w-px bg-slate-700"></div>
+            <div class="flex items-center gap-2" title="所有敌对势力的孢子总和">
+                <i class="fa-solid fa-skull text-rose-400"></i>
+                <span data-i18n="enemy" class="text-xs uppercase tracking-wider text-slate-400 font-semibold hidden sm:inline">敌人:</span>
+                <span id="enemySeedCount" class="font-bold text-lg text-rose-300">0</span>
+            </div>
+            <div class="h-4 w-px bg-slate-700"></div>
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-layer-group text-purple-400"></i>
+                <span data-i18n="level" class="text-xs uppercase tracking-wider text-slate-400 font-semibold hidden sm:inline">关卡:</span>
+                <span id="levelIndicator" class="font-bold text-lg text-purple-300">1 / 50</span>
+            </div>
+        </div>
+
+        <div class="glass-panel px-4 py-2 rounded-full flex flex-wrap items-center gap-2 sm:gap-3 pointer-events-auto shadow-lg">
+            <button id="btnLang" class="px-2 font-bold text-sm hover:bg-slate-800/80 rounded-full text-slate-300 hover:text-white transition" title="Toggle Language">中</button>
+            <div class="h-4 w-px bg-slate-700"></div>
+            <button id="btnDifficulty" class="px-2 font-bold text-sm hover:bg-slate-800/80 rounded-full text-amber-300 hover:text-white transition" title="Difficulty">普通</button>
+            <div class="h-4 w-px bg-slate-700"></div>
+            <button id="btnMusic" class="p-2 hover:bg-slate-800/80 rounded-full text-slate-300 hover:text-white transition" title="Toggle Music"><i class="fa-solid fa-music text-lg"></i></button>
+            <button id="btnSound" class="p-2 hover:bg-slate-800/80 rounded-full text-slate-300 hover:text-white transition" title="Toggle SFX"><i class="fa-solid fa-volume-high text-lg"></i></button>
+            <button id="btnSpeed" class="p-2 hover:bg-slate-800/80 rounded-full text-slate-300 hover:text-white transition" title="Game Speed"><span class="font-bold text-sm">1x</span></button>
+            <button id="btnSaveLoadMenu" class="p-2 hover:bg-slate-800/80 rounded-full text-emerald-400 hover:text-emerald-300 transition" title="Save/Load"><i class="fa-solid fa-floppy-disk text-lg"></i></button>
+            <button id="btnRestart" class="p-2 hover:bg-slate-800/80 rounded-full text-slate-300 hover:text-white transition" title="Restart Level"><i class="fa-solid fa-rotate-right text-lg"></i></button>
+            <button id="btnFullscreen" class="p-2 hover:bg-slate-800/80 rounded-full text-slate-300 hover:text-white transition hidden sm:block" title="Fullscreen"><i class="fa-solid fa-expand text-lg"></i></button>
+            <button id="btnHelp" class="p-2 hover:bg-slate-800/80 rounded-full text-slate-300 hover:text-white transition" title="How to Play"><i class="fa-solid fa-circle-question text-lg"></i></button>
+        </div>
+    </div>
+
+    <!-- Selected Asteroid Context HUD -->
+    <div id="selectionMenu" class="absolute bottom-6 left-1/2 -translate-x-1/2 glass-panel p-4 rounded-2xl flex flex-col md:flex-row items-center gap-4 transition-all duration-300 opacity-0 pointer-events-none z-10 shadow-2xl border border-cyan-500/30">
+        <div class="flex items-center gap-3 pr-4 border-b md:border-b-0 md:border-r border-slate-700/60 pb-3 md:pb-0">
+            <div id="asteroidIcon" class="w-10 h-10 rounded-full border-2 border-emerald-400 flex items-center justify-center bg-emerald-500/10"><i class="fa-solid fa-globe text-emerald-400"></i></div>
+            <div>
+                <h4 id="asteroidTitle" class="font-bold text-sm text-slate-100">Asteroid Node</h4>
+                <p id="asteroidSub" class="text-xs text-slate-400">Spores: 0 | Trees: 0/2</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button id="btnPlantDyson" class="flex flex-col items-center justify-center w-24 h-16 bg-slate-800/80 hover:bg-emerald-600/30 border border-slate-700 hover:border-emerald-500/50 rounded-xl transition group">
+                <i class="fa-solid fa-tree text-emerald-400 group-hover:scale-110 transition-transform mb-1"></i>
+                <span data-i18n="dysonTitle" class="text-[11px] font-semibold">戴森树</span>
+                <span data-i18n="dysonCost" class="text-[9px] text-slate-400">10 孢子</span>
+            </button>
+            <button id="btnPlantDefense" class="flex flex-col items-center justify-center w-24 h-16 bg-slate-800/80 hover:bg-cyan-600/30 border border-slate-700 hover:border-cyan-500/50 rounded-xl transition group">
+                <i class="fa-solid fa-shield-halved text-cyan-400 group-hover:scale-110 transition-transform mb-1"></i>
+                <span data-i18n="defenseTitle" class="text-[11px] font-semibold">防御塔</span>
+                <span data-i18n="defenseCost" class="text-[9px] text-slate-400">15 孢子</span>
+            </button>
+            <div class="h-10 w-px bg-slate-700 mx-1"></div>
+            <div class="flex items-center gap-1">
+                <button id="btnSend25" class="px-3 py-3 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-bold text-slate-200 transition">25%</button>
+                <button id="btnSend50" class="px-3 py-3 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-bold text-slate-200 transition">50%</button>
+                <button id="btnSend100" class="px-3 py-3 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-bold text-slate-200 transition">100%</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="glass-panel p-6 md:p-8 rounded-3xl max-w-lg w-full mx-4 border border-slate-700 shadow-2xl relative">
+            <button id="btnCloseHelp" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 data-i18n="helpTitle" class="text-2xl font-bold mb-4 text-emerald-400 flex items-center gap-2"><i class="fa-solid fa-seedling"></i> Eufloria 游玩指南</h2>
+            <div class="space-y-3 text-sm text-slate-300 leading-relaxed max-h-[60vh] overflow-y-auto pr-2">
+                <p data-i18n="help1"><strong>目标：</strong>通过种植树木和扩展真菌孢子网络来消除敌对实体，从而征服整个行星区。</p>
+                <hr class="border-slate-800 my-2">
+                <ul class="list-disc pl-5 space-y-2">
+                    <li data-i18n="help2"><strong class="text-emerald-300">选择与殖民：</strong>左键点击（或触摸）你控制的小行星。拖动一条线到另一颗小行星以发送轨道孢子。</li>
+                    <li data-i18n="help3"><strong class="text-emerald-300">戴森树 (10 孢子)：</strong>在受控的小行星上种植，持续生成新孢子。</li>
+                    <li data-i18n="help4"><strong class="text-cyan-300">防御塔 (15 孢子)：</strong>种植后自动向来袭的敌方孢子发射激光防御。</li>
+                    <li data-i18n="help5"><strong class="text-indigo-300">导航：</strong>滚动鼠标滚轮（或双指捏合）以缩放。右键/中键拖动（或双指拖动）以平移。</li>
+                </ul>
+            </div>
+            <button id="btnStartGame" data-i18n="startBtn" class="mt-6 w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl transition shadow-lg shadow-emerald-900/50">开始征服</button>
+        </div>
+    </div>
+
+    <!-- Save/Load Modal -->
+    <div id="saveLoadModal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="glass-panel p-6 md:p-8 rounded-3xl max-w-lg w-full mx-4 border border-slate-700 shadow-2xl relative">
+            <button id="btnCloseSaveLoad" class="absolute top-4 right-4 text-slate-400 hover:text-white p-2"><i class="fa-solid fa-xmark text-xl"></i></button>
+            <h2 data-i18n="saveLoadTitle" class="text-2xl font-bold mb-4 text-cyan-400 flex items-center gap-2"><i class="fa-solid fa-floppy-disk"></i> 存档 / 读档</h2>
+            <div class="mb-6 bg-slate-900/50 p-4 rounded-xl border border-slate-800">
+                <h3 data-i18n="saveCurrent" class="text-sm font-bold text-slate-300 mb-2">保存当前进度</h3>
+                <div class="flex gap-2">
+                    <input type="text" id="saveNameInput" data-i18n-placeholder="saveNamePlaceholder" placeholder="输入存档名称..." class="flex-1 bg-slate-800 text-white px-3 py-2 rounded-lg border border-slate-700 focus:outline-none focus:border-cyan-500 text-sm">
+                    <button id="btnDoSave" data-i18n="btnSave" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold rounded-lg transition shadow">保存</button>
+                </div>
+            </div>
+            <div>
+                <h3 data-i18n="loadExisting" class="text-sm font-bold text-slate-300 mb-2">加载已有存档</h3>
+                <div id="saveListContainer" class="space-y-2 max-h-48 overflow-y-auto pr-2">
+                    <p class="text-slate-500 text-sm italic" data-i18n="noSaves">暂无存档</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- End Game Modal -->
+    <div id="endGameModal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-lg flex items-center justify-center z-50 opacity-0 pointer-events-none transition-opacity duration-500">
+        <div class="glass-panel p-8 rounded-3xl max-w-md w-full mx-4 text-center border border-slate-700 shadow-2xl">
+            <div id="endGameIcon" class="w-20 h-20 rounded-full mx-auto flex items-center justify-center text-4xl mb-4 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"><i class="fa-solid fa-trophy"></i></div>
+            <h2 id="endGameTitle" class="text-3xl font-extrabold mb-2 text-white glow-text">VICTORY</h2>
+            <p id="endGameDesc" class="text-slate-300 text-sm mb-6">You have successfully dominated the entire planetary cluster!</p>
+            <button id="btnNextLevel" class="w-full py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold rounded-xl shadow-lg transition">生成新星区</button>
+        </div>
+    </div>
+
+    <script>
+        // Data State
+        let currentLevel = parseInt(localStorage.getItem('eufloria_level')) || 1;
+        let difficulty = localStorage.getItem('eufloria_diff') || 'NORMAL';
+        const DIFFICULTIES = ['EASY', 'NORMAL', 'HARD'];
+
+        let hudTimer = 0;
+
+        const i18n = {
+            zh: {
+                langName: "中", spores: "孢子:", nodes: "节点:", enemy: "敌人:", level: "关卡:",
+                dysonTitle: "戴森树", dysonCost: "10 孢子", defenseTitle: "防御塔", defenseCost: "15 孢子",
+                playerNode: "玩家节点", enemyNode: "敌方节点", neutralNode: "中立节点", sporesCount: "孢子", treesCount: "树",
+                notEnough: "孢子不足", maxTrees: "树木数量已达上限", plusDyson: "+1 戴森树", plusDefense: "+1 防塔",
+                colonized: "殖民成功!", conquered: "征服成功!", victory: "取得胜利", victoryDesc: "你的真菌有机体已完全殖民了该星区。",
+                defeat: "星区失守", defeatDesc: "你的孢子已被敌对的腐败实体消灭。", startBtn: "开始征服", nextBtn: "进入下一关", retryBtn: "重试本关",
+                helpTitle: "Eufloria 多线程优化版", help1: "目标：通过种植树木和扩展网络，消灭包括其他NPC势力在内的所有敌对实体。",
+                help2: "操作：左键点击控制的小行星，拖动连接线到另一颗星球即可发送孢子舰队。",
+                help3: "戴森树 (10 孢子)：提供源源不断的兵力补给。", help4: "防御塔 (15 孢子)：自动向来袭的敌方孢子发射激光。",
+                help5: "视角：滚轮缩放，右键平移。本版本已引入 Web Worker 多线程渲染，支持超大规模混战。",
+                saveLoadTitle: "存档 / 读档", saveCurrent: "保存当前进度", saveNamePlaceholder: "输入存档名称...", btnSave: "保存",
+                loadExisting: "加载已有存档", noSaves: "暂无存档", btnLoad: "加载", btnDelete: "删除", saveSuccess: "存档已保存",
+                diffEASY: "简单", diffNORMAL: "普通", diffHARD: "困难"
+            }
+        };
+
+        let currentLangIdx = 0;
+        let t = i18n['zh'];
+
+        //阵营配置
+        const TEAM_COLORS = {
+            PLAYER: { primary: '#34d399', secondary: '#059669', halo: 'rgba(52, 211, 153, 0.25)', laser: '#6ee7b7' },
+            ENEMY1:  { primary: '#f43f5e', secondary: '#be123c', halo: 'rgba(244, 63, 94, 0.25)', laser: '#fda4af' },
+            ENEMY2:  { primary: '#c084fc', secondary: '#9333ea', halo: 'rgba(192, 132, 252, 0.25)', laser: '#d8b4fe' },
+            ENEMY3:  { primary: '#fb923c', secondary: '#ea580c', halo: 'rgba(251, 146, 60, 0.25)', laser: '#fdba74' },
+            NEUTRAL:{ primary: '#94a3b8', secondary: '#475569', halo: 'rgba(148, 163, 184, 0.1)', laser: '#cbd5e1' }
+        };
+        const ENEMY_FACTIONS = ['ENEMY1', 'ENEMY2', 'ENEMY3'];
+
+        function updateDifficultyUI() {
+            const btn = document.getElementById('btnDifficulty');
+            const colorClass = difficulty === 'EASY' ? 'text-emerald-300' : (difficulty === 'NORMAL' ? 'text-amber-300' : 'text-rose-400');
+            btn.innerText = t['diff' + difficulty];
+            btn.className = `px-3 py-1 font-bold text-sm hover:bg-slate-800/80 rounded-full transition ${colorClass} hover:text-white`;
+            localStorage.setItem('eufloria_diff', difficulty);
+        }
+
+        function updateTexts() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (t[key]) {
+                    if (el.tagName === 'STRONG' && el.parentElement.tagName === 'LI') { el.innerHTML = t[key].split('：')[0] + '：'; }
+                    else { el.innerHTML = el.innerHTML.includes('<i') ? el.innerHTML.replace(/<\/i>.*$/, '</i> ' + t[key]) : t[key]; }
+                }
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (t[key]) el.placeholder = t[key];
+            });
+            updateDifficultyUI(); updateHUD(); refreshSaveList();
+        }
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+        window.addEventListener('resize', () => { width = canvas.width = window.innerWidth; height = canvas.height = window.innerHeight; });
+
+        // Web Audio Synthesizer
+        class AudioSynth {
+            constructor() {
+                this.ctx = null; this.sfxEnabled = true; this.musicEnabled = true; this.bgmNodes = []; this.bgmInterval = null; this.isMusicPlaying = false;
+                this.scale = [220.00, 261.63, 293.66, 329.63, 392.00, 440.00, 523.25, 587.33, 659.25, 783.99];
+            }
+            init() {
+                if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                if (this.musicEnabled && !this.isMusicPlaying) this.startAmbientMusic();
+            }
+            playTone(freq, type = 'sine', duration = 0.3, gainVal = 0.05, isMusic = false) {
+                if (!this.ctx || (!isMusic && !this.sfxEnabled) || (isMusic && !this.musicEnabled)) return;
+                try {
+                    const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+                    const filter = this.ctx.createBiquadFilter(); filter.type = 'lowpass'; filter.frequency.value = isMusic ? 1200 : 3000;
+                    const delay = this.ctx.createDelay(); delay.delayTime.value = isMusic ? 0.4 : 0;
+                    const feedback = this.ctx.createGain(); feedback.gain.value = isMusic ? 0.3 : 0;
+                    osc.type = type; osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    if (isMusic) {
+                        gain.gain.setValueAtTime(0, this.ctx.currentTime); gain.gain.linearRampToValueAtTime(gainVal, this.ctx.currentTime + duration * 0.4); gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                    } else {
+                        gain.gain.setValueAtTime(gainVal, this.ctx.currentTime); gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+                    }
+                    osc.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
+                    if (isMusic) { gain.connect(delay); delay.connect(feedback); feedback.connect(delay); delay.connect(this.ctx.destination); }
+                    osc.start(); osc.stop(this.ctx.currentTime + duration);
+                    if (isMusic) this.bgmNodes.push({osc, gain, delay});
+                } catch (e) { }
+            }
+            startAmbientMusic() {
+                if (this.isMusicPlaying) return;
+                this.isMusicPlaying = true;
+                const playNextAmbientNote = () => {
+                    if (!this.musicEnabled) { this.isMusicPlaying = false; return; }
+                    const freq = this.scale[Math.floor(Math.random() * this.scale.length)];
+                    const isDrone = Math.random() > 0.7; const finalFreq = isDrone ? freq / 2 : freq;
+                    const duration = isDrone ? 8.0 : 4.0 + Math.random() * 3.0; const volume = isDrone ? 0.04 : 0.015 + Math.random() * 0.015;
+                    this.playTone(finalFreq, isDrone ? 'triangle' : 'sine', duration, volume, true);
+                    this.bgmNodes = this.bgmNodes.filter(n => n.osc.context.currentTime < n.osc.context.currentTime + 10);
+                    this.bgmInterval = setTimeout(playNextAmbientNote, 1000 + Math.random() * 3000);
+                };
+                playNextAmbientNote();
+            }
+            stopAmbientMusic() {
+                this.isMusicPlaying = false; if (this.bgmInterval) clearTimeout(this.bgmInterval);
+                const now = this.ctx ? this.ctx.currentTime : 0;
+                this.bgmNodes.forEach(n => { try { n.gain.gain.cancelScheduledValues(now); n.gain.gain.linearRampToValueAtTime(0, now + 1.0); } catch(e){} });
+                this.bgmNodes = [];
+            }
+            toggleMusic() { this.musicEnabled = !this.musicEnabled; if (this.musicEnabled) this.startAmbientMusic(); else this.stopAmbientMusic(); return this.musicEnabled; }
+            playSporeLaunch() { this.playTone(440 + Math.random() * 200, 'sine', 0.25, 0.015); }
+            playPlant() { this.playTone(180, 'triangle', 0.6, 0.05); setTimeout(() => this.playTone(270, 'sine', 0.4, 0.03), 150); }
+            playLaser() { this.playTone(800 + Math.random() * 300, 'sawtooth', 0.1, 0.01); }
+            playHit() { this.playTone(120 + Math.random() * 60, 'square', 0.15, 0.02); }
+        }
+        const audio = new AudioSynth();
+
+        // Game State
+        let gameTime = 0; let gameSpeed = 1; let isPaused = false;
+        let selectedAsteroid = null; let targetAsteroid = null; let sendPercentage = 0.5;
+        let isDragging = false; let dragStartPos = { x: 0, y: 0 };
+        let isPanning = false; let panStart = { x: 0, y: 0 };
+        const camera = { x: 0, y: 0, zoom: 1, targetZoom: 1, minZoom: 0.25, maxZoom: 2.2 };
+        let asteroids = []; let spores = []; let particles = []; let laserBeams = []; let floatingTexts = []; let starfield = [];
+        let isLevelWon = false;
+
+        function initStarfield() {
+            starfield = [];
+            for (let i = 0; i < 200; i++) {
+                starfield.push({ x: (Math.random() - 0.5) * 4000, y: (Math.random() - 0.5) * 4000, size: Math.random() * 1.8 + 0.5, alpha: Math.random() * 0.7 + 0.3, pulseSpeed: Math.random() * 0.02 + 0.005 });
+            }
+        }
+
+        class Tree {
+            constructor(asteroid, type = 'DYSON') {
+                this.asteroid = asteroid; this.type = type; this.angle = Math.random() * Math.PI * 2; this.growth = 0.1;
+                this.branches = []; this.generateBranches(5, 4); this.lastSpawnTime = 0; this.spawnInterval = type === 'DYSON' ? 4.5 : 8.0; this.lastAttackTime = 0;
+            }
+            generateBranches(depth, count) {
+                const buildBranch = (d, length, angle, width) => {
+                    if (d <= 0) return null;
+                    const children = []; const numSub = Math.floor(Math.random() * 2) + 1;
+                    for (let i = 0; i < numSub; i++) children.push(buildBranch(d - 1, length * (0.65 + Math.random() * 0.2), angle + (Math.random() - 0.5) * 0.8, width * 0.7));
+                    return { length, angle, width, children };
+                };
+                for (let i = 0; i < count; i++) this.branches.push(buildBranch(depth, this.asteroid.radius * (0.5 + Math.random() * 0.4), (i / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.4, 3.5));
+            }
+            update(dt) {
+                if (this.growth < 1.0) this.growth = Math.min(1.0, this.growth + dt * 0.2);
+                if (this.type === 'DYSON' && this.growth >= 1.0 && this.asteroid.owner !== 'NEUTRAL') {
+                    this.lastSpawnTime += dt;
+                    if (this.lastSpawnTime >= this.spawnInterval) { this.lastSpawnTime = 0; if (this.asteroid.spores.length < this.asteroid.maxCapacity) spawnSpore(this.asteroid, this.asteroid.owner); }
+                }
+                if (this.type === 'DEFENSE' && this.growth >= 0.8 && this.asteroid.owner !== 'NEUTRAL') {
+                    this.lastAttackTime += dt;
+                    if (this.lastAttackTime >= 1.2) { this.lastAttackTime = 0; this.fireLaser(); }
+                }
+            }
+            fireLaser() {
+                let target = null; let minDist = 260;
+                spores.forEach(s => {
+                    if (s.owner !== this.asteroid.owner && s.owner !== 'NEUTRAL') {
+                        const dist = Math.hypot(s.x - this.asteroid.x, s.y - this.asteroid.y); if (dist < minDist) { minDist = dist; target = s; }
+                    }
+                });
+                if (target) {
+                    laserBeams.push({ x1: this.asteroid.x + Math.cos(this.angle) * this.asteroid.radius, y1: this.asteroid.y + Math.sin(this.angle) * this.asteroid.radius, x2: target.x, y2: target.y, life: 0.15, owner: this.asteroid.owner });
+                    target.hp -= 2.5; audio.playLaser(); spawnParticles(target.x, target.y, TEAM_COLORS[target.owner].primary, 3);
+                }
+            }
+            draw(ctx) {
+                const team = TEAM_COLORS[this.asteroid.owner] || TEAM_COLORS['NEUTRAL'];
+                const color = this.type === 'DYSON' ? team.primary : (team.laser || team.secondary);
+                ctx.save(); ctx.translate(this.asteroid.x, this.asteroid.y); ctx.strokeStyle = color; ctx.lineCap = 'round';
+                const drawBranchNode = (b, g) => {
+                    if (!b) return; ctx.save(); ctx.rotate(b.angle); ctx.lineWidth = Math.max(1, b.width); ctx.beginPath(); ctx.moveTo(0, 0); const currentLen = b.length * g; ctx.lineTo(currentLen, 0); ctx.stroke();
+                    if (g > 0.5) {
+                        ctx.translate(currentLen, 0); if (b.children) b.children.forEach(c => drawBranchNode(c, (g - 0.5) * 2));
+                        if (!b.children || b.children.length === 0) { ctx.fillStyle = color; ctx.beginPath(); ctx.arc(0, 0, this.type === 'DYSON' ? 2.5 : 3.5, 0, Math.PI * 2); ctx.fill(); }
+                    }
+                    ctx.restore();
+                };
+                this.branches.forEach(b => drawBranchNode(b, this.growth)); ctx.restore();
+            }
+        }
+
+        class Asteroid {
+            constructor(id, x, y, radius, energy) {
+                this.id = id; this.x = x; this.y = y; this.radius = radius; this.energy = energy; this.owner = 'NEUTRAL'; this.health = 100; this.maxHealth = 100;
+                this.trees = []; this.maxTrees = Math.min(4, Math.floor(radius / 16)); this.maxCapacity = Math.floor(radius * 1.5); this.spores = []; this.connections = []; this.pulsePhase = Math.random() * Math.PI * 2;
+            }
+            update(dt) {
+                this.pulsePhase += dt * 1.5; this.trees.forEach(tree => tree.update(dt));
+                if (this.health < this.maxHealth && this.spores.length > 0) this.health = Math.min(this.maxHealth, this.health + dt * 2);
+            }
+            draw(ctx) {
+                const team = TEAM_COLORS[this.owner];
+                this.connections.forEach(target => {
+                    if (this.id < target.id) {
+                        ctx.strokeStyle = 'rgba(148, 163, 184, 0.12)'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 6]); ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(target.x, target.y); ctx.stroke(); ctx.setLineDash([]);
+                    }
+                });
+                this.trees.forEach(tree => tree.draw(ctx));
+                if (selectedAsteroid === this) { ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(this.x, this.y, this.radius + 12 + Math.sin(this.pulsePhase * 2) * 3, 0, Math.PI * 2); ctx.stroke(); }
+                const glow = ctx.createRadialGradient(this.x, this.y, this.radius * 0.8, this.x, this.y, this.radius + 20); glow.addColorStop(0, team.halo); glow.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(this.x, this.y, this.radius + 20, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#0f172a'; ctx.strokeStyle = team.primary; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                ctx.strokeStyle = team.secondary; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(this.x, this.y, this.radius * 0.6, 0, Math.PI * 2); ctx.stroke();
+                if (this.health < this.maxHealth) {
+                    const barW = this.radius * 1.4; const barX = this.x - barW / 2; const barY = this.y + this.radius + 10;
+                    ctx.fillStyle = 'rgba(15, 23, 42, 0.8)'; ctx.fillRect(barX, barY, barW, 4); ctx.fillStyle = team.primary; ctx.fillRect(barX, barY, barW * (this.health / this.maxHealth), 4);
+                }
+                ctx.fillStyle = '#f8fafc'; ctx.font = 'bold 11px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(this.spores.length, this.x, this.y);
+            }
+        }
+
+        class Spore {
+            constructor(homeAsteroid, owner) {
+                this.homeAsteroid = homeAsteroid; this.owner = owner; this.x = homeAsteroid.x; this.y = homeAsteroid.y;
+                this.orbitDistance = homeAsteroid.radius + 15 + Math.random() * 35; this.orbitAngle = Math.random() * Math.PI * 2; this.orbitSpeed = (0.6 + Math.random() * 0.6) * (Math.random() > 0.5 ? 1 : -1);
+                const energy = homeAsteroid.energy || 1.0; this.speed = (110 + Math.random() * 40) * energy; this.strength = (1.2 + Math.random() * 0.5) * energy; this.hp = 10; this.maxHp = 10;
+                this.state = 'ORBITING'; this.targetAsteroid = null;
+            }
+            sendTo(target) {
+                this.state = 'TRAVELING'; this.targetAsteroid = target;
+                if (this.homeAsteroid) { const idx = this.homeAsteroid.spores.indexOf(this); if (idx !== -1) this.homeAsteroid.spores.splice(idx, 1); }
+                this.homeAsteroid = null; audio.playSporeLaunch();
+            }
+            update(dt) {
+                if (this.hp <= 0) {
+                    this.kill();
+                    return; 
+                }
+                
+                if (this.state === 'ORBITING' && this.homeAsteroid) {
+                    this.orbitAngle += this.orbitSpeed * dt; 
+                    this.x += (this.homeAsteroid.x + Math.cos(this.orbitAngle) * this.orbitDistance - this.x) * 0.1; 
+                    this.y += (this.homeAsteroid.y + Math.sin(this.orbitAngle) * this.orbitDistance - this.y) * 0.1;
+                    
+                    if (Math.random() < 0.15 && this.homeAsteroid.spores.length > 1) {
+                        let sList = this.homeAsteroid.spores;
+                        for(let i = 0; i < Math.min(6, sList.length); i++) {
+                            let other = sList[Math.floor(Math.random() * sList.length)];
+                            if (other !== this && other.owner !== this.owner && other.owner !== 'NEUTRAL' && other.hp > 0) {
+                                if (Math.abs(other.x - this.x) < 20 && Math.abs(other.y - this.y) < 20) {
+                                    other.hp -= this.strength * 6.5; 
+                                    this.hp -= other.strength * 6.5; 
+                                    if (Math.random() < 0.2) { 
+                                        audio.playHit(); 
+                                        spawnParticles(this.x, this.y, TEAM_COLORS[this.owner].primary, 1); 
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                } else if (this.state === 'TRAVELING' && this.targetAsteroid) {
+                    const dx = this.targetAsteroid.x - this.x, dy = this.targetAsteroid.y - this.y, dist = Math.hypot(dx, dy);
+                    if (dist < this.targetAsteroid.radius + 10) {
+                        if (this.targetAsteroid.owner === this.owner) {
+                            this.state = 'ORBITING'; this.homeAsteroid = this.targetAsteroid; this.targetAsteroid = null; this.homeAsteroid.spores.push(this);
+                        } else {
+                            this.targetAsteroid.health -= this.strength * (this.targetAsteroid.owner === 'NEUTRAL' ? 4 : 3); 
+                            audio.playHit(); 
+                            if (particles.length < 150 || Math.random() < 0.3) { spawnParticles(this.x, this.y, TEAM_COLORS[this.owner].primary, 2); }
+                            if (this.targetAsteroid.health <= 0) {
+                                this.targetAsteroid.owner = this.owner; this.targetAsteroid.health = this.targetAsteroid.maxHealth; this.targetAsteroid.trees = []; spawnFloatingText(this.targetAsteroid.x, this.targetAsteroid.y, this.targetAsteroid.owner === 'NEUTRAL' ? t.colonized : t.conquered, TEAM_COLORS[this.owner].primary);
+                            }
+                            this.kill();
+                        }
+                    } else { this.x += (dx / dist) * this.speed * dt; this.y += (dy / dist) * this.speed * dt; }
+                }
+            }
+            kill() {
+                const idx = spores.indexOf(this); if (idx !== -1) spores.splice(idx, 1);
+                if (this.homeAsteroid) { const sIdx = this.homeAsteroid.spores.indexOf(this); if (sIdx !== -1) this.homeAsteroid.spores.splice(sIdx, 1); }
+            }
+            draw(ctx) {
+                const team = TEAM_COLORS[this.owner];
+                if (this.state === 'TRAVELING' && this.targetAsteroid) {
+                    ctx.strokeStyle = team.halo;
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    const dx = this.targetAsteroid.x - this.x;
+                    const dy = this.targetAsteroid.y - this.y;
+                    const dist = Math.hypot(dx, dy) || 1;
+                    ctx.lineTo(this.x - (dx / dist) * 12, this.y - (dy / dist) * 12);
+                    ctx.stroke();
+                }
+                ctx.fillStyle = team.primary;
+                ctx.fillRect(this.x - 2, this.y - 2, 4, 4); 
+            }
+        }
+
+        function spawnParticles(x, y, color, count = 5) { for (let i = 0; i < count; i++) particles.push({ x, y, vx: (Math.random() - 0.5) * 80, vy: (Math.random() - 0.5) * 80, color, life: 0.4 + Math.random() * 0.3, maxLife: 0.7, size: Math.random() * 2 + 1 }); }
+        function spawnFloatingText(x, y, text, color) { floatingTexts.push({ x, y, text, color, alpha: 1.0, vy: -25 }); }
+        function spawnSpore(asteroid, owner) { const spore = new Spore(asteroid, owner); spores.push(spore); asteroid.spores.push(spore); }
+
+        function plantTreeOnAsteroid(asteroid, type = 'DYSON', silent = false) {
+            const cost = type === 'DYSON' ? 10 : 15;
+            if (asteroid.spores.length < cost) { if(!silent) spawnFloatingText(asteroid.x, asteroid.y, t.notEnough, '#f43f5e'); return false; }
+            if (asteroid.trees.length >= asteroid.maxTrees) { if(!silent) spawnFloatingText(asteroid.x, asteroid.y, t.maxTrees, '#f43f5e'); return false; }
+            for (let i = 0; i < cost; i++) asteroid.spores.pop().kill();
+            asteroid.trees.push(new Tree(asteroid, type)); 
+            if(!silent) { audio.playPlant(); spawnFloatingText(asteroid.x, asteroid.y, type === 'DYSON' ? t.plusDyson : t.plusDefense, TEAM_COLORS[asteroid.owner].primary); }
+            updateHUD(); return true;
+        }
+
+        function sendSpores(fromNode, toNode, percentage) {
+            if (!fromNode || !toNode || fromNode === toNode) return;
+            const availableSpores = [...fromNode.spores]; const countToSend = Math.floor(availableSpores.length * percentage);
+            for (let i = 0; i < countToSend; i++) if (availableSpores[i]) availableSpores[i].sendTo(toNode);
+        }
+
+        // ==========================================
+        // Web Worker 多线程 AI 引擎架构 (已全面重构决策逻辑)
+        // ==========================================
+        
+        const aiWorkerScript = `
+        self.onmessage = function(e) {
+            const { asteroids, spores, difficulty, ENEMY_FACTIONS } = e.data;
+            const actions = [];
+            
+            ENEMY_FACTIONS.forEach(faction => {
+                const myNodes = asteroids.filter(a => a.owner === faction);
+                if (myNodes.length === 0) return;
+
+                const frontlineNodes = [];
+                const backlineNodes = [];
+                
+                myNodes.forEach(node => {
+                    const isFront = node.connections.some(cid => {
+                        const cNode = asteroids.find(a => a.id === cid);
+                        return cNode && cNode.owner !== faction;
+                    });
+                    if (isFront) frontlineNodes.push(node);
+                    else backlineNodes.push(node);
+                });
+
+                // [修复3] 大后方物流优化：防止孤岛节点互相踢皮球死锁
+                backlineNodes.forEach(node => {
+                    if (node.sporeCount >= 10 && node.treeCount < node.maxTrees) {
+                        actions.push({ type: 'plant', asteroidId: node.id, treeType: 'DYSON' });
+                        node.sporeCount -= 10;
+                    } else if (node.sporeCount > 15) {
+                        let targetId = node.connections.find(cid => frontlineNodes.some(f => f.id === cid));
+                        if (!targetId) {
+                            const friendlies = node.connections.filter(cid => {
+                                const cNode = asteroids.find(a => a.id === cid);
+                                return cNode && cNode.owner === faction;
+                            });
+                            if(friendlies.length > 0) {
+                                // 找不到前线时，随机输送避免两两死锁互传
+                                targetId = friendlies[Math.floor(Math.random() * friendlies.length)];
+                            }
+                        }
+                        if (targetId) actions.push({ type: 'send', fromId: node.id, toId: targetId, percentage: 0.8 });
+                    }
+                });
+
+                // [修复2] 前线微操优化：解决建筑死锁导致的挂机
+                frontlineNodes.forEach(node => {
+                    const incomingThreat = spores.filter(s => s.targetAsteroidId === node.id && s.owner !== faction).length;
+                    const currentPower = node.sporeCount + (node.defenseCount * 15);
+                    
+                    if (incomingThreat > currentPower * 1.5) {
+                        const escapeId = node.connections.find(cid => {
+                            const cNode = asteroids.find(a => a.id === cid);
+                            return cNode && cNode.owner === faction;
+                        });
+                        if (escapeId) {
+                            actions.push({ type: 'send', fromId: node.id, toId: escapeId, percentage: 1.0 });
+                            return; // 溃逃后直接结束当前星球回合
+                        }
+                    } 
+                    
+                    // 严格验证资源足够才下发指令，否则静默积攒
+                    if (node.treeCount < node.maxTrees) {
+                        const neighborThreats = node.connections.reduce((sum, cid) => {
+                            const cNode = asteroids.find(a => a.id === cid);
+                            if (cNode && cNode.owner !== faction && cNode.owner !== 'NEUTRAL') return sum + cNode.sporeCount;
+                            return sum;
+                        }, 0);
+
+                        if (incomingThreat > 5 && node.sporeCount >= 15) {
+                            actions.push({ type: 'plant', asteroidId: node.id, treeType: 'DEFENSE' });
+                            node.sporeCount -= 15;
+                        } else if (incomingThreat === 0) {
+                            if (neighborThreats > node.sporeCount * 1.2 && node.sporeCount >= 15) {
+                                actions.push({ type: 'plant', asteroidId: node.id, treeType: 'DEFENSE' });
+                                node.sporeCount -= 15;
+                            } else if (node.sporeCount >= 10) { // 必须确保不与 15 冲突
+                                actions.push({ type: 'plant', asteroidId: node.id, treeType: 'DYSON' });
+                                node.sporeCount -= 10;
+                            }
+                        }
+                    }
+
+                    // [修复1] 进攻决策修复：将中立节点 100 点血量纳入成本，拒绝自杀式添油战术
+                    const targets = node.connections.map(cid => asteroids.find(a => a.id === cid)).filter(t => t && t.owner !== faction);
+                    if (targets.length === 0) return;
+
+                    let bestTarget = null;
+                    let lowestCost = Infinity;
+
+                    targets.forEach(t => {
+                        let hpCost = t.health / 4; 
+                        if (t.owner === 'NEUTRAL') hpCost = t.health / 5; // 中立星球需要至少20个孢子才能打掉100血
+                        
+                        let cost = t.sporeCount + (t.defenseCount * 15) + hpCost;
+                        if (t.owner === 'NEUTRAL') cost *= 0.8;
+                        
+                        if (cost < lowestCost) { lowestCost = cost; bestTarget = t; }
+                    });
+
+                    if (bestTarget) {
+                        // 要求拥有绝对压倒性的兵力 (成本的 1.4 倍) 再发起冲锋
+                        const requiredSpores = Math.ceil(lowestCost * 1.3) + 2;
+                        if (node.sporeCount >= requiredSpores) {
+                            const sendRatio = Math.min(1.0, requiredSpores / node.sporeCount);
+                            actions.push({ type: 'send', fromId: node.id, toId: bestTarget.id, percentage: sendRatio });
+                            node.sporeCount -= requiredSpores; // 本地扣减防止一帧内复用
+                        } else if (node.sporeCount > 50) {
+                            // 兵源溢出时主动施压
+                            actions.push({ type: 'send', fromId: node.id, toId: bestTarget.id, percentage: 0.6 });
+                            node.sporeCount *= 0.4;
+                        }
+                    }
+                });
+            });
+            
+            self.postMessage(actions);
+        };
+        `;
+
+        const aiBlob = new Blob([aiWorkerScript], { type: 'application/javascript' });
+        const aiWorker = new Worker(URL.createObjectURL(aiBlob));
+        
+        let isAiThinking = false;
+        let aiTimer = 0;
+
+        aiWorker.onmessage = function(e) {
+            const actions = e.data;
+            actions.forEach(action => {
+                if (action.type === 'plant') {
+                    const ast = asteroids.find(a => a.id === action.asteroidId);
+                    if (ast && ENEMY_FACTIONS.includes(ast.owner)) {
+                        plantTreeOnAsteroid(ast, action.treeType, true);
+                    }
+                } else if (action.type === 'send') {
+                    const from = asteroids.find(a => a.id === action.fromId);
+                    const to = asteroids.find(a => a.id === action.toId);
+                    if (from && to && ENEMY_FACTIONS.includes(from.owner)) {
+                        sendSpores(from, to, action.percentage);
+                    }
+                }
+            });
+            isAiThinking = false;
+        };
+
+        function tickMultithreadAI(dt) {
+            aiTimer += dt;
+            const aiInterval = difficulty === 'HARD' ? 0.6 : (difficulty === 'NORMAL' ? 1.5 : 3.0);
+            
+            if (aiTimer >= aiInterval && !isAiThinking) {
+                aiTimer = 0;
+                isAiThinking = true;
+
+                // 新增传入 health 参数给后台
+                const astData = asteroids.map(a => ({
+                    id: a.id, owner: a.owner, health: a.health,
+                    sporeCount: a.spores.length, treeCount: a.trees.length, maxTrees: a.maxTrees,
+                    defenseCount: a.trees.filter(t => t.type === 'DEFENSE').length,
+                    connections: a.connections.map(c => c.id)
+                }));
+                
+                const sporeData = spores.map(s => ({
+                    owner: s.owner,
+                    targetAsteroidId: s.targetAsteroid ? s.targetAsteroid.id : null
+                }));
+
+                aiWorker.postMessage({
+                    asteroids: astData,
+                    spores: sporeData,
+                    difficulty: difficulty,
+                    ENEMY_FACTIONS: ENEMY_FACTIONS
+                });
+            }
+        }
+
+
+        function generateSectorMap() {
+            asteroids = []; spores = []; particles = []; laserBeams = []; floatingTexts = []; selectedAsteroid = null;
+            localStorage.setItem('eufloria_level', currentLevel);
+            
+            const nodeCount = Math.max(24, Math.floor(24 + (currentLevel / 50) * 20)) + Math.floor(Math.random() * 5);
+            const mapRadius = 1000 + (currentLevel / 50) * 500; 
+            
+            for (let i = 0; i < nodeCount; i++) {
+                let attempts = 0, x, y, r, valid = false;
+                while (!valid && attempts < 100) {
+                    attempts++; const angle = Math.random() * Math.PI * 2; const dist = Math.sqrt(Math.random()) * mapRadius;
+                    x = Math.cos(angle) * dist; y = Math.sin(angle) * dist; r = 24 + Math.random() * 26; valid = true;
+                    for (let existing of asteroids) { if (Math.hypot(existing.x - x, existing.y - y) < existing.radius + r + 110) { valid = false; break; } }
+                }
+                if (valid) asteroids.push(new Asteroid(i, x, y, r, 0.8 + Math.random() * 0.5));
+            }
+            // 加大连线判定距离 (340 -> 420)，防止 NPC 出生在完全孤立无援的“孤岛”上直接报废
+            asteroids.forEach(a => { asteroids.forEach(b => { if (a !== b && Math.hypot(a.x - b.x, a.y - b.y) < 420) { if (!a.connections.includes(b)) a.connections.push(b); if (!b.connections.includes(a)) b.connections.push(a); } }); });
+            
+            if (asteroids.length >= 4) {
+                let sortedX = [...asteroids].sort((a, b) => a.x - b.x);
+                let p1 = sortedX[0]; let p2 = sortedX[sortedX.length - 1];
+                let rem = asteroids.filter(a => a !== p1 && a !== p2);
+                let sortedY = [...rem].sort((a, b) => a.y - b.y);
+                let p3 = sortedY[0]; let p4 = sortedY[sortedY.length - 1];
+                
+                const starts = [p1, p2, p3, p4];
+                const factions = ['PLAYER', 'ENEMY1', 'ENEMY2', 'ENEMY3'];
+                
+                factions.forEach((fac, idx) => {
+                    const home = starts[idx];
+                    home.owner = fac; 
+                    plantTreeOnAsteroid(home, 'DYSON', true); 
+                    
+                    const startSpores = (fac === 'PLAYER') ? 
+                        (difficulty === 'EASY' ? 20 : (difficulty === 'NORMAL' ? 15 : 10)) :
+                        ((difficulty === 'EASY' ? 10 : (difficulty === 'NORMAL' ? 15 : 20)) + Math.floor((currentLevel / 50) * 15));
+                        
+                    for (let i = 0; i < startSpores; i++) spawnSpore(home, fac);
+                });
+            }
+            initStarfield(); updateHUD(); camera.x = 0; camera.y = 0; camera.targetZoom = 1; camera.zoom = 1;
+        }
+
+        function checkGameLoopConditions() {
+            const playerNodes = asteroids.filter(a => a.owner === 'PLAYER');
+            const enemyNodes = asteroids.filter(a => ENEMY_FACTIONS.includes(a.owner));
+            const playerSpores = spores.filter(s => s.owner === 'PLAYER');
+            if (enemyNodes.length === 0) showEndGameModal(true);
+            else if (playerNodes.length === 0 && playerSpores.length === 0) showEndGameModal(false);
+        }
+
+        function showEndGameModal(isVictory) {
+            isLevelWon = isVictory;
+            const modal = document.getElementById('endGameModal'), title = document.getElementById('endGameTitle'), desc = document.getElementById('endGameDesc'), icon = document.getElementById('endGameIcon');
+            const nextBtn = document.getElementById('btnNextLevel');
+            if (isVictory) {
+                if (currentLevel >= 50) {
+                    title.innerText = "GAME CLEARED"; title.className = "text-3xl font-extrabold mb-2 text-emerald-400 glow-text";
+                    desc.innerText = "Congratulations! You have conquered all 50 sectors!";
+                    nextBtn.innerText = "Replay Level 50";
+                } else {
+                    title.innerText = t.victory; title.className = "text-3xl font-extrabold mb-2 text-emerald-400 glow-text"; desc.innerText = t.victoryDesc;
+                    nextBtn.innerText = t.nextBtn;
+                }
+                icon.className = "w-20 h-20 rounded-full mx-auto flex items-center justify-center text-4xl mb-4 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"; icon.innerHTML = '<i class="fa-solid fa-trophy"></i>';
+            } else {
+                title.innerText = t.defeat; title.className = "text-3xl font-extrabold mb-2 text-rose-500 glow-text"; desc.innerText = t.defeatDesc;
+                nextBtn.innerText = t.retryBtn;
+                icon.className = "w-20 h-20 rounded-full mx-auto flex items-center justify-center text-4xl mb-4 bg-rose-500/20 text-rose-400 border border-rose-500/40"; icon.innerHTML = '<i class="fa-solid fa-skull"></i>';
+            }
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        let lastTimestamp = performance.now();
+        function gameLoop(timestamp) {
+            const dt = Math.min((timestamp - lastTimestamp) / 1000, 0.1) * gameSpeed; lastTimestamp = timestamp;
+            if (!isPaused) {
+                gameTime += dt; camera.zoom += (camera.targetZoom - camera.zoom) * 0.1;
+                asteroids.forEach(a => a.update(dt)); 
+                
+                for (let i = spores.length - 1; i >= 0; i--) { 
+                    spores[i].update(dt); 
+                }
+                
+                laserBeams.forEach(l => l.life -= dt); laserBeams = laserBeams.filter(l => l.life > 0);
+                
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    let p = particles[i];
+                    p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt;
+                    if (p.life <= 0) {
+                        particles.splice(i, 1);
+                    }
+                }
+                if (particles.length > 250) particles.splice(0, particles.length - 250);
+
+                floatingTexts.forEach(txt => { txt.y += txt.vy * dt; txt.alpha -= dt * 0.8; }); floatingTexts = floatingTexts.filter(txt => txt.alpha > 0);
+                
+                tickMultithreadAI(dt); 
+
+                hudTimer += dt;
+                if (hudTimer >= 0.25) {
+                    checkGameLoopConditions(); 
+                    updateHUD();
+                    hudTimer = 0;
+                }
+            }
+            render(); requestAnimationFrame(gameLoop);
+        }
+
+        function render() {
+            ctx.save(); ctx.clearRect(0, 0, width, height); ctx.translate(width / 2 + camera.x, height / 2 + camera.y); ctx.scale(camera.zoom, camera.zoom);
+            starfield.forEach(star => { ctx.fillStyle = `rgba(255, 255, 255, ${Math.max(0.1, star.alpha + Math.sin(gameTime * star.pulseSpeed * 10) * 0.2)})`; ctx.beginPath(); ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2); ctx.fill(); });
+            if (isDragging && selectedAsteroid && targetAsteroid && selectedAsteroid !== targetAsteroid) {
+                ctx.strokeStyle = '#38bdf8'; ctx.lineWidth = 2; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(selectedAsteroid.x, selectedAsteroid.y); ctx.lineTo(targetAsteroid.x, targetAsteroid.y); ctx.stroke(); ctx.setLineDash([]);
+            }
+            
+            laserBeams.forEach(l => { 
+                ctx.strokeStyle = TEAM_COLORS[l.owner].laser; 
+                ctx.lineWidth = 2.5; 
+                ctx.beginPath(); 
+                ctx.moveTo(l.x1, l.y1); 
+                ctx.lineTo(l.x2, l.y2); 
+                ctx.stroke(); 
+            });
+            
+            asteroids.forEach(a => a.draw(ctx)); spores.forEach(s => s.draw(ctx));
+            particles.forEach(p => { ctx.fillStyle = p.color; ctx.globalAlpha = Math.max(0, p.life / p.maxLife); ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1.0; });
+            floatingTexts.forEach(txt => { ctx.fillStyle = txt.color; ctx.globalAlpha = Math.max(0, txt.alpha); ctx.font = 'bold 12px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(txt.text, txt.x, txt.y); ctx.globalAlpha = 1.0; });
+            ctx.restore();
+        }
+
+        function screenToWorld(screenX, screenY) { return { x: (screenX - width / 2 - camera.x) / camera.zoom, y: (screenY - height / 2 - camera.y) / camera.zoom }; }
+        function getAsteroidAtPos(worldPos) { return asteroids.find(a => Math.hypot(a.x - worldPos.x, a.y - worldPos.y) <= a.radius + 15); }
+
+        function updateHUD() {
+            document.getElementById('playerSeedCount').innerText = spores.filter(s => s.owner === 'PLAYER').length;
+            document.getElementById('enemySeedCount').innerText = spores.filter(s => ENEMY_FACTIONS.includes(s.owner)).length;
+            document.getElementById('nodeControlCount').innerText = `${asteroids.filter(a => a.owner === 'PLAYER').length} / ${asteroids.length}`;
+            document.getElementById('levelIndicator').innerText = `${currentLevel} / 50`;
+            
+            const menu = document.getElementById('selectionMenu');
+            if (selectedAsteroid) {
+                menu.classList.remove('opacity-0', 'pointer-events-none');
+                const title = document.getElementById('asteroidTitle'), icon = document.getElementById('asteroidIcon');
+                const teamColor = TEAM_COLORS[selectedAsteroid.owner].primary; 
+                icon.style.borderColor = teamColor; icon.style.color = teamColor;
+                title.innerText = selectedAsteroid.owner === 'PLAYER' ? t.playerNode : (ENEMY_FACTIONS.includes(selectedAsteroid.owner) ? t.enemyNode : t.neutralNode);
+                document.getElementById('asteroidSub').innerText = `${t.sporesCount} ${selectedAsteroid.spores.length} | ${t.treesCount} ${selectedAsteroid.trees.length}/${selectedAsteroid.maxTrees}`;
+                const btnDyson = document.getElementById('btnPlantDyson'), btnDefense = document.getElementById('btnPlantDefense');
+                if (selectedAsteroid.owner === 'PLAYER') { btnDyson.disabled = btnDefense.disabled = false; btnDyson.classList.remove('opacity-50', 'cursor-not-allowed'); btnDefense.classList.remove('opacity-50', 'cursor-not-allowed'); } 
+                else { btnDyson.disabled = btnDefense.disabled = true; btnDyson.classList.add('opacity-50', 'cursor-not-allowed'); btnDefense.classList.add('opacity-50', 'cursor-not-allowed'); }
+            } else { menu.classList.add('opacity-0', 'pointer-events-none'); }
+        }
+
+        const SAVE_KEY_PREFIX = 'eufloria_save_';
+        function saveGame(saveName) { if (saveName.trim()) { spawnFloatingText(width/2, height/2, t.saveSuccess, '#34d399'); } }
+        function getSaves() { return []; }
+        function refreshSaveList() {
+            const container = document.getElementById('saveListContainer');
+            container.innerHTML = `<p class="text-slate-500 text-sm italic" data-i18n="noSaves">${t.noSaves}</p>`;
+        }
+
+        function setupInputListeners() {
+            canvas.addEventListener('mousedown', (e) => {
+                audio.init(); const worldPos = screenToWorld(e.clientX, e.clientY);
+                if (e.button === 0) { 
+                    const clickedNode = getAsteroidAtPos(worldPos);
+                    if (clickedNode) {
+                        if (selectedAsteroid && selectedAsteroid !== clickedNode && selectedAsteroid.owner === 'PLAYER') sendSpores(selectedAsteroid, clickedNode, sendPercentage);
+                        selectedAsteroid = clickedNode; isDragging = true; dragStartPos = worldPos;
+                    } else selectedAsteroid = null;
+                } else if (e.button === 2 || e.button === 1) { isPanning = true; panStart = { x: e.clientX - camera.x, y: e.clientY - camera.y }; }
+                updateHUD();
+            });
+            canvas.addEventListener('mousemove', (e) => {
+                const worldPos = screenToWorld(e.clientX, e.clientY);
+                if (isDragging && selectedAsteroid) targetAsteroid = getAsteroidAtPos(worldPos);
+                if (isPanning) { camera.x = e.clientX - panStart.x; camera.y = e.clientY - panStart.y; }
+            });
+            canvas.addEventListener('mouseup', (e) => {
+                if (e.button === 0 && isDragging && selectedAsteroid && targetAsteroid && selectedAsteroid !== targetAsteroid && selectedAsteroid.owner === 'PLAYER') sendSpores(selectedAsteroid, targetAsteroid, sendPercentage);
+                isDragging = isPanning = false; targetAsteroid = null;
+            });
+            canvas.addEventListener('contextmenu', e => e.preventDefault());
+            canvas.addEventListener('wheel', (e) => { e.preventDefault(); camera.targetZoom = Math.max(camera.minZoom, Math.min(camera.maxZoom, camera.targetZoom * (e.deltaY < 0 ? 1.12 : 0.88))); }, { passive: false });
+
+            let initialPinchDist = null, initialZoom = 1;
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault(); audio.init();
+                if (e.touches.length === 1) {
+                    const worldPos = screenToWorld(e.touches[0].clientX, e.touches[0].clientY); const clickedNode = getAsteroidAtPos(worldPos);
+                    if (clickedNode) {
+                        if (selectedAsteroid && selectedAsteroid !== clickedNode && selectedAsteroid.owner === 'PLAYER') sendSpores(selectedAsteroid, clickedNode, sendPercentage);
+                        selectedAsteroid = clickedNode; isDragging = true;
+                    } else selectedAsteroid = null;
+                    updateHUD();
+                } else if (e.touches.length === 2) {
+                    isPanning = true; isDragging = false; const t1 = e.touches[0], t2 = e.touches[1];
+                    panStart = { x: (t1.clientX + t2.clientX)/2 - camera.x, y: (t1.clientY + t2.clientY)/2 - camera.y };
+                    initialPinchDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY); initialZoom = camera.targetZoom;
+                }
+            }, { passive: false });
+            canvas.addEventListener('touchmove', (e) => {
+                e.preventDefault();
+                if (e.touches.length === 1 && isDragging && selectedAsteroid) targetAsteroid = getAsteroidAtPos(screenToWorld(e.touches[0].clientX, e.touches[0].clientY));
+                else if (e.touches.length === 2 && isPanning) {
+                    const t1 = e.touches[0], t2 = e.touches[1]; camera.x = (t1.clientX + t2.clientX)/2 - panStart.x; camera.y = (t1.clientY + t2.clientY)/2 - panStart.y;
+                    if (initialPinchDist) camera.targetZoom = Math.max(camera.minZoom, Math.min(camera.maxZoom, initialZoom * (Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY) / initialPinchDist)));
+                }
+            }, { passive: false });
+            canvas.addEventListener('touchend', (e) => {
+                e.preventDefault(); if (e.touches.length < 2) { initialPinchDist = null; isPanning = false; }
+                if (e.touches.length === 0) {
+                    if (isDragging && selectedAsteroid && targetAsteroid && selectedAsteroid !== targetAsteroid && selectedAsteroid.owner === 'PLAYER') sendSpores(selectedAsteroid, targetAsteroid, sendPercentage);
+                    isDragging = false; targetAsteroid = null;
+                }
+            }, { passive: false });
+
+            document.getElementById('btnPlantDyson').addEventListener('click', () => { if (selectedAsteroid && selectedAsteroid.owner === 'PLAYER') plantTreeOnAsteroid(selectedAsteroid, 'DYSON'); });
+            document.getElementById('btnPlantDefense').addEventListener('click', () => { if (selectedAsteroid && selectedAsteroid.owner === 'PLAYER') plantTreeOnAsteroid(selectedAsteroid, 'DEFENSE'); });
+            const percentageButtons = [{ id: 'btnSend25', val: 0.25 }, { id: 'btnSend50', val: 0.50 }, { id: 'btnSend100', val: 1.00 }];
+            percentageButtons.forEach(btn => document.getElementById(btn.id).addEventListener('click', () => {
+                sendPercentage = btn.val; percentageButtons.forEach(b => document.getElementById(b.id).className = b.val === sendPercentage ? 'px-3 py-3 bg-emerald-600 border border-emerald-400 rounded-lg text-xs font-bold text-white transition' : 'px-3 py-3 bg-slate-800/80 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-bold text-slate-200 transition');
+            }));
+
+            document.getElementById('btnSound').addEventListener('click', () => { audio.sfxEnabled = !audio.sfxEnabled; document.getElementById('btnSound').innerHTML = audio.sfxEnabled ? '<i class="fa-solid fa-volume-high text-lg"></i>' : '<i class="fa-solid fa-volume-xmark text-lg text-rose-400"></i>'; });
+            document.getElementById('btnMusic').addEventListener('click', () => { const isPlaying = audio.toggleMusic(); document.getElementById('btnMusic').innerHTML = isPlaying ? '<i class="fa-solid fa-music text-lg"></i>' : '<i class="fa-solid fa-music text-lg text-rose-400"></i>'; if(isPlaying) audio.init(); });
+            document.getElementById('btnFullscreen').addEventListener('click', () => { if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(err => {}); else if (document.exitFullscreen) document.exitFullscreen(); });
+            document.addEventListener('fullscreenchange', () => document.querySelector('#btnFullscreen i').className = document.fullscreenElement ? 'fa-solid fa-compress text-lg' : 'fa-solid fa-expand text-lg');
+            document.getElementById('btnLang').addEventListener('click', () => { /* 预留给多语言 */ });
+            document.getElementById('btnDifficulty').addEventListener('click', () => { const idx = DIFFICULTIES.indexOf(difficulty); difficulty = DIFFICULTIES[(idx + 1) % DIFFICULTIES.length]; updateDifficultyUI(); });
+            document.getElementById('btnSpeed').addEventListener('click', () => { gameSpeed = gameSpeed === 1 ? 2 : (gameSpeed === 2 ? 3 : 1); document.getElementById('btnSpeed').innerText = `${gameSpeed}x`; });
+            document.getElementById('btnRestart').addEventListener('click', generateSectorMap);
+
+            const helpModal = document.getElementById('helpModal');
+            document.getElementById('btnHelp').addEventListener('click', () => helpModal.classList.remove('opacity-0', 'pointer-events-none'));
+            document.getElementById('btnCloseHelp').addEventListener('click', () => helpModal.classList.add('opacity-0', 'pointer-events-none'));
+            document.getElementById('btnStartGame').addEventListener('click', () => { audio.init(); helpModal.classList.add('opacity-0', 'pointer-events-none'); });
+            
+            document.getElementById('btnNextLevel').addEventListener('click', () => { 
+                document.getElementById('endGameModal').classList.add('opacity-0', 'pointer-events-none');
+                if (isLevelWon && currentLevel < 50) { currentLevel++; localStorage.setItem('eufloria_level', currentLevel); }
+                generateSectorMap(); 
+            });
+
+            const saveLoadModal = document.getElementById('saveLoadModal');
+            document.getElementById('btnSaveLoadMenu').addEventListener('click', () => { refreshSaveList(); saveLoadModal.classList.remove('opacity-0', 'pointer-events-none'); });
+            document.getElementById('btnCloseSaveLoad').addEventListener('click', () => saveLoadModal.classList.add('opacity-0', 'pointer-events-none'));
+            document.getElementById('btnDoSave').addEventListener('click', () => { const input = document.getElementById('saveNameInput'); saveGame(input.value || "Autosave"); input.value = ''; });
+        }
+
+        window.onload = function() {
+            updateTexts(); setupInputListeners(); generateSectorMap(); requestAnimationFrame(gameLoop);
+            setTimeout(() => document.getElementById('helpModal').classList.remove('opacity-0', 'pointer-events-none'), 300);
+        };
+    </script>
+</body>
+</html>
