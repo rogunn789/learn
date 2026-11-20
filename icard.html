@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>JLPT単語カード</title>
 <style>
-:root{--bg:#f6efe3;--card:#fffaf0;--ink:#263238;--mut:#8a7f6a;--line:#e3d9c4;--red:#e8380d;--red-d:#c22e08;--acc:#e07b00;--teal:#0aa08a;--blue:#1e7fd4;--chip:#fffaf0;--easy:#1d9e4f;--hard:#f06400}
+:root{--fs:1;--bg:#f6efe3;--card:#fffaf0;--ink:#263238;--mut:#8a7f6a;--line:#e3d9c4;--red:#e8380d;--red-d:#c22e08;--acc:#e07b00;--teal:#0aa08a;--blue:#1e7fd4;--chip:#fffaf0;--easy:#1d9e4f;--hard:#f06400}
 html[data-theme="dark"]{--bg:#1c1c1e;--card:#2c2c2e;--ink:#f2ede4;--mut:#9a917f;--line:#45433e;--red:#ff5a36;--red-d:#ff5a36;--acc:#ff9d45;--teal:#2dd4bf;--blue:#5eb2ff;--chip:#2c2c2e;--easy:#45d275;--hard:#ff8c4a}
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -15,6 +15,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hiragino Mincho
 .ttl{font-size:20px;font-weight:700}
 .ttl .rd{color:var(--red)}
 .tgl{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:999px;padding:6px 14px;font-size:15px;cursor:pointer}
+.fgrp{display:flex;gap:6px;flex:none}
 .chips{display:flex;gap:8px;flex-wrap:wrap}
 .chip{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:999px;padding:7px 18px;font-size:17px;cursor:pointer}
 .chip.on{background:var(--red);border-color:var(--red);color:#fff;font-weight:700}
@@ -28,26 +29,26 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hiragino Mincho
 .card.easy{color:var(--easy)}
 .card.easy .tr,.card.easy .lab,.card.easy .note,.card.easy rt,.card.easy .mag,.card.easy .hl-ex,.card.easy .hl-rel,.card.easy .hl-ant{color:var(--easy)}
 .wrow{display:flex;align-items:flex-start;justify-content:space-between}
-.word{font-size:clamp(76px,18vw,120px);font-weight:700;text-align:center;flex:1;line-height:1.25}
+.word{font-size:clamp(calc(76px*var(--fs)),calc(18vw*var(--fs)),calc(120px*var(--fs)));font-weight:700;text-align:center;flex:1;line-height:1.25}
 .acc{display:inline-block;border:1.6px solid currentColor;border-radius:50%;width:.62em;height:.62em;line-height:.58em;font-size:.42em;vertical-align:super;text-align:center;margin-left:2px}
 .play{border:1.6px solid var(--mut);background:none;color:var(--ink);border-radius:50%;width:56px;height:56px;font-size:22px;cursor:pointer;flex:none;margin-top:6px}
 .play.sm{width:48px;height:48px;font-size:19px;margin-top:0}
-.mag{color:var(--mut);font-size:30px;margin-top:14px;flex:none;width:56px;text-align:center}
+.mag{color:var(--mut);font-size:calc(30px*var(--fs));margin-top:14px;flex:none;width:56px;text-align:center}
 .div{border-top:1px solid var(--line);margin:14px 0}
-.reading{font-size:58px;font-weight:700}
-.posline{font-size:38px;margin-top:6px;font-family:"Songti SC","STSongti","STSong","SimSun","宋体",serif}
-.note{font-size:30px;color:var(--mut);margin-top:4px}
+.reading{font-size:calc(58px*var(--fs));font-weight:700}
+.posline{font-size:calc(38px*var(--fs));margin-top:6px;font-family:"Songti SC","STSongti","STSong","SimSun","宋体",serif}
+.note{font-size:calc(30px*var(--fs));color:var(--mut);margin-top:4px}
 .blk{margin-top:15px}
 .blkrow{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
-.lab{color:var(--mut);font-size:34px;margin-right:6px;flex:none}
-.btxt{font-size:42px;line-height:1.75;flex:1;font-weight:700}
-.tr{font-size:36px;color:var(--mut);margin-top:2px;font-family:"Songti SC","STSongti","STSong","SimSun","宋体",serif}
-.tr .lab{font-size:32px}
+.lab{color:var(--mut);font-size:calc(34px*var(--fs));margin-right:6px;flex:none}
+.btxt{font-size:calc(42px*var(--fs));line-height:1.75;flex:1;font-weight:700}
+.tr{font-size:calc(36px*var(--fs));color:var(--mut);margin-top:2px;font-family:"Songti SC","STSongti","STSong","SimSun","宋体",serif}
+.tr .lab{font-size:calc(32px*var(--fs))}
 .hl-ex{color:var(--acc);font-weight:700}
 .hl-rel{color:var(--teal);font-weight:700}
 .hl-ant{color:var(--blue);font-weight:700}
 rt{font-size:.52em;color:var(--mut)}
-.front .btxt{font-size:44px}
+.front .btxt{font-size:calc(44px*var(--fs))}
 .flagbtn{border:1px solid var(--line);background:var(--chip);color:var(--mut);border-radius:10px;padding:10px 0;min-width:64px;font-size:21px;cursor:pointer;line-height:1.2}
 .flagbtn.on{background:var(--hard);border-color:var(--hard);color:#fff}
 #easyBtn.on{background:var(--easy);border-color:var(--easy);color:#fff}
@@ -65,7 +66,7 @@ rt{font-size:.52em;color:var(--mut)}
 </head>
 <body>
 <div class="wrap">
-<div class="top"><div class="chips" id="chips"></div><div class="statsbar" id="prog"></div><button class="tgl" id="themeBtn">🌙 夜间</button></div>
+<div class="top"><div class="chips" id="chips"></div><div class="statsbar" id="prog"></div><div class="fgrp"><button class="tgl" id="fsDown">A−</button><button class="tgl" id="fsUp">A＋</button></div><button class="tgl" id="themeBtn">🌙 夜间</button></div>
 <div class="card" id="card"></div>
 <div class="nav"><div class="markgrp"><button class="flagbtn" id="flagBtn">⚑</button><button class="flagbtn" id="easyBtn">✓</button></div><button class="nbtn red" id="nextBtn">下一张 ＞</button></div>
 <details class="foot"><summary>说明</summary>出卡方式：随机抽卡。⚑ 标记困难：卡片文字变橘红色，权重 ×10，明显更常出现。✓ 标记简单：卡片文字变绿色，24 小时内不再出现（满 24 小时后回到牌组，每次出现后重新计时）。困难与简单互斥，点另一个会自动切换；再点同一个取消标记。最近出现的 5 张不会立刻重复。标记保存在本机浏览器里（localStorage），换设备不会同步。▶ 用设备自带的日语语音合成朗读（原 Anki 音频不在 CSV 内）。</details>
@@ -121,10 +122,7 @@ function renderChips(){
   }).join('');
   document.querySelectorAll('.chip').forEach(function(c){ c.onclick=function(e){ e.stopPropagation(); lv=c.dataset.lv; shown=[]; ptr=-1; seenCount=0; next(); }; });
   const dc = diffCount(), ec = easyCount();
-  const parts = [];
-  if(dc) parts.push('<span class="dn">⚑ 困难 '+dc+' 个</span>');
-  if(ec) parts.push('<span class="en">✓ 简单 '+ec+' 个</span>');
-  document.getElementById('prog').innerHTML = lv+' 共 '+DATA[lv].length+' 张 · 随机出卡 · ' + (parts.length ? parts.join(' · ') : '暂无标记');
+  document.getElementById('prog').innerHTML = lv+' 共 '+DATA[lv].length+' 张 · 随机出卡 · 已记 '+(dc+ec)+' 张 · <span class="dn">⚑ 困难 '+dc+' 张</span> · <span class="en">✓ 简单 '+ec+' 张</span>';
 }
 function render(){
   renderChips();
@@ -171,6 +169,11 @@ cardEl.addEventListener('touchend', function(e){
   if(Math.abs(dx) > 60){ if(dx<0) next(); else prev(); }
 }, {passive:true});
 document.getElementById('themeBtn').onclick = function(){ const h=document.documentElement; const d=h.dataset.theme==='dark'; h.dataset.theme=d?'light':'dark'; this.textContent=d?'🌙 夜间':'☀️ 白天'; try{localStorage.setItem('anki_card_theme', h.dataset.theme);}catch(e){} };
+let FS = 1; try{ FS = parseFloat(localStorage.getItem('anki_card_fs')||'1')||1; }catch(e){}
+function applyFs(){ document.documentElement.style.setProperty('--fs', FS); }
+document.getElementById('fsUp').onclick = function(){ FS = Math.min(2, +(FS*1.15).toFixed(3)); applyFs(); try{ localStorage.setItem('anki_card_fs', FS); }catch(e){} };
+document.getElementById('fsDown').onclick = function(){ FS = Math.max(0.5, +(FS/1.15).toFixed(3)); applyFs(); try{ localStorage.setItem('anki_card_fs', FS); }catch(e){} };
+applyFs();
 try{ if(localStorage.getItem('anki_card_theme')==='dark'){ document.documentElement.dataset.theme='dark'; document.getElementById('themeBtn').textContent='☀️ 白天'; } }catch(e){}
 document.addEventListener('keydown', function(e){
   if(e.key==='ArrowRight') next();
