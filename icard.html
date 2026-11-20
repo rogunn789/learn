@@ -19,7 +19,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hiragino Mincho
 .chips{display:flex;gap:8px;flex-wrap:wrap}
 .chip{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:999px;padding:7px 18px;font-size:17px;cursor:pointer}
 .chip.on{background:var(--red);border-color:var(--red);color:#fff;font-weight:700}
-.stats{font-size:14px;color:var(--mut);margin:2px 2px 10px;font-family:"Songti SC","STSongti","STSong","Songti TC","FangSong","STFangsong","SimSun","NSimSun","Noto Serif SC","Source Han Serif SC","PMingLiU",serif}
+.stats{font-size:14px;color:var(--mut);margin:2px 2px 10px;font-family:"Songti SC","STSongti-SC-Regular","STSongti","STSong","Songti TC","FangSong","STFangsong","SimSun","NSimSun","Noto Serif SC","Source Han Serif SC","PMingLiU",serif}
 .stats .dn{color:var(--red);font-weight:700}
 .card{display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:14px;flex:1;min-height:0;overflow-y:auto;padding:20px 20px 18px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.06);user-select:none;-webkit-user-select:none}
 .card.difficult{border-color:var(--hard);box-shadow:0 0 0 1.5px var(--hard),0 2px 10px rgba(0,0,0,.06)}
@@ -36,13 +36,13 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:"Hiragino Mincho
 .mag{color:var(--mut);font-size:calc(24px*var(--fs));margin-top:14px;flex:none;width:56px;text-align:center}
 .div{border-top:1px solid var(--line);margin:14px 0}
 .reading{font-size:calc(32px*var(--fs));font-weight:700}
-.posline{font-size:calc(22px*var(--fs));margin-top:6px;font-family:"Songti SC","STSongti","STSong","Songti TC","FangSong","STFangsong","SimSun","NSimSun","Noto Serif SC","Source Han Serif SC","PMingLiU",serif}
+.posline{font-size:calc(22px*var(--fs));margin-top:6px;font-family:"Songti SC","STSongti-SC-Regular","STSongti","STSong","Songti TC","FangSong","STFangsong","SimSun","NSimSun","Noto Serif SC","Source Han Serif SC","PMingLiU",serif}
 .note{font-size:calc(18px*var(--fs));color:var(--mut);margin-top:4px}
 .blk{margin-top:15px}
 .blkrow{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
 .lab{color:var(--mut);font-size:calc(20px*var(--fs));margin-right:6px;flex:none}
 .btxt{font-size:calc(24px*var(--fs));line-height:1.75;flex:1;font-weight:700}
-.tr{font-size:calc(22px*var(--fs));color:var(--mut);margin-top:2px;font-family:"Songti SC","STSongti","STSong","Songti TC","FangSong","STFangsong","SimSun","NSimSun","Noto Serif SC","Source Han Serif SC","PMingLiU",serif}
+.tr{font-size:calc(22px*var(--fs));color:var(--mut);margin-top:2px;font-family:"Songti SC","STSongti-SC-Regular","STSongti","STSong","Songti TC","FangSong","STFangsong","SimSun","NSimSun","Noto Serif SC","Source Han Serif SC","PMingLiU",serif}
 .tr .lab{font-size:calc(19px*var(--fs))}
 .hl-ex{color:var(--acc);font-weight:700}
 .hl-rel{color:var(--teal);font-weight:700}
@@ -53,20 +53,20 @@ rt{font-size:.52em;color:var(--mut)}
 .flagbtn.on{background:var(--hard);border-color:var(--hard);color:#fff}
 #easyBtn.on{background:var(--easy);border-color:var(--easy);color:#fff}
 .markgrp{display:flex;gap:8px}
-.hint{text-align:center;color:var(--mut);font-size:13.5px;margin-top:10px;font-family:"Songti SC","STSongti","STSong","Songti TC","FangSong","STFangsong","SimSun","NSimSun","Noto Serif SC","Source Han Serif SC","PMingLiU",serif}
+.hint{text-align:center;color:var(--mut);font-size:13.5px;margin-top:10px;font-family:"Songti SC","STSongti-SC-Regular","STSongti","STSong","Songti TC","FangSong","STFangsong","SimSun","NSimSun","Noto Serif SC","Source Han Serif SC","PMingLiU",serif}
 .nav{display:flex;align-items:center;justify-content:space-between;margin-top:12px}
 .nbtn{border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:10px;padding:12px 20px;font-size:17px;cursor:pointer;min-width:104px}
 .nbtn.red{background:var(--red);border-color:var(--red);color:#fff;font-weight:700}
-.statsbar{flex:1;min-width:0;text-align:center;font-size:14px;color:var(--mut);font-family:"Songti SC","STSongti","STSong","Songti TC","FangSong","STFangsong","SimSun","NSimSun","Noto Serif SC","Source Han Serif SC","PMingLiU",serif;white-space:nowrap;overflow:hidden}
+.statsbar{flex:1;min-width:0;text-align:center;font-size:14px;color:var(--mut);font-family:"Songti SC","STSongti-SC-Regular","STSongti","STSong","Songti TC","FangSong","STFangsong","SimSun","NSimSun","Noto Serif SC","Source Han Serif SC","PMingLiU",serif;white-space:nowrap;overflow:hidden}
 @media (max-width:680px){.top{flex-wrap:wrap}.statsbar{order:3;flex:1 1 100%;margin-top:6px;font-size:13.5px}.chip{padding:6px 14px;font-size:16px}}
 .statsbar .dn{color:var(--hard);font-weight:700}
 .statsbar .en{color:var(--easy);font-weight:700}
 .frontonly{flex:1;display:flex;align-items:center;justify-content:center;text-align:center}
 .frontonly.col{flex-direction:column;gap:22px}
-.cg{font-family:"Songti SC","STSongti","STSong","Songti TC","FangSong","STFangsong","SimSun","NSimSun","Noto Serif SC","Source Han Serif SC","PMingLiU",serif;font-size:calc(26px*var(--fs));line-height:1.55}
+.cg{font-family:"Songti SC","STSongti-SC-Regular","STSongti","STSong","Songti TC","FangSong","STFangsong","SimSun","NSimSun","Noto Serif SC","Source Han Serif SC","PMingLiU",serif;font-size:calc(26px*var(--fs));line-height:1.55}
 .btxt.ctr{text-align:center}
 .mbtn.on{background:var(--red);border-color:var(--red);color:#fff;font-weight:700}
-.foot{margin-top:16px;font-size:13.5px;color:var(--mut);line-height:1.75;font-family:"Songti SC","STSongti","STSong","Songti TC","FangSong","STFangsong","SimSun","NSimSun","Noto Serif SC","Source Han Serif SC","PMingLiU",serif}
+.foot{margin-top:16px;font-size:13.5px;color:var(--mut);line-height:1.75;font-family:"Songti SC","STSongti-SC-Regular","STSongti","STSong","Songti TC","FangSong","STFangsong","SimSun","NSimSun","Noto Serif SC","Source Han Serif SC","PMingLiU",serif}
 </style>
 </head>
 <body>
@@ -84,7 +84,8 @@ let DIFF = {}, EASY = {};
 try{ DIFF = JSON.parse(localStorage.getItem('anki_difficult_v1')||'{}'); }catch(e){}
 try{ EASY = JSON.parse(localStorage.getItem('anki_easy_v1')||'{}'); }catch(e){}
 const DAY_MS = 24*3600*1000;
-let lv = 'N3', back = false, shown = [], shownEx = [], shownMode = [], ptr = -1, seenCount = 0;
+let lv = 'N3'; try{ const sl = localStorage.getItem('anki_card_lv'); if(['N1','N2','N3','N4'].indexOf(sl)>=0) lv = sl; }catch(e){}
+let back = false, shown = [], shownEx = [], shownMode = [], ptr = -1, seenCount = 0;
 const cardEl = document.getElementById('card');
 function keyOf(c){ return lv+'|'+c.w+'|'+c.r; }
 function isDiff(c){ return !!DIFF[keyOf(c)]; }
@@ -128,7 +129,7 @@ function renderChips(){
   document.getElementById('chips').innerHTML = LEVELS.map(function(L){
     return '<button class="chip'+(L===lv?' on':'')+'" data-lv="'+L+'">'+L+'</button>';
   }).join('');
-  document.querySelectorAll('.chip').forEach(function(c){ c.onclick=function(e){ e.stopPropagation(); lv=c.dataset.lv; shown=[]; shownEx=[]; shownMode=[]; ptr=-1; seenCount=0; next(); }; });
+  document.querySelectorAll('.chip').forEach(function(c){ c.onclick=function(e){ e.stopPropagation(); lv=c.dataset.lv; try{ localStorage.setItem('anki_card_lv', lv); }catch(e){} shown=[]; shownEx=[]; shownMode=[]; ptr=-1; seenCount=0; next(); }; });
   const dc = diffCount(), ec = easyCount();
   document.getElementById('prog').innerHTML = lv+' 共 '+DATA[lv].length+' 张 · 随机出卡 · 已记 '+(dc+ec)+' 张 · <span class="dn">⚑ 困难 '+dc+' 张</span> · <span class="en">✓ 简单 '+ec+' 张</span>';
 }
