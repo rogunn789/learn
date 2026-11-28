@@ -18,18 +18,19 @@ body{background:var(--bg);color:var(--ink);font-family:"Hiragino Maru Gothic Pro
 .themechip{margin-left:0}
 .lvchip{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:5px 14px;font-size:14px;cursor:pointer}
 .lvchip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
-html,body{height:100%}
+html,body{height:100%;touch-action:manipulation;overscroll-behavior:none}
 body{position:fixed;inset:0;width:100%;overflow:hidden}
 .stage{flex:1;display:flex;justify-content:center;padding:8px 10px;min-height:0}
 .card.st-easy .fword{color:#35a852}
 .card.st-diff .fword{color:#f08c00}
-.card{width:100%;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:26px 22px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow-y:auto;display:flex;flex-direction:column}
+.card{flex:1;min-height:0;width:100%;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:26px 22px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow:hidden;display:flex;flex-direction:column;touch-action:pan-y;overscroll-behavior:contain}
+.lvbar,.botbar{flex:none}
 .card{position:relative}
 .frontwrap{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:16px 0}
 .frontwrap>*{flex:none}
 .card.front{overflow:hidden}
 .measure{position:absolute;left:-9999px;top:0;visibility:hidden;display:inline-block;white-space:nowrap;font-weight:700}
-.backwrap{font-size:16px}
+.backwrap{font-size:16px;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y;overscroll-behavior:contain}
 .lvtag{display:inline-block;background:var(--accent);color:#fff;border-radius:999px;padding:2px 12px;font-size:13px;margin-bottom:14px}
 .fword{font-size:100px;font-weight:700;text-align:center;line-height:1.05;padding:10px 0;white-space:nowrap;display:inline-block;font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}
 .lvtag{align-self:flex-start}
@@ -181,7 +182,11 @@ function render(){var cd = document.getElementById('card'); cd.innerHTML = front
  document.getElementById('easy').style.opacity = easy[cur.w] ? 1 : .55;
  document.getElementById('diff').style.opacity = diff[cur.w] ? 1 : .55;}
 var lastTap = 0;
+var __scrollT = 0, __touchY = null;
+document.getElementById('card').addEventListener('touchstart', function(e){ __touchY = e.touches[0].clientY; }, {passive:true});
+document.getElementById('card').addEventListener('touchmove', function(e){ if (__touchY !== null && Math.abs(e.touches[0].clientY - __touchY) > 10) __scrollT = Date.now(); }, {passive:true});
 document.getElementById('card').onclick = function(){
+  if (Date.now() - __scrollT < 400) return;
   var now = Date.now();
   if (now - lastTap < 330) { lastTap = 0; draw(); return; }
   lastTap = now;
@@ -227,9 +232,9 @@ if (window.speechSynthesis) { loadVoices(); window.speechSynthesis.onvoiceschang
 function speakText(t){
   if (!window.speechSynthesis || !t) return;
   var ss = window.speechSynthesis;
-  ss.cancel();
+  ss.cancel(); if (ss.resume) ss.resume();
   var u = new SpeechSynthesisUtterance(t);
-  u.lang = 'en-US'; u.rate = 0.95;
+  u.lang = 'en-US'; u.rate = 0.95; u.volume = 1;
   var NOVEL = ['albert','bad news','bahh','bells','boing','bubbles','cellos','deranged','good news','hysterical','jester','organ','superstar','trinoids','whisper','wobble','zarvox','pipe organ','fred'];
   function vscore(v) {
     var n = (v.name || '').toLowerCase();
@@ -252,13 +257,20 @@ function speakText(t){
   if (v && best > 0) u.voice = v;
   ss.speak(u);
   if (ss.paused) ss.resume();
+  setTimeout(function(){ try { if (ss.paused) ss.resume(); } catch (e) {} }, 150);
+  setTimeout(function(){ try { if (ss.paused) ss.resume(); } catch (e) {} }, 600);
 }
+var __primed = false;
+document.addEventListener('pointerdown', function(){
+  if (__primed) return; __primed = true;
+  try { var ss2 = window.speechSynthesis; if (ss2) { var pu = new SpeechSynthesisUtterance(' '); pu.volume = 0; ss2.speak(pu); if (ss2.resume) ss2.resume(); } } catch (e) {}
+}, true);
 document.addEventListener('click', function(e){
   var b = e.target && e.target.closest ? e.target.closest('.spkbtn') : null;
   if (!b) return;
   e.stopPropagation(); e.preventDefault();
   var k = b.getAttribute('data-k');
-  speakText(k === 'w' ? cur.w : (k === 'lit' ? cur.lit.en : cur.spk.en));
+  speakText(k === 'w' ? cur.w : (k === 'lit' ? (cur.lit ? cur.lit.en : '') : cur.spk.en));
 }, true);
 var DONATE_URL = '';
 (function(){
