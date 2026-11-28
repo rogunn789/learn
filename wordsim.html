@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>英単語カード（サンプル）</title>
+<style>
+:root{--bg:#fdf9ef;--card:#fffdf6;--ink:#38342c;--sub:#8a8378;--line:#e8e0cd;--accent:#cf2f7d;--link:#2f6db3}
+body[data-theme="sakura"]{--bg:#fff7f8;--card:#fffefe;--ink:#513b46;--sub:#b08d9a;--line:#f6d9e0;--accent:#e2688f;--link:#c2437a}
+body[data-theme="sky"]{--bg:#f0f7fd;--card:#fdfefe;--ink:#2e4356;--sub:#84a0b8;--line:#d3e5f5;--accent:#3f8fdd;--link:#2f6db3}
+body[data-theme="oled"]{--bg:#000000;--card:#101012;--ink:#dedede;--sub:#9a9aa0;--line:#26262a;--accent:#ff7ac0;--link:#8fc9ff}
+body[data-theme="midnight"]{--bg:#131c2e;--card:#1f2a3d;--ink:#d7e1f0;--sub:#93a5c4;--line:#334155;--accent:#6fc3ff;--link:#8fc9ff}
+body[data-theme="charcoal"]{--bg:#1e1e20;--card:#2c2c2e;--ink:#e8e8e8;--sub:#a5a5ab;--line:#3a3a3c;--accent:#ffc46b;--link:#8fc9ff}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:"Hiragino Maru Gothic ProN","TsukuA Maru Gothic",sans-serif;min-height:100vh;display:flex;flex-direction:column}
+.lvbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:10px 12px 4px}
+.themechip{margin-left:auto}
+#phonbtn{margin-left:auto}
+#phonbtn + #themebtn{margin-left:0}
+.themechip{margin-left:0}
+.lvchip{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:5px 14px;font-size:14px;cursor:pointer}
+.lvchip.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+html,body{height:100%}
+body{height:100dvh;overflow:hidden}
+.stage{flex:1;display:flex;justify-content:center;padding:8px 10px;min-height:0}
+.card.st-easy .fword{color:#35a852}
+.card.st-diff .fword{color:#f08c00}
+.card{width:100%;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:26px 22px;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.06);overflow-y:auto;display:flex;flex-direction:column}
+.card{position:relative}
+.frontwrap{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:16px 0}
+.frontwrap>*{flex:none}
+.card.front{overflow:hidden}
+.measure{position:absolute;left:-9999px;top:0;visibility:hidden;display:inline-block;white-space:nowrap;font-weight:700}
+.backwrap{font-size:16px}
+.lvtag{display:inline-block;background:var(--accent);color:#fff;border-radius:999px;padding:2px 12px;font-size:13px;margin-bottom:14px}
+.fword{font-size:100px;font-weight:700;text-align:center;line-height:1.05;padding:10px 0;white-space:nowrap;display:inline-block;font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}
+.lvtag{align-self:flex-start}
+.frontwrap .lvtag{align-self:center}
+.fhint{text-align:center;color:var(--sub);font-size:13px}
+.bword{font-size:2.125em;font-weight:700;font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif}
+.bpos{color:var(--accent);font-size:.94em;margin:4px 0 8px}
+.spkbtn{background:none;border:none;cursor:pointer;padding:2px 4px;line-height:0;vertical-align:middle}
+.spkbtn svg{width:30px;height:30px;display:block}
+.icobtn{line-height:0;padding:3px 8px}
+.icobtn svg{width:22px;height:22px;display:block}
+.hide{display:none!important}
+.ovl{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:60;padding:18px}
+.ovcard{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:16px;max-width:520px;width:100%;max-height:84vh;overflow-y:auto;padding:22px 20px;font-size:15px;line-height:1.75}
+.ovcard h3{font-size:18px;margin-bottom:8px}
+.ovcard li{margin-left:20px;margin-bottom:2px}
+.ovx{float:right;background:none;border:1px solid var(--line);border-radius:999px;color:var(--ink);padding:2px 12px;cursor:pointer}
+.donbtn{display:inline-block;margin-top:10px;background:#ffdd00;color:#333;font-weight:700;border-radius:999px;padding:10px 22px;text-decoration:none}
+.spkbtn:active{transform:scale(1.2)}
+.fspk{margin-top:14px}
+.fspk svg{width:44px;height:44px}
+.bphon{font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:1.375em;color:var(--sub);margin:2px 0 6px}
+.bjp{font-size:1.19em;line-height:1.6;margin-bottom:18px}
+.ex{border-top:1px dashed var(--line);padding:12px 0 4px;margin-top:10px}
+.exlab{font-size:.75em;color:#fff;background:#0b5cad;border-radius:4px;padding:1px 8px;display:inline-block;margin-bottom:6px}
+.exlab.sp{background:#2e7d32}
+.exen{font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;font-size:1.19em;line-height:1.55}
+.exjp{font-size:1em;color:var(--link);line-height:1.6;margin-top:3px}
+.exsrc{font-size:.81em;color:var(--sub);margin-top:3px}
+.botbar{display:flex;gap:10px;justify-content:center;align-items:center;padding:12px 14px calc(12px + env(safe-area-inset-bottom))}
+button{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:999px;padding:9px 20px;font-size:15px;cursor:pointer}
+.hint{font-size:13px;color:var(--sub);text-align:center;padding-bottom:8px}
+</style></head><body>
+<div class="lvbar" id="lvbar"><button id="zoomout" class="lvchip">A−</button><span id="zoomlabel" class="lvchip">100%</span><button id="zoomin" class="lvchip">A＋</button><button id="phonbtn" class="lvchip themechip">音標 ON</button><button id="themebtn" class="lvchip">🎨 紙白</button><button id="helpbtn" class="lvchip">？</button><button id="coffeebtn" class="lvchip icobtn"><svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="var(--accent)" opacity="0.14"/><path d="M12 20h20v7a9 9 0 0 1-9 9h-2a9 9 0 0 1-9-9v-7z" fill="var(--accent)"/><path d="M32 22h2.5a5 5 0 0 1 0 10H31" fill="none" stroke="var(--accent)" stroke-width="2.6"/><path d="M18 10.5c0 2-2 2.4-2 4.5M24 10.5c0 2-2 2.4-2 4.5M30 10.5c0 2-2 2.4-2 4.5" fill="none" stroke="var(--accent)" stroke-width="2.4" stroke-linecap="round"/></svg></button></div>
+<div class="stage"><div class="card" id="card"></div></div>
+<div class="botbar"><button id="easy">✓ 簡単</button><button id="diff">⚑ 困難</button></div>
+<div class="hint" id="hint"></div>
+<div id="helpov" class="ovl hide"><div class="ovcard"><button class="ovx" data-close="helpov">✕</button>
+<h3>使い方</h3>
+<ul>
+<li><b>タップ</b>：裏面（日本語の説明・音標・例文）を見る</li>
+<li><b>ダブルタップ</b>：次のカードへ</li>
+<li><b>✓ 簡単</b>：簡単マーク（単語が緑色）。12時間出なくなります</li>
+<li><b>⚑ 困難</b>：困難マーク（単語がオレンジ色）。当日の表示回数 × 2分あけて再登場します</li>
+<li>出題割合：ランダム 40% ／ 困難 40% ／ 簡単 20%（空きがない場合はランダム）</li>
+<li><b>A−／A＋</b>：文字サイズ変更（表面と裏面で別々に保存されます）</li>
+<li><b>音標 ON／OFF</b>：音標の表示切替</li>
+<li><b>🎨</b>：テーマ切替（昼3種・夜3種）</li>
+<li>スピーカーアイコン：タップで発音を聞けます</li>
+</ul></div></div>
+<div id="cofov" class="ovl hide"><div class="ovcard"><button class="ovx" data-close="cofov">✕</button>
+<h3>☕ 開発者を応援する</h3>
+<p>このアプリが役に立ったら、コーヒー1杯分の応援をいただけると励みになります。いつもありがとうございます！</p>
+<p id="donwrap"></p>
+</div></div>
+<script>
+var DATA = [{"w": "love", "phon": "/lʌv/", "lv": "小学校", "pos": "動詞・名詞", "jp": "愛する／愛。誰かや何かをとても大切に思う気持ち。", "lit": {"en": "You must allow me to tell you how ardently I admire and love you.", "jp": "どうか言わせてください。どれほど心からあなたを敬慕し、愛しているかを。", "src": "Pride and Prejudice（高慢と偏見）— Jane Austen, 1813"}, "spk": {"en": "I love this song! Play it again!", "jp": "この曲大好き！もう一回かけて！"}}, {"w": "time", "phon": "/taɪm/", "lv": "小学校", "pos": "名詞", "jp": "時間。時計で測れる流れ。機会や時期の意味もある。", "lit": {"en": "It was the best of times, it was the worst of times.", "jp": "それは最良の時代であり、最悪の時代でもあった。", "src": "A Tale of Two Cities（二都物語）— Charles Dickens, 1859"}, "spk": {"en": "What time is it now?", "jp": "今、何時？"}}, {"w": "dream", "phon": "/driːm/", "lv": "小学校", "pos": "名詞・動詞", "jp": "夢。眠っているときに見るもの。将来の望みの意味もある。", "lit": {"en": "We are such stuff as dreams are made on, and our little life is rounded with a sleep.", "jp": "私たちは夢が作られるのと同じものでできており、私たちの小さな人生は眠りに包まれて終わる。", "src": "The Tempest（テンペスト）— William Shakespeare, 1611"}, "spk": {"en": "I had a weird dream last night.", "jp": "昨日の夜、変な夢を見たんだ。"}}, {"w": "heart", "phon": "/hɑːrt/", "lv": "小学校", "pos": "名詞", "jp": "心臓。感情の中心としての「心」の意味でも使う。", "lit": {"en": "I will honour Christmas in my heart, and try to keep it all the year.", "jp": "私は心の中でクリスマスを大切にし、一年中その気持ちを保つよう努めます。", "src": "A Christmas Carol（クリスマス・キャロル）— Charles Dickens, 1843"}, "spk": {"en": "My heart is beating so fast!", "jp": "心臓がドキドキしてる！"}}, {"w": "sea", "phon": "/siː/", "lv": "小学校", "pos": "名詞", "jp": "海。陸の外側に広がる塩水の大きな広がり。", "lit": {"en": "I account it high time to get to sea as soon as I can.", "jp": "できるだけ早く海へ出るべき時だと私は考える。", "src": "Moby Dick（白鯨）— Herman Melville, 1851"}, "spk": {"en": "Let's go to the sea this weekend!", "jp": "今週末、海に行こうよ！"}}, {"w": "night", "phon": "/naɪt/", "lv": "小学校", "pos": "名詞", "jp": "夜。日が沈んでから日の出までの暗い時間。", "lit": {"en": "Good night, good night! Parting is such sweet sorrow, that I shall say good night till it be morrow.", "jp": "おやすみ、おやすみ！別れはこんなにも甘く悲しいから、夜明けまでおやすみを言い続けよう。", "src": "Romeo and Juliet（ロミオとジュリエット）— William Shakespeare, 1597"}, "spk": {"en": "Good night! See you tomorrow.", "jp": "おやすみ！また明日ね。"}}, {"w": "star", "phon": "/stɑːr/", "lv": "小学校", "pos": "名詞", "jp": "星。夜空に光る小さな点。有名人の意味もある。", "lit": {"en": "Doubt thou the stars are fire; doubt that the sun doth move; doubt truth to be a liar; but never doubt I love.", "jp": "星が火であることを疑え。太陽が動くことを疑え。真実が嘘であることを疑え。だが私の愛を疑うな。", "src": "Hamlet（ハムレット）— William Shakespeare, 1603"}, "spk": {"en": "Look at the stars! They're so bright tonight.", "jp": "星を見て！今夜はすごく明るいよ。"}}, {"w": "friend", "phon": "/frend/", "lv": "小学校", "pos": "名詞", "jp": "友達。信頼し合う仲の良い相手。", "lit": {"en": "Those friends thou hast, and their adoption tried, grapple them unto thy soul with hoops of steel.", "jp": "得た友と、その友情が試されたなら、鋼の輪で自分の魂にしっかりと結びつけよ。", "src": "Hamlet（ハムレット）— William Shakespeare, 1603"}, "spk": {"en": "She's my best friend from elementary school.", "jp": "彼女は小学校からの親友なんだ。"}}, {"w": "believe", "phon": "/bɪˈliːv/", "lv": "中学校", "pos": "動詞", "jp": "信じる。本当だと思うこと、人を信用すること。", "lit": {"en": "There's no use trying; one can't believe impossible things.", "jp": "やってみても無駄よ。不可能なことは信じられないもの。", "src": "Alice's Adventures in Wonderland（不思議の国のアリス）— Lewis Carroll, 1865"}, "spk": {"en": "Believe me, it's true!", "jp": "信じて、本当だよ！"}}, {"w": "experience", "phon": "/ɪkˈspɪriəns/", "lv": "高校", "pos": "名詞・動詞", "jp": "経験（する）。実際に体験して得る知識や技能。", "lit": {"en": "Experience is merely the name men gave to their mistakes.", "jp": "経験とは、人々が自分の過ちにつけた名前である。", "src": "The Picture of Dorian Gray（ドリアン・グレイの肖像）— Oscar Wilde, 1890"}, "spk": {"en": "Have you ever experienced an earthquake?", "jp": "地震を経験したことある？"}}, {"w": "solitude", "phon": "/ˈsɑːlətuːd/", "lv": "大学", "pos": "名詞", "jp": "孤独。一人でいること（必ずしも悪い意味ではない）。", "lit": {"en": "I never found the companion that was so companionable as solitude.", "jp": "孤独ほど付き合いやすい仲間は、決して見つからなかった。", "src": "Walden（森の生活）— Henry David Thoreau, 1854"}, "spk": {"en": "Sometimes I enjoy solitude with a good book.", "jp": "時々、本と一緒に一人の時間を楽しむんだ。"}}, {"w": "temptation", "phon": "/tempˈteɪʃn/", "lv": "IELTS", "pos": "名詞", "jp": "誘惑。良くないことへ心を引き寄せる魅力。", "lit": {"en": "The only way to get rid of a temptation is to yield to it.", "jp": "誘惑を取り除く唯一の方法は、それに身を委ねることだ。", "src": "The Picture of Dorian Gray（ドリアン・グレイの肖像）— Oscar Wilde, 1890"}, "spk": {"en": "I couldn't resist the temptation of chocolate cake.", "jp": "チョコレートケーキの誘惑に勝てなかった。"}}];
+var LEVELS = ['すべて','小学校','中学校','高校','大学','IELTS'];
+var lv = 'すべて', pool = DATA.slice(), cur = null, front = true;
+var easy = JSON.parse(localStorage.getItem('eng_easy_v1') || '{}');
+var diff = JSON.parse(localStorage.getItem('eng_diff_v1') || '{}');
+var day = JSON.parse(localStorage.getItem('eng_day_v1') || '{}');
+function save(){ localStorage.setItem('eng_easy_v1', JSON.stringify(easy)); localStorage.setItem('eng_diff_v1', JSON.stringify(diff)); localStorage.setItem('eng_day_v1', JSON.stringify(day)); }
+var lvbar = document.getElementById('lvbar');
+LEVELS.forEach(function(L){
+  var b = document.createElement('button'); b.className = 'lvchip' + (L===lv?' on':''); b.textContent = L;
+  b.onclick = function(){ lv = L; pool = (L==='すべて') ? DATA.slice() : DATA.filter(function(c){return c.lv===L;});
+    Array.prototype.forEach.call(lvbar.children, function(x){x.classList.toggle('on', x.textContent===L);});
+    draw(); };
+  lvbar.appendChild(b);
+});
+function todayStr(){ var d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+function eligible(c){
+  var rec = day[c.w], now = Date.now();
+  if (easy[c.w]) return !rec || (now - rec.t >= 12 * 3600 * 1000);
+  if (diff[c.w]) {
+    if (!rec || rec.d !== todayStr()) return true;
+    return now - rec.t >= rec.c * 2 * 60 * 1000;
+  }
+  return true;
+}
+function noteShown(w){
+  var rec = day[w], now = Date.now(), t = todayStr();
+  if (!rec || rec.d !== t) day[w] = { d: t, c: 1, t: now };
+  else { rec.c += 1; rec.t = now; }
+  save();
+}
+function pickFrom(list, avoidW){
+  if (!list.length) return null;
+  var c = list[Math.floor(Math.random() * list.length)];
+  if (list.length > 1 && avoidW && c.w === avoidW) c = list[Math.floor(Math.random() * list.length)];
+  return c;
+}
+function draw(){
+  var last = cur;
+  var allE = pool.filter(eligible);
+  var diffE = allE.filter(function(c){ return diff[c.w]; });
+  var easyE = allE.filter(function(c){ return easy[c.w]; });
+  var r = Math.random(), nxt = null;
+  if (r < 0.40) nxt = pickFrom(allE, last && last.w);
+  else if (r < 0.80) nxt = pickFrom(diffE, last && last.w) || pickFrom(allE, last && last.w);
+  else nxt = pickFrom(easyE, last && last.w) || pickFrom(allE, last && last.w);
+  if (!nxt) nxt = pickFrom(pool, last && last.w);
+  cur = nxt; noteShown(cur.w); front = true; render();
+}
+var SPKICON = '<svg viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22" fill="var(--accent)" opacity="0.14"/><path d="M13 19.5v9h4.2L25 35V13l-7.8 6.5H13z" fill="var(--accent)" stroke="var(--accent)" stroke-width="2.4" stroke-linejoin="round"/><path d="M29.5 19.2a5.4 5.4 0 0 1 0 9.6" fill="none" stroke="var(--accent)" stroke-width="2.8" stroke-linecap="round"/><path d="M33 15.6a10.4 10.4 0 0 1 0 16.8" fill="none" stroke="var(--accent)" stroke-width="2.8" stroke-linecap="round"/></svg>';
+function frontHtml(c){return '<div class="frontwrap"><div class="fword" id="fword">'+c.w+'</div><button class="spkbtn fspk" data-k="w" aria-label="発音">'+SPKICON+'</button></div>';}
+function fitWord(){
+  var el = document.getElementById('fword'); if (!el) return;
+  var m = document.getElementById('measure');
+  if (!m) { m = document.createElement('span'); m.id = 'measure'; m.className = 'measure'; document.body.appendChild(m); }
+  m.style.fontSize = '100px';
+  m.textContent = el.textContent;
+  var w = m.offsetWidth || m.scrollWidth;
+  if (!w) return;
+  var vw = window.innerWidth || 360;
+  var target = vw * 0.95 * zoomF;
+  var size = Math.min(900, Math.max(12, Math.floor(100 * target / w)));
+  var card = document.getElementById('card');
+  var ch = card ? card.clientHeight : 0;
+  if (ch) { var maxH = Math.floor((ch - 100) / 1.05); if (maxH > 12 && size > maxH) size = maxH; }
+  el.style.fontSize = size + 'px';
+}
+window.addEventListener('resize', function(){ if (front) fitWord(); });
+function backHtml(c){
+ var h = '<div class="backwrap"><span class="lvtag">'+c.lv+'</span><div class="bword">'+c.w+'<button class="spkbtn" data-k="w" aria-label="発音">'+SPKICON+'</button></div>' + (showPhon ? '<div class="bphon">'+c.phon+'</div>' : '') + '<div class="bpos">'+c.pos+'</div><div class="bjp">'+c.jp+'</div>';
+ h += '<div class="ex"><span class="exlab">文学</span><div class="exen">'+c.lit.en+'<button class="spkbtn" data-k="lit" aria-label="発音">'+SPKICON+'</button></div><div class="exjp">'+c.lit.jp+'</div><div class="exsrc">出典：'+c.lit.src+'</div></div>';
+ h += '<div class="ex"><span class="exlab sp">口語</span><div class="exen">'+c.spk.en+'<button class="spkbtn" data-k="spk" aria-label="発音">'+SPKICON+'</button></div><div class="exjp">'+c.spk.jp+'</div></div>';
+ return h + '</div>';}
+function render(){var cd = document.getElementById('card'); cd.innerHTML = front?frontHtml(cur):backHtml(cur); cd.classList.toggle('front', front); cd.classList.toggle('st-easy', !!easy[cur.w]); cd.classList.toggle('st-diff', !!diff[cur.w]);
+ if (front) { fitWord(); setTimeout(fitWord, 60); } else applyBackZoom();
+ updZoomLabel();
+ var ec = Object.keys(easy).length, dc = Object.keys(diff).length;
+ document.getElementById('hint').textContent = lv+' · 全 '+pool.length+' 語 · ✓ 簡単 '+ec+' · ⚑ 困難 '+dc;
+ document.getElementById('easy').style.opacity = easy[cur.w] ? 1 : .55;
+ document.getElementById('diff').style.opacity = diff[cur.w] ? 1 : .55;}
+var lastTap = 0;
+document.getElementById('card').onclick = function(){
+  var now = Date.now();
+  if (now - lastTap < 330) { lastTap = 0; draw(); return; }
+  lastTap = now;
+  setTimeout(function(){ if (lastTap === now) { front = !front; render(); } }, 300);
+};
+document.getElementById('easy').onclick = function(){
+  if (easy[cur.w]) delete easy[cur.w]; else { easy[cur.w] = Date.now(); delete diff[cur.w]; }
+  save(); draw(); };
+document.getElementById('diff').onclick = function(){
+  if (diff[cur.w]) delete diff[cur.w]; else { diff[cur.w] = 1; delete easy[cur.w]; }
+  save(); draw(); };
+function adjZoom(d){
+  if (front) { zoomF = Math.min(1.8, Math.max(0.6, Math.round((zoomF + d) * 10) / 10)); localStorage.setItem('eng_zoom_f', String(zoomF)); fitWord(); }
+  else { zoomB = Math.min(1.8, Math.max(0.6, Math.round((zoomB + d) * 10) / 10)); localStorage.setItem('eng_zoom_b', String(zoomB)); applyBackZoom(); }
+  updZoomLabel();
+}
+document.getElementById('zoomin').onclick = function(){ adjZoom(0.1); };
+document.getElementById('zoomout').onclick = function(){ adjZoom(-0.1); };
+var showPhon = localStorage.getItem('eng_phon') !== 'off';
+function updPhonBtn(){ document.getElementById('phonbtn').textContent = showPhon ? '音標 ON' : '音標 OFF'; }
+document.getElementById('phonbtn').onclick = function(){ showPhon = !showPhon; localStorage.setItem('eng_phon', showPhon ? 'on' : 'off'); updPhonBtn(); if (!front) render(); };
+updPhonBtn();
+var zoomF = parseFloat(localStorage.getItem('eng_zoom_f') || '1');
+var zoomB = parseFloat(localStorage.getItem('eng_zoom_b') || '1');
+function updZoomLabel(){ var z = front ? zoomF : zoomB; document.getElementById('zoomlabel').textContent = Math.round(z * 100) + '%'; }
+function applyBackZoom(){ var bw = document.querySelector('.backwrap'); if (bw) bw.style.fontSize = (16 * zoomB) + 'px'; }
+var THEMES = [['paper','紙白'],['sakura','桜'],['sky','空'],['oled','純黒'],['midnight','深藍'],['charcoal','炭灰']];
+var themeId = localStorage.getItem('eng_theme') || 'midnight';
+function applyTheme(){
+  document.body.setAttribute('data-theme', themeId);
+  var nm = themeId; THEMES.forEach(function(t){ if (t[0]===themeId) nm = t[1]; });
+  document.getElementById('themebtn').textContent = '🎨 ' + nm;
+}
+document.getElementById('themebtn').onclick = function(){
+  var idx = 0; THEMES.forEach(function(t, i){ if (t[0]===themeId) idx = i; });
+  themeId = THEMES[(idx + 1) % THEMES.length][0];
+  localStorage.setItem('eng_theme', themeId); applyTheme();
+};
+applyTheme();
+var VOICES = [];
+function loadVoices(){ try { VOICES = window.speechSynthesis.getVoices() || []; } catch (e) { VOICES = []; } }
+if (window.speechSynthesis) { loadVoices(); window.speechSynthesis.onvoiceschanged = loadVoices; }
+function speakText(t){
+  if (!window.speechSynthesis || !t) return;
+  var ss = window.speechSynthesis;
+  ss.cancel();
+  var u = new SpeechSynthesisUtterance(t);
+  u.lang = 'en-US'; u.rate = 0.95;
+  var NOVEL = ['albert','bad news','bahh','bells','boing','bubbles','cellos','deranged','good news','hysterical','jester','organ','superstar','trinoids','whisper','wobble','zarvox','pipe organ','fred'];
+  function vscore(v) {
+    var n = (v.name || '').toLowerCase();
+    for (var i = 0; i < NOVEL.length; i++) if (n.indexOf(NOVEL[i]) >= 0) return -100;
+    if (n.indexOf('google us english') >= 0) return 100;
+    if (n.indexOf('aria') >= 0) return 92;
+    if (n.indexOf('jenny') >= 0) return 90;
+    if (n.indexOf('samantha') >= 0) return 88;
+    if (n.indexOf('natural') >= 0 || n.indexOf('neural') >= 0) return 82;
+    if (n.indexOf('premium') >= 0 || n.indexOf('enhanced') >= 0) return 78;
+    if (n.indexOf('zira') >= 0) return 72;
+    if (n.indexOf('google uk english female') >= 0) return 60;
+    if (/^en[-_]US/i.test(v.lang)) return v.default ? 58 : 50;
+    if (/^en[-_]GB/i.test(v.lang)) return 40;
+    if (/^en/i.test(v.lang)) return 30;
+    return 0;
+  }
+  var v = null, best = -1000;
+  for (var k = 0; k < VOICES.length; k++) { var s = vscore(VOICES[k]); if (s > best) { best = s; v = VOICES[k]; } }
+  if (v && best > 0) u.voice = v;
+  ss.speak(u);
+  if (ss.paused) ss.resume();
+}
+document.addEventListener('click', function(e){
+  var b = e.target && e.target.closest ? e.target.closest('.spkbtn') : null;
+  if (!b) return;
+  e.stopPropagation(); e.preventDefault();
+  var k = b.getAttribute('data-k');
+  speakText(k === 'w' ? cur.w : (k === 'lit' ? cur.lit.en : cur.spk.en));
+}, true);
+var DONATE_URL = '';
+(function(){
+  var dw = document.getElementById('donwrap');
+  if (DONATE_URL) dw.innerHTML = '<a class="donbtn" href="' + DONATE_URL + '" target="_blank" rel="noopener">☕ Buy Me a Coffee</a>';
+  else dw.textContent = '（寄付ページのリンクは準備中です）';
+  function show(id){ document.getElementById(id).classList.remove('hide'); }
+  function hide(id){ document.getElementById(id).classList.add('hide'); }
+  document.getElementById('helpbtn').onclick = function(){ show('helpov'); };
+  document.getElementById('coffeebtn').onclick = function(){ show('cofov'); };
+  Array.prototype.forEach.call(document.querySelectorAll('.ovx'), function(b){ b.onclick = function(){ hide(b.getAttribute('data-close')); }; });
+  Array.prototype.forEach.call(document.querySelectorAll('.ovl'), function(o){ o.addEventListener('click', function(e){ if (e.target === o) o.classList.add('hide'); }); });
+})();
+draw();
+
+
+render();
+</script></body></html>
